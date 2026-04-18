@@ -1,4 +1,5 @@
 import { Column } from 'typeorm';
+import { ValidationError } from '../../../../core/domain/errors/validation.error';
 
 export class CpfVO
 {
@@ -16,7 +17,7 @@ export class CpfVO
     const clean = value.replace(/\D/g, '');
     if (clean.length !== 11)
     {
-      throw new Error('CPF inválido. O CPF deve conter exatamente 11 dígitos numéricos.');
+      throw new ValidationError('CPF inválido. O CPF deve conter exatamente 11 dígitos numéricos.');
     }
     return new CpfVO(clean);
   }

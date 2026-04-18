@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { ValidationError } from '../../../../core/domain/errors/validation.error';
 
 @Entity('contracts')
 export class Contract
@@ -28,8 +29,8 @@ export class Contract
 
   static create(tenantId: string, propertyUnitId: string, moveInDate: Date, monthlyBaseValue: number, duration: number, renewable: boolean): Contract
   {
-    if (monthlyBaseValue <= 0) throw new Error('O valor base mensal deve ser maior que zero.');
-    if (duration <= 0) throw new Error('A duração do contrato deve ser de no mínimo 1 mês.');
+    if (monthlyBaseValue <= 0) throw new ValidationError('O valor base mensal deve ser maior que zero.');
+    if (duration <= 0) throw new ValidationError('A duração do contrato deve ser de no mínimo 1 mês.');
 
     const contract = new Contract();
     contract._tenantId = tenantId;
@@ -43,7 +44,7 @@ export class Contract
 
   renew(extraMonths: number): void
   {
-    if (!this._isRenewable) throw new Error('Este contrato não permite renovação.');
+    if (!this._isRenewable) throw new ValidationError('Este contrato não permite renovação.');
     this._durationInMonths += extraMonths;
   }
 

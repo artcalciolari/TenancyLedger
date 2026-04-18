@@ -40,4 +40,9 @@ export class Tenant
   }
 
   get cpf(): string { return this._cpf.value; }
+  get rg(): string { return this._rg; }
+  get profession(): string { return this._profession; }
+  get civilStatus(): string { return this._civilStatus; }
+  get email(): string { return this._email; }
+  get mobile(): string { return this._mobile; }
 }

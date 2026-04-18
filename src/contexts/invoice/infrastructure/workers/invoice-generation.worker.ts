@@ -42,7 +42,8 @@ export class InvoiceGenerationWorker
       }
       catch (error)
       {
-        this.logger.error(`Erro ao gerar fatura para o contrato ${contract.id}: ${error.message}`);
+        const message = error instanceof Error ? error.message : 'Erro desconhecido';
+        this.logger.error(`Erro ao gerar fatura para o contrato ${contract.id}: ${message}`);
       }
     }
   }
