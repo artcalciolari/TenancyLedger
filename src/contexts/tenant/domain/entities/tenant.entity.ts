@@ -23,11 +23,11 @@ export class Tenant
   private _email!: string;
 
   @Column()
-  private _mobile!: string;
+  private _mobilePhone!: string;
 
   private constructor() {}
 
-  static create(cpf: string, rg: string, profession: string, civilStatus: string, email: string, mobile: string): Tenant
+  static create(cpf: string, rg: string, profession: string, civilStatus: string, email: string, mobilePhone: string): Tenant
   {
     const tenant = new Tenant();
     tenant._cpf = CpfVO.create(cpf);
@@ -35,7 +35,7 @@ export class Tenant
     tenant._profession = profession;
     tenant._civilStatus = civilStatus;
     tenant._email = email;
-    tenant._mobile = mobile;
+    tenant._mobilePhone = mobilePhone;
     return tenant;
   }
 
@@ -44,5 +44,5 @@ export class Tenant
   get profession(): string { return this._profession; }
   get civilStatus(): string { return this._civilStatus; }
   get email(): string { return this._email; }
-  get mobile(): string { return this._mobile; }
+  get mobilePhone(): string { return this._mobilePhone; }
 }

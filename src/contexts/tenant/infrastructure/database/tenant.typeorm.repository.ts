@@ -17,6 +17,11 @@ export class TenantTypeOrmRepository implements ITenantRepository
     await this.repository.save(tenant);
   }
 
+  async findAll(): Promise<Tenant[]>
+  {
+    return this.repository.find();
+  }
+
   async findById(id: string): Promise<Tenant | null>
   {
     return this.repository.findOne({ where: { id } });
