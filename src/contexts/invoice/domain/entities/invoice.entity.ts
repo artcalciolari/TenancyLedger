@@ -13,22 +13,22 @@ export enum InvoiceStatus {
 export class Invoice
 {
   @PrimaryGeneratedColumn('uuid')
-  readonly id: string;
+  readonly id!: string;
 
   @Column('uuid')
-  private _contractId: string;
+  private _contractId!: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  private _totalValue: number;
+  private _totalValue!: number;
 
   @Column('date')
-  private _dueDate: Date;
+  private _dueDate!: Date;
 
   @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.PENDING })
-  private _status: InvoiceStatus;
+  private _status!: InvoiceStatus;
 
   @OneToMany(() => PaymentTransaction, tx => tx['_invoice'], { cascade: true, eager: true })
-  private _transactions: PaymentTransaction[];
+  private _transactions!: PaymentTransaction[];
 
   private constructor() {}
 
@@ -38,7 +38,7 @@ export class Invoice
     invoice._contractId = contractId;
     invoice._totalValue = totalValue;
     invoice._dueDate = dueDate;
-    invoice._status = InvoiceStatus.PENDING; // Nasce sempre PENDING, jamais Pending-Proof
+    invoice._status = InvoiceStatus.PENDING;
     invoice._transactions = [];
     return invoice;
   }
@@ -54,7 +54,7 @@ export class Invoice
     const tx = PaymentTransaction.create(this, type, amountPaid, method, proofType, proofReference);
 
     this._transactions.push(tx);
-    this._status = InvoiceStatus.PENDING_PROOF;
+    this._status = InvoiceStatus.UNDER_REVIEW;
   }
 
   // Getters para a camada de infra...

@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Contract } from '../../contract/domain/entities/contract.entity';
-import { Invoice } from '../domain/entities/invoice.entity';
+import { Contract } from '../../../contract/domain/entities/contract.entity';
+import { Invoice } from '../../domain/entities/invoice.entity';
 
 @Injectable()
 export class InvoiceGenerationWorker
@@ -34,7 +34,7 @@ export class InvoiceGenerationWorker
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 7); // Exemplo arbitrário
 
-        // Factory method isola a criação. Novamente: nasce PENDING.
+        // Factory method isola a criação.
         const invoice = Invoice.create(contract.id, contract.monthlyBaseValue, dueDate);
 
         await this.invoiceRepo.save(invoice);
