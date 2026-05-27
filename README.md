@@ -52,3 +52,27 @@ npm install
 
 # Run the application in development mode
 npm run start:dev 
+```
+
+## 🗺️ Roadmap & Architecture Plan
+
+### Fase 1: Foundation & Identity (Concluído)
+* Implementação do Bounded Context de Inquilinos (Tenant Module).
+* Definição da entidade principal focada exclusivamente na representação da pessoa física e seus dados de identidade.  
+
+### Fase 2: Asset & Contract Management (Próximos Passos)
+* Criação da entidade Property Unit para mapear o ativo físico e sua localização de forma independente.
+* Construção do módulo de Contratos (Contract Module) para gerenciar o vínculo e as regras do jogo entre a pessoa e o ativo.
+* Implementação das regras do ciclo de vida contratual, definindo valor base, duração e possibilidade de renovação.  
+
+### Fase 3: Financial Ledger & Billing Engine (Em Planejamento)
+* Estruturação do Invoice Module focado em isolar a lógica de faturamento do resto do sistema.
+* Desenvolvimento de um mecanismo automatizado (Cron job) no Invoice Service para buscar ativamente contratos próximos ao vencimento e gerar as faturas correspondentes.
+* Criação da sub-entidade de transações de pagamento para registrar datas, métodos (Pix, dinheiro) e vincular a URL do comprovante.
+* Integração do armazenamento de arquivos de comprovantes e documentos em buckets do MinIO.
+
+### Fase 4: Payment State Machine (Em Planejamento)
+* Implementação da máquina de estados para garantir a transição segura e auditável do status das faturas.
+* Mapeamento do estado inicial Pending para aguardar a ação do inquilino.
+* Configuração do estado Under Review, acionado quando um comprovante é anexado, travando a fatura para evitar o status de atraso indevido durante a análise.
+* Definição dos estados finais de conciliação financeira, separando liquidações parciais (Partially Paid) e integrais (Paid).  
