@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+docs/openapi.json
+package-lock.json
+*.log
+.env*

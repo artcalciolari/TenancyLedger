@@ -14,10 +14,13 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Quality, tests and image
+  backend:
+    name: Backend quality, tests and image
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
 
     services:
       postgres:
@@ -66,23 +69,26 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
+        working-directory: ${{ github.workspace }}
         run: npm ci
 
-      - name: Check production dependencies
-        run: npm audit --omit=dev --audit-level=high
+      - name: Check backend production dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm audit --workspace backend --omit=dev --audit-level=high
 
-      - name: Check formatting
+      - name: Check backend formatting
         run: npm run format:check
 
-      - name: Lint
+      - name: Lint backend
         run: npm run lint:check
 
-      - name: Type-check
+      - name: Type-check backend
         run: npm run typecheck
 
-      - name: Run unit tests
+      - name: Run backend unit tests
         run: npm run test:ci
 
       - name: Start MinIO
@@ -121,25 +127,25 @@ jobs:
       - name: Apply database migrations
         run: npm run migration:run
 
-      - name: Run end-to-end tests
+      - name: Run backend end-to-end tests
         run: npm run test:e2e:ci
 
-      - name: Upload coverage
+      - name: Upload backend coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
+          name: backend-coverage
           path: |
-            coverage/
-            test/coverage/
+            backend/coverage/
+            backend/test/coverage/
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Build application
+      - name: Build backend
         run: npm run build
 
-      - name: Build production image
-        run: docker build --tag tenancy-ledger:ci .
+      - name: Build backend production image
+        run: docker build --tag tenancy-ledger-api:ci .
 
       - name: Verify compiled migrations in the runtime image
         run: |
@@ -147,9 +153,9 @@ jobs:
             --env NODE_ENV=test \
             --env DB_HOST=127.0.0.1 \
             --env DB_PORT --env DB_USERNAME --env DB_PASSWORD --env DB_DATABASE \
-            tenancy-ledger:ci npm run migration:show:prod
+            tenancy-ledger-api:ci npm run migration:show:prod
 
-      - name: Smoke-test the production image
+      - name: Smoke-test the backend production image
         run: |
           docker run --detach --name tenancy-ledger-api-ci --network host \
             --env NODE_ENV=test --env PORT=3001 \
@@ -162,7 +168,7 @@ jobs:
             --env MINIO_BUCKET_NAME --env MINIO_USE_SSL --env STORAGE_SSE_ENABLED \
             --env THROTTLE_TTL_MS=60000 --env THROTTLE_LIMIT=100 \
             --env INVOICE_CRON_ENABLED=false \
-            tenancy-ledger:ci
+            tenancy-ledger-api:ci
 
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:3001/health/ready; then
@@ -174,6 +180,11 @@ jobs:
           docker logs tenancy-ledger-api-ci
           exit 1
 
+      - name: Verify the runtime OpenAPI snapshot
+        env:
+          OPENAPI_URL: http://127.0.0.1:3001/docs-json
+        run: npm run openapi:check
+
       - name: Stop runtime smoke-test container
         if: always()
         run: docker rm --force tenancy-ledger-api-ci || true
@@ -181,3 +192,92 @@ jobs:
       - name: Show MinIO logs on failure
         if: failure()
         run: docker logs minio-ci || true
+
+  frontend:
+    name: Frontend quality, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm ci
+
+      - name: Check frontend production dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm audit --workspace frontend --omit=dev --audit-level=high
+
+      - name: Verify generated OpenAPI types
+        run: npm run api:check
+
+      - name: Check frontend formatting
+        run: npm run format:check
+
+      - name: Lint frontend
+        run: npm run lint:check
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Run frontend unit and component tests
+        run: npm run test:ci
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build frontend production image
+        working-directory: ${{ github.workspace }}
+        run: docker build --file frontend/Dockerfile --tag tenancy-ledger-frontend:ci .
+
+      - name: Smoke-test frontend production image
+        run: |
+          docker run --detach --name tenancy-ledger-frontend-ci --add-host app:127.0.0.1 --publish 8080:8080 tenancy-ledger-frontend:ci
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:8080/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tenancy-ledger-frontend-ci
+          exit 1
+
+      - name: Stop frontend smoke-test container
+        if: always()
+        run: docker rm --force tenancy-ledger-frontend-ci || true
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Run frontend end-to-end tests
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14

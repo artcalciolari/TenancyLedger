@@ -1,0 +1,23 @@
+import { describe, expect, it } from 'vitest';
+import { createTenantSchema } from './schemas';
+
+const validTenant = {
+  cpf: '123.456.789-09',
+  rg: '12.345.678-9',
+  profession: 'Engenheiro civil',
+  civilStatus: 'MARRIED' as const,
+  email: 'locatario@example.com',
+  mobilePhone: '+55 11 99999-9999',
+};
+
+describe('createTenantSchema', () => {
+  it('aceita o formato público do backend', () => {
+    expect(createTenantSchema.safeParse(validTenant).success).toBe(true);
+  });
+
+  it('rejeita CPF e RG fora do contrato', () => {
+    expect(
+      createTenantSchema.safeParse({ ...validTenant, cpf: '123', rg: 'RG com espaço' }).success,
+    ).toBe(false);
+  });
+});

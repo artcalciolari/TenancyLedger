@@ -1,0 +1,5319 @@
+{
+  "components": {
+    "schemas": {
+      "AppInfoResponseDto": {
+        "properties": {
+          "documentation": {
+            "example": "/docs",
+            "type": "string"
+          },
+          "name": {
+            "example": "Tenancy Ledger API",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok"
+            ],
+            "example": "ok",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "documentation"
+        ],
+        "type": "object"
+      },
+      "ChangePasswordDto": {
+        "properties": {
+          "currentPassword": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 12,
+            "type": "string",
+            "writeOnly": true
+          },
+          "newPassword": {
+            "description": "Deve conter minúscula, maiúscula, número e símbolo.",
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 12,
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "type": "object"
+      },
+      "ContractResponseDto": {
+        "properties": {
+          "billingDay": {
+            "example": 10,
+            "maximum": 28,
+            "minimum": 1,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "durationInMonths": {
+            "example": 12,
+            "maximum": 600,
+            "minimum": 1,
+            "type": "number"
+          },
+          "endDate": {
+            "example": "2027-06-30",
+            "format": "date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isRenewable": {
+            "type": "boolean"
+          },
+          "monthlyBaseValueCents": {
+            "example": 150000,
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "moveInDate": {
+            "example": "2026-07-01",
+            "format": "date",
+            "type": "string"
+          },
+          "propertyUnitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContractStatus"
+              }
+            ]
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "propertyUnitId",
+          "moveInDate",
+          "endDate",
+          "monthlyBaseValueCents",
+          "durationInMonths",
+          "billingDay",
+          "isRenewable",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ContractStatus": {
+        "enum": [
+          "ACTIVE",
+          "EXPIRED",
+          "TERMINATED"
+        ],
+        "type": "string"
+      },
+      "CreateContractDto": {
+        "properties": {
+          "billingDay": {
+            "example": 10,
+            "maximum": 28,
+            "minimum": 1,
+            "type": "number"
+          },
+          "durationInMonths": {
+            "example": 12,
+            "maximum": 600,
+            "minimum": 1,
+            "type": "number"
+          },
+          "isRenewable": {
+            "type": "boolean"
+          },
+          "monthlyBaseValueCents": {
+            "example": 150000,
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "moveInDate": {
+            "example": "2026-07-01",
+            "format": "date",
+            "type": "string"
+          },
+          "propertyUnitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "propertyUnitId",
+          "moveInDate",
+          "monthlyBaseValueCents",
+          "durationInMonths",
+          "isRenewable"
+        ],
+        "type": "object"
+      },
+      "CreatePropertyDto": {
+        "properties": {
+          "neighborhood": {
+            "example": "Centro",
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnitType"
+              }
+            ]
+          },
+          "unitNumber": {
+            "example": "101-A",
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "neighborhood",
+          "type",
+          "unitNumber"
+        ],
+        "type": "object"
+      },
+      "CreateTenantDto": {
+        "properties": {
+          "civilStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantCivilStatus"
+              }
+            ]
+          },
+          "cpf": {
+            "example": "123.456.789-09",
+            "pattern": "^\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}$",
+            "type": "string"
+          },
+          "email": {
+            "example": "locatario@example.com",
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "mobilePhone": {
+            "example": "+55 11 99999-9999",
+            "maxLength": 20,
+            "type": "string"
+          },
+          "profession": {
+            "example": "Engenheiro civil",
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "rg": {
+            "example": "12.345.678-9",
+            "maxLength": 20,
+            "minLength": 5,
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "cpf",
+          "rg",
+          "profession",
+          "civilStatus",
+          "email",
+          "mobilePhone"
+        ],
+        "type": "object"
+      },
+      "CreateUserDto": {
+        "properties": {
+          "email": {
+            "example": "gestor@example.com",
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "description": "Deve conter minúscula, maiúscula, número e símbolo.",
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 12,
+            "type": "string",
+            "writeOnly": true
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRole"
+              }
+            ],
+            "example": "MANAGER"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "role"
+        ],
+        "type": "object"
+      },
+      "InvoiceResponseDto": {
+        "properties": {
+          "approvedAmountCents": {
+            "example": 50000,
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "number"
+          },
+          "competence": {
+            "example": "2026-07",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "type": "string"
+          },
+          "contractId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dueDate": {
+            "example": "2026-07-10",
+            "format": "date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "outstandingAmountCents": {
+            "example": 100000,
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "number"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentResponseDto"
+            },
+            "type": "array"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceStatus"
+              }
+            ]
+          },
+          "totalValueCents": {
+            "example": 150000,
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "contractId",
+          "competence",
+          "totalValueCents",
+          "approvedAmountCents",
+          "outstandingAmountCents",
+          "dueDate",
+          "status",
+          "payments",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "InvoiceStatus": {
+        "enum": [
+          "OPEN",
+          "UNDER_REVIEW",
+          "PARTIALLY_PAID",
+          "PAID",
+          "OVERDUE"
+        ],
+        "type": "string"
+      },
+      "LoginDto": {
+        "properties": {
+          "email": {
+            "example": "admin@example.com",
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
+      "LoginResponseDto": {
+        "properties": {
+          "accessToken": {
+            "description": "JWT de acesso.",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponseDto"
+          }
+        },
+        "required": [
+          "accessToken",
+          "user"
+        ],
+        "type": "object"
+      },
+      "PageMetaDto": {
+        "properties": {
+          "limit": {
+            "example": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "page": {
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          },
+          "total": {
+            "example": 42,
+            "minimum": 0,
+            "type": "number"
+          },
+          "totalPages": {
+            "example": 3,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ],
+        "type": "object"
+      },
+      "PaginatedContractsResponseDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ContractResponseDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaginatedInvoicesResponseDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceResponseDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaginatedPropertiesResponseDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PropertyResponseDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaginatedTenantResponseDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/TenantResponseDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaginatedUsersResponseDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/UserResponseDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaymentMethod": {
+        "enum": [
+          "PIX",
+          "CASH",
+          "BANK_TRANSFER"
+        ],
+        "type": "string"
+      },
+      "PaymentProofUrlResponseDto": {
+        "properties": {
+          "expiresInSeconds": {
+            "example": 300,
+            "minimum": 1,
+            "type": "number"
+          },
+          "url": {
+            "description": "URL assinada e temporária do comprovante.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expiresInSeconds"
+        ],
+        "type": "object"
+      },
+      "PaymentResponseDto": {
+        "properties": {
+          "amountCents": {
+            "example": 50000,
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "hasProof": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "method": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              }
+            ]
+          },
+          "proofType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProofType"
+              }
+            ],
+            "nullable": true
+          },
+          "rejectionReason": {
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "amountCents",
+          "submittedAt",
+          "method",
+          "proofType",
+          "hasProof",
+          "status",
+          "reviewedAt",
+          "rejectionReason"
+        ],
+        "type": "object"
+      },
+      "PaymentStatus": {
+        "enum": [
+          "SUBMITTED",
+          "APPROVED",
+          "REJECTED"
+        ],
+        "type": "string"
+      },
+      "ProblemDetailsDto": {
+        "properties": {
+          "detail": {
+            "example": "A requisição contém dados inválidos.",
+            "type": "string"
+          },
+          "errors": {
+            "description": "Demais mensagens de validação, quando houver mais de uma.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "instance": {
+            "example": "/contracts?page=0",
+            "type": "string"
+          },
+          "requestId": {
+            "example": "0f2a9a56-b0d5-4ac5-8f1e-791e9fc92347",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "example": 400,
+            "maximum": 599,
+            "minimum": 400,
+            "type": "number"
+          },
+          "timestamp": {
+            "example": "2026-07-12T18:30:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "title": {
+            "example": "BadRequestException",
+            "type": "string"
+          },
+          "type": {
+            "example": "https://tenancy-ledger.local/problems/http-400",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "requestId",
+          "timestamp"
+        ],
+        "type": "object"
+      },
+      "ProofType": {
+        "enum": [
+          "DIGITAL_SLIP",
+          "SIGNED_RECEIPT",
+          "BANK_STATEMENT"
+        ],
+        "type": "string"
+      },
+      "PropertyResponseDto": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "neighborhood": {
+            "example": "Centro",
+            "maxLength": 120,
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnitType"
+              }
+            ]
+          },
+          "unitNumber": {
+            "example": "101-A",
+            "maxLength": 40,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "neighborhood",
+          "type",
+          "unitNumber",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "RejectPaymentDto": {
+        "properties": {
+          "reason": {
+            "example": "Comprovante ilegível.",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RenewContractDto": {
+        "properties": {
+          "extraMonths": {
+            "example": 12,
+            "maximum": 600,
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "extraMonths"
+        ],
+        "type": "object"
+      },
+      "SubmitPaymentMultipartDto": {
+        "properties": {
+          "amountCents": {
+            "example": 50000,
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "method": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              }
+            ],
+            "description": "PIX e BANK_TRANSFER exigem comprovante; CASH não aceita comprovante digital."
+          },
+          "proof": {
+            "description": "Obrigatório para PIX e transferência. PDF, JPEG, PNG ou WebP; até 10 MiB.",
+            "format": "binary",
+            "type": "string"
+          },
+          "proofType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProofType"
+              }
+            ],
+            "description": "Obrigatório para PIX e BANK_TRANSFER; deve ser omitido para CASH."
+          }
+        },
+        "required": [
+          "amountCents",
+          "method"
+        ],
+        "type": "object"
+      },
+      "TenantCivilStatus": {
+        "enum": [
+          "SINGLE",
+          "MARRIED",
+          "DIVORCED",
+          "WIDOWED",
+          "STABLE_UNION"
+        ],
+        "type": "string"
+      },
+      "TenantResponseDto": {
+        "properties": {
+          "civilStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantCivilStatus"
+              }
+            ]
+          },
+          "cpf": {
+            "description": "CPF mascarado.",
+            "example": "***.***.***-09",
+            "type": "string"
+          },
+          "email": {
+            "description": "E-mail mascarado.",
+            "example": "l***@example.com",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "mobilePhone": {
+            "description": "Telefone mascarado.",
+            "example": "(**) *****-9999",
+            "type": "string"
+          },
+          "profession": {
+            "example": "Engenheiro civil",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "cpf",
+          "profession",
+          "civilStatus",
+          "email",
+          "mobilePhone"
+        ],
+        "type": "object"
+      },
+      "UnitType": {
+        "enum": [
+          "KITNET",
+          "ROOM",
+          "APARTMENT",
+          "HOUSE",
+          "COMMERCIAL"
+        ],
+        "type": "string"
+      },
+      "UpdateUserAccessDto": {
+        "properties": {
+          "active": {
+            "description": "Define se o usuário pode autenticar e usar tokens existentes.",
+            "type": "boolean"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "role",
+          "active"
+        ],
+        "type": "object"
+      },
+      "UserResponseDto": {
+        "properties": {
+          "active": {
+            "description": "Indica se o usuário pode autenticar.",
+            "type": "boolean"
+          },
+          "email": {
+            "example": "gestor@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "active"
+        ],
+        "type": "object"
+      },
+      "UserRole": {
+        "enum": [
+          "ADMIN",
+          "MANAGER",
+          "VIEWER"
+        ],
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "description": "JWT de acesso.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {},
+    "description": "API para gestão auditável de inquilinos, imóveis, contratos e cobranças.",
+    "title": "Tenancy Ledger API",
+    "version": "1.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppInfoResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Consultar informações básicas da API",
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Senha alterada e tokens anteriores invalidados.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Senha atual inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "A nova senha deve ser diferente da senha atual.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Alterar a própria senha",
+        "tags": [
+          "Autenticação e usuários"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "E-mail ou senha inválidos.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Autenticar e obter um JWT de acesso",
+        "tags": [
+          "Autenticação e usuários"
+        ]
+      }
+    },
+    "/auth/users": {
+      "get": {
+        "operationId": "AuthController_listUsers",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedUsersResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar usuários",
+        "tags": [
+          "Autenticação e usuários"
+        ]
+      },
+      "post": {
+        "operationId": "AuthController_createUser",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Já existe um usuário com este e-mail.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Criar usuário",
+        "tags": [
+          "Autenticação e usuários"
+        ]
+      }
+    },
+    "/auth/users/{id}/access": {
+      "patch": {
+        "operationId": "AuthController_updateUserAccess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserAccessDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Usuário não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "A alteração removeria o próprio acesso ou o último administrador ativo.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Alterar papel e estado de acesso de um usuário",
+        "tags": [
+          "Autenticação e usuários"
+        ]
+      }
+    },
+    "/contracts": {
+      "get": {
+        "operationId": "ContractController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ContractStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenantId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "propertyUnitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedContractsResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar contratos",
+        "tags": [
+          "Contratos"
+        ]
+      },
+      "post": {
+        "operationId": "ContractController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContractDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Locatário ou imóvel não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "A unidade possui contrato com vigência sobreposta.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Criar contrato",
+        "tags": [
+          "Contratos"
+        ]
+      }
+    },
+    "/contracts/{id}": {
+      "get": {
+        "operationId": "ContractController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Contrato não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar contrato",
+        "tags": [
+          "Contratos"
+        ]
+      }
+    },
+    "/contracts/{id}/renew": {
+      "patch": {
+        "operationId": "ContractController_renew",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewContractDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Contrato não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Contrato não renovável ou renovação sobreposta.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Renovar contrato",
+        "tags": [
+          "Contratos"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "HealthController_liveness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "details": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "error": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {},
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "info": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "status": {
+                      "example": "ok",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The Health Check is successful",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "details": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "message": "Could not connect",
+                          "status": "down"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "error": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "redis": {
+                          "message": "Could not connect",
+                          "status": "down"
+                        }
+                      },
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "info": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "status": {
+                      "example": "error",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The Health Check is not successful",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/invoices": {
+      "get": {
+        "operationId": "BillingController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contractId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "competence",
+            "required": false,
+            "schema": {
+              "example": "2026-07",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/InvoiceStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedInvoicesResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar faturas",
+        "tags": [
+          "Faturas e pagamentos"
+        ]
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "operationId": "BillingController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Fatura não encontrada.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar fatura e seus pagamentos",
+        "tags": [
+          "Faturas e pagamentos"
+        ]
+      }
+    },
+    "/invoices/{id}/payments": {
+      "post": {
+        "operationId": "BillingController_submitPayment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Chave opaca e única por fatura (8 a 128 caracteres ASCII visíveis).",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "pattern": "^[\\x21-\\x7e]{8,128}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPaymentMultipartDto"
+              }
+            }
+          },
+          "description": "Comprovante obrigatório para PIX/transferência e proibido para dinheiro.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Fatura não encontrada.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Chave de idempotência reutilizada ou estado conflitante da fatura.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Submeter pagamento para revisão",
+        "tags": [
+          "Faturas e pagamentos"
+        ]
+      }
+    },
+    "/invoices/{invoiceId}/payments/{paymentId}/approve": {
+      "patch": {
+        "operationId": "BillingController_approvePayment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoiceId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Fatura não encontrada.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Pagamento já revisado ou aprovação inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Aprovar pagamento submetido",
+        "tags": [
+          "Faturas e pagamentos"
+        ]
+      }
+    },
+    "/invoices/{invoiceId}/payments/{paymentId}/proof": {
+      "get": {
+        "operationId": "BillingController_getPaymentProof",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoiceId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentProofUrlResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Fatura, pagamento ou comprovante não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Gerar URL temporária de um comprovante",
+        "tags": [
+          "Faturas e pagamentos"
+        ]
+      }
+    },
+    "/invoices/{invoiceId}/payments/{paymentId}/reject": {
+      "patch": {
+        "operationId": "BillingController_rejectPayment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoiceId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectPaymentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Fatura não encontrada.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Pagamento já revisado ou rejeição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rejeitar pagamento submetido",
+        "tags": [
+          "Faturas e pagamentos"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "MetricsController_metrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/properties": {
+      "get": {
+        "operationId": "PropertyController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedPropertiesResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar imóveis",
+        "tags": [
+          "Imóveis"
+        ]
+      },
+      "post": {
+        "operationId": "PropertyController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Já existe uma unidade com este bairro e número.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cadastrar imóvel",
+        "tags": [
+          "Imóveis"
+        ]
+      }
+    },
+    "/properties/{id}": {
+      "get": {
+        "operationId": "PropertyController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Unidade imobiliária não encontrada.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar imóvel",
+        "tags": [
+          "Imóveis"
+        ]
+      }
+    },
+    "/tenants": {
+      "get": {
+        "operationId": "TenantController_findAll",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedTenantResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar locatários",
+        "tags": [
+          "Locatários"
+        ]
+      },
+      "post": {
+        "operationId": "TenantController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "CPF ou e-mail já cadastrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cadastrar locatário",
+        "tags": [
+          "Locatários"
+        ]
+      }
+    },
+    "/tenants/{id}": {
+      "get": {
+        "operationId": "TenantController_findById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Locatário não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar locatário",
+        "tags": [
+          "Locatários"
+        ]
+      }
+    }
+  },
+  "servers": [],
+  "tags": []
+}

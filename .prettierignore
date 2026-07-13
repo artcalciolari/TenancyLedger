@@ -1,6 +1,8 @@
-node_modules
-dist
-coverage
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+**/playwright-report/
+**/test-results/
+frontend/src/api/generated/
 package-lock.json
-*.log
-.env*
