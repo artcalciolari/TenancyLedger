@@ -1,10 +1,16 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class AppService
-{
-  getHello(): string
-  {
-    return 'Hello World!';
+export class AppService {
+  getInfo(): {
+    name: 'Tenancy Ledger API';
+    status: 'ok';
+    documentation: '/docs';
+  } {
+    return {
+      name: 'Tenancy Ledger API',
+      status: 'ok',
+      documentation: '/docs',
+    };
   }
 }

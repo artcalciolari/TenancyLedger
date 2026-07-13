@@ -5,9 +5,11 @@ import { TENANT_REPOSITORY_TOKEN } from './domain/repositories/tenant.repository
 import { TenantTypeOrmRepository } from './infrastructure/database/tenant.typeorm.repository';
 import { CreateTenantUseCase } from './application/use-cases/create-tenant.use-case';
 import { TenantQueries } from './application/queries/tenant.queries';
+import { TenantController } from './infrastructure/http/controllers/tenant.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Tenant])],
+  controllers: [TenantController],
   providers: [
     {
       provide: TENANT_REPOSITORY_TOKEN,
@@ -16,6 +18,6 @@ import { TenantQueries } from './application/queries/tenant.queries';
     CreateTenantUseCase,
     TenantQueries,
   ],
-  exports: [CreateTenantUseCase, TenantQueries], // Expondo caso algum outro contexto precise
+  exports: [CreateTenantUseCase, TenantQueries],
 })
 export class TenantModule {}

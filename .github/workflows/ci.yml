@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Quality, tests and image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18.3-alpine3.22@sha256:af27ebd3413839ccfdcdf88e91ca76ad82117e52192067b76de9bb5be7ea6e04
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tenancyledger_test
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tenancyledger_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: tenancyledger_test
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: payment-proofs-test
+      MINIO_USE_SSL: 'false'
+      MINIO_AUTO_CREATE_BUCKET: 'true'
+      STORAGE_SSE_ENABLED: 'false'
+      JWT_SECRET: ci-only-jwt-secret-with-at-least-32-characters
+      JWT_EXPIRES_IN: 15m
+      JWT_ISSUER: tenancy-ledger-ci
+      JWT_AUDIENCE: tenancy-ledger-api-ci
+      AUTH_BOOTSTRAP_EMAIL: admin@example.com
+      AUTH_BOOTSTRAP_PASSWORD: Strong-ci-password-123!
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint:check
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm run test:ci
+
+      - name: Start MinIO
+        run: |
+          docker run --detach --name minio-ci \
+            --publish 9000:9000 \
+            --env MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+            --env MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            --health-cmd "curl --fail http://localhost:9000/minio/health/live" \
+            --health-interval 2s \
+            --health-timeout 5s \
+            --health-retries 15 \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e \
+            server /data
+
+          for attempt in {1..30}; do
+            status="$(docker inspect --format '{{.State.Health.Status}}' minio-ci)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs minio-ci
+          exit 1
+
+      - name: Create test object-storage bucket
+        run: >-
+          node -e "const { S3Client, CreateBucketCommand } = require('@aws-sdk/client-s3');
+          const client = new S3Client({ endpoint: 'http://localhost:9000', region: 'us-east-1',
+          forcePathStyle: true, credentials: { accessKeyId: process.env.MINIO_ACCESS_KEY,
+          secretAccessKey: process.env.MINIO_SECRET_KEY } });
+          client.send(new CreateBucketCommand({ Bucket: process.env.MINIO_BUCKET_NAME }))
+          .catch((error) => { console.error(error); process.exit(1); });"
+
+      - name: Apply database migrations
+        run: npm run migration:run
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e:ci
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage/
+            test/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build production image
+        run: docker build --tag tenancy-ledger:ci .
+
+      - name: Verify compiled migrations in the runtime image
+        run: |
+          docker run --rm --network host \
+            --env NODE_ENV=test \
+            --env DB_HOST=127.0.0.1 \
+            --env DB_PORT --env DB_USERNAME --env DB_PASSWORD --env DB_DATABASE \
+            tenancy-ledger:ci npm run migration:show:prod
+
+      - name: Smoke-test the production image
+        run: |
+          docker run --detach --name tenancy-ledger-api-ci --network host \
+            --env NODE_ENV=test --env PORT=3001 \
+            --env DB_HOST=127.0.0.1 \
+            --env DB_PORT --env DB_USERNAME --env DB_PASSWORD --env DB_DATABASE \
+            --env JWT_SECRET --env JWT_EXPIRES_IN --env JWT_ISSUER --env JWT_AUDIENCE \
+            --env AUTH_BOOTSTRAP_EMAIL --env AUTH_BOOTSTRAP_PASSWORD \
+            --env MINIO_ENDPOINT=127.0.0.1 \
+            --env MINIO_PORT --env MINIO_ACCESS_KEY --env MINIO_SECRET_KEY \
+            --env MINIO_BUCKET_NAME --env MINIO_USE_SSL --env STORAGE_SSE_ENABLED \
+            --env THROTTLE_TTL_MS=60000 --env THROTTLE_LIMIT=100 \
+            --env INVOICE_CRON_ENABLED=false \
+            tenancy-ledger:ci
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3001/health/ready; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs tenancy-ledger-api-ci
+          exit 1
+
+      - name: Stop runtime smoke-test container
+        if: always()
+        run: docker rm --force tenancy-ledger-api-ci || true
+
+      - name: Show MinIO logs on failure
+        if: failure()
+        run: docker logs minio-ci || true

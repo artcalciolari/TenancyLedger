@@ -1,9 +1,7 @@
 import { ConflictError } from '../../../../core/domain/errors/conflict.error';
 
-export class TenantAlreadyExistsError extends ConflictError
-{
-  constructor(cpf: string)
-  {
-    super(`Já existe um inquilino cadastrado com o CPF ${cpf}.`);
+export class TenantAlreadyExistsError extends ConflictError {
+  constructor() {
+    super('Já existe um inquilino com o mesmo CPF, e-mail ou telefone.');
   }
 }

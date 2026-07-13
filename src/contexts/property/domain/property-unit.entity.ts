@@ -1,34 +1,77 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Check,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
+import { ValidationError } from '../../../core/domain/errors/validation.error';
 
 export enum UnitType {
-  KITNET = 'Kitnet',
-  ROOM = 'Room',
-  APARTMENT = 'Apartment',
+  KITNET = 'KITNET',
+  ROOM = 'ROOM',
+  APARTMENT = 'APARTMENT',
+  HOUSE = 'HOUSE',
+  COMMERCIAL = 'COMMERCIAL',
 }
 
 @Entity('property_units')
-export class PropertyUnit
-{
+@Unique('UQ_property_units_neighborhood_unit', ['_neighborhood', '_unitNumber'])
+@Index('UQ_property_units_location_ci', { synchronize: false })
+@Check('CHK_property_units_neighborhood_not_blank', 'char_length(trim(neighborhood)) > 0')
+@Check('CHK_property_units_unit_number_not_blank', 'char_length(trim(unit_number)) > 0')
+export class PropertyUnit {
   @PrimaryGeneratedColumn('uuid')
   readonly id!: string;
 
-  @Column()
+  @Column({ name: 'neighborhood', type: 'varchar', length: 120 })
   private _neighborhood!: string;
 
-  @Column({ type: 'enum', enum: UnitType })
+  @Column({ name: 'type', type: 'enum', enum: UnitType, enumName: 'property_unit_type' })
   private _type!: UnitType;
 
-  @Column()
+  @Column({ name: 'unit_number', type: 'varchar', length: 40 })
   private _unitNumber!: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  readonly createdAt!: Date;
 
   private constructor() {}
 
-  static create(neighborhood: string, type: UnitType, unitNumber: string): PropertyUnit
-  {
+  static create(neighborhood: string, type: UnitType, unitNumber: string): PropertyUnit {
+    const normalizedNeighborhood = PropertyUnit.requiredText(neighborhood, 'bairro', 120);
+    const normalizedUnitNumber = PropertyUnit.requiredText(unitNumber, 'número da unidade', 40);
+    if (!Object.values(UnitType).includes(type)) {
+      throw new ValidationError('O tipo da unidade é inválido.');
+    }
+
     const unit = new PropertyUnit();
-    unit._neighborhood = neighborhood;
+    unit._neighborhood = normalizedNeighborhood;
     unit._type = type;
-    unit._unitNumber = unitNumber;
+    unit._unitNumber = normalizedUnitNumber;
     return unit;
+  }
+
+  private static requiredText(value: string, field: string, maxLength: number): string {
+    const normalized = value?.trim().replace(/\s+/g, ' ');
+    if (!normalized) {
+      throw new ValidationError(`O ${field} é obrigatório.`);
+    }
+    if (normalized.length > maxLength) {
+      throw new ValidationError(`O ${field} deve ter no máximo ${maxLength} caracteres.`);
+    }
+    return normalized;
+  }
+
+  get neighborhood(): string {
+    return this._neighborhood;
+  }
+  get type(): UnitType {
+    return this._type;
+  }
+  get unitNumber(): string {
+    return this._unitNumber;
   }
 }
