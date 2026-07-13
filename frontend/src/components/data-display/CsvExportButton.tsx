@@ -23,7 +23,7 @@ export function CsvExportButton({
       link.href = url;
       link.download = filename;
       link.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (cause) {
       setError(
         cause instanceof ApiError ? cause.problem.detail : 'Não foi possível exportar o CSV.',
