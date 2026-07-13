@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -23,11 +24,13 @@ import {
   ApiParam,
   ApiProperty,
   ApiPropertyOptional,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -41,11 +44,18 @@ import {
 } from 'class-validator';
 import { UserRole } from '../auth/domain/entities/user.entity';
 import { Roles } from '../auth/infrastructure/security/roles.decorator';
+import { CurrentUser } from '../auth/infrastructure/security/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/application/auth.service';
 import { BillingService } from './billing.service';
 import type { PaginatedInvoicesView } from './billing.service';
 import { Invoice, InvoiceStatus } from './domain/entities/invoice.entity';
-import { PaymentMethod, ProofType } from './domain/entities/payment-transaction.entity';
 import {
+  PaymentMethod,
+  PaymentStatus,
+  ProofType,
+} from './domain/entities/payment-transaction.entity';
+import {
+  IdempotentPaymentLookupResponseDto,
   InvoiceResponseDto,
   PaginatedInvoicesResponseDto,
   PaymentProofUrlResponseDto,
@@ -92,6 +102,45 @@ export class InvoicePaginationDto {
   @IsOptional()
   @IsEnum(InvoiceStatus)
   status?: InvoiceStatus;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  tenantId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  propertyUnitId?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  dueFrom?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  dueTo?: string;
+
+  @ApiPropertyOptional({ enum: PaymentStatus, enumName: 'PaymentStatus' })
+  @IsOptional()
+  @IsEnum(PaymentStatus)
+  paymentStatus?: PaymentStatus;
+
+  @ApiPropertyOptional({ enum: PaymentMethod, enumName: 'PaymentMethod' })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
+
+  @ApiPropertyOptional({
+    maxLength: 120,
+    description: 'Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
 }
 
 export class SubmitPaymentDto {
@@ -151,6 +200,50 @@ export class BillingController {
     return this.billingService.list(query);
   }
 
+  @Get('export.csv')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @ApiOperation({ summary: 'Exportar faturas filtradas em CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({
+    description: 'Arquivo CSV UTF-8 com as faturas que atendem aos filtros.',
+    schema: { type: 'string', format: 'binary' },
+  })
+  async exportCsv(@Query() query: InvoicePaginationDto): Promise<StreamableFile> {
+    const csv = await this.billingService.exportCsv(query);
+    return new StreamableFile(Buffer.from(`\uFEFF${csv}`, 'utf8'), {
+      type: 'text/csv; charset=utf-8',
+      disposition: 'attachment; filename="invoices.csv"',
+    });
+  }
+
+  @Get(':id/payments/by-idempotency-key')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Recuperar o resultado de uma submissão idempotente' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiOkResponse({ type: IdempotentPaymentLookupResponseDto })
+  @ApiNotFoundProblem('Fatura ou pagamento não encontrado para a chave informada.')
+  async getPaymentByIdempotencyKey(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @IdempotencyKey() idempotencyKey?: string,
+  ): Promise<IdempotentPaymentLookupResponseDto> {
+    const result = await this.billingService.getPaymentByIdempotencyKey(
+      id,
+      idempotencyKey,
+      actor.id,
+      actor.role === UserRole.ADMIN,
+    );
+    return {
+      invoice: await this.billingService.toDetailedView(result.invoice),
+      payment: BillingService.paymentToView(result.payment),
+    };
+  }
+
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
   @ApiOperation({ summary: 'Consultar fatura e seus pagamentos' })
@@ -160,7 +253,7 @@ export class BillingController {
   async get(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ): Promise<InvoiceResponseDto> {
-    return BillingService.toView(await this.billingService.getById(id));
+    return this.billingService.toDetailedView(await this.billingService.getById(id));
   }
 
   @Post(':id/payments')
@@ -193,25 +286,26 @@ export class BillingController {
     }),
   )
   async submitPayment(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: SubmitPaymentDto,
     @UploadedFile() proof?: Express.Multer.File,
     @IdempotencyKey() idempotencyKey?: string,
   ): Promise<InvoiceResponseDto> {
-    return BillingService.toView(
-      await this.billingService.submitPayment(id, {
-        ...dto,
-        idempotencyKey,
-        proofType: dto.proofType ?? null,
-        proof: proof
-          ? {
-              originalName: proof.originalname,
-              contentType: proof.mimetype,
-              body: proof.buffer,
-            }
-          : undefined,
-      }),
-    );
+    const invoice = await this.billingService.submitPayment(id, {
+      ...dto,
+      submittedByUserId: actor.id,
+      idempotencyKey,
+      proofType: dto.proofType ?? null,
+      proof: proof
+        ? {
+            originalName: proof.originalname,
+            contentType: proof.mimetype,
+            body: proof.buffer,
+          }
+        : undefined,
+    });
+    return this.billingService.toDetailedView(invoice);
   }
 
   @Get(':invoiceId/payments/:paymentId/proof')
@@ -237,10 +331,13 @@ export class BillingController {
   @ApiNotFoundProblem('Fatura não encontrada.')
   @ApiConflictProblem('Pagamento já revisado ou aprovação inválida.')
   async approvePayment(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('invoiceId', new ParseUUIDPipe({ version: '4' })) invoiceId: string,
     @Param('paymentId', new ParseUUIDPipe({ version: '4' })) paymentId: string,
   ): Promise<InvoiceResponseDto> {
-    return BillingService.toView(await this.billingService.approvePayment(invoiceId, paymentId));
+    return this.billingService.toDetailedView(
+      await this.billingService.approvePayment(invoiceId, paymentId, actor.id),
+    );
   }
 
   @Patch(':invoiceId/payments/:paymentId/reject')
@@ -253,12 +350,17 @@ export class BillingController {
   @ApiConflictProblem('Pagamento já revisado ou rejeição inválida.')
   @ApiUnprocessableProblem()
   async rejectPayment(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('invoiceId', new ParseUUIDPipe({ version: '4' })) invoiceId: string,
     @Param('paymentId', new ParseUUIDPipe({ version: '4' })) paymentId: string,
     @Body() dto: RejectPaymentDto,
   ): Promise<InvoiceResponseDto> {
-    return BillingService.toView(
-      await this.billingService.rejectPayment(invoiceId, paymentId, dto.reason),
+    const invoice = await this.billingService.rejectPayment(
+      invoiceId,
+      paymentId,
+      dto.reason,
+      actor.id,
     );
+    return this.billingService.toDetailedView(invoice);
   }
 }

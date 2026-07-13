@@ -2,6 +2,7 @@ import {
   Check,
   Column,
   Entity,
+  ForeignKey,
   Index,
   JoinColumn,
   ManyToOne,
@@ -11,6 +12,7 @@ import {
 import { ConflictError } from '../../../../core/domain/errors/conflict.error';
 import { ValidationError } from '../../../../core/domain/errors/validation.error';
 import { Invoice } from './invoice.entity';
+import { User } from '../../../auth/domain/entities/user.entity';
 
 export enum PaymentStatus {
   SUBMITTED = 'SUBMITTED',
@@ -100,6 +102,22 @@ export class PaymentTransaction {
   @Column({ name: 'request_fingerprint', type: 'char', length: 64 })
   private _requestFingerprint!: string;
 
+  @Column({ name: 'submitted_by_user_id', type: 'uuid', nullable: true })
+  @ForeignKey(() => User, {
+    name: 'FK_payment_transactions_submitted_by_user',
+    onDelete: 'RESTRICT',
+    onUpdate: 'RESTRICT',
+  })
+  private _submittedByUserId!: string | null;
+
+  @Column({ name: 'reviewed_by_user_id', type: 'uuid', nullable: true })
+  @ForeignKey(() => User, {
+    name: 'FK_payment_transactions_reviewed_by_user',
+    onDelete: 'RESTRICT',
+    onUpdate: 'RESTRICT',
+  })
+  private _reviewedByUserId!: string | null;
+
   private constructor() {}
 
   static create(
@@ -111,6 +129,7 @@ export class PaymentTransaction {
     submittedAt: Date,
     idempotencyKey: string,
     requestFingerprint: string,
+    submittedByUserId: string,
   ): PaymentTransaction {
     if (
       !Number.isSafeInteger(amountCents) ||
@@ -134,6 +153,7 @@ export class PaymentTransaction {
     if (!/^[0-9a-f]{64}$/.test(requestFingerprint)) {
       throw new ValidationError('A impressão digital da requisição de pagamento é inválida.');
     }
+    PaymentTransaction.assertUserId(submittedByUserId, 'submissão');
 
     const normalizedReference = proofReference?.trim() || null;
     if (normalizedReference && normalizedReference.length > 500) {
@@ -157,6 +177,8 @@ export class PaymentTransaction {
     transaction._rejectionReason = null;
     transaction._idempotencyKey = idempotencyKey;
     transaction._requestFingerprint = requestFingerprint;
+    transaction._submittedByUserId = submittedByUserId;
+    transaction._reviewedByUserId = null;
     return transaction;
   }
 
@@ -168,25 +190,27 @@ export class PaymentTransaction {
     }
   }
 
-  approve(reviewedAt: Date): void {
-    this.assertCanReview(reviewedAt);
+  approve(reviewedAt: Date, reviewedByUserId: string): void {
+    this.assertCanReview(reviewedAt, reviewedByUserId);
     this._status = PaymentStatus.APPROVED;
     this._reviewedAt = new Date(reviewedAt);
+    this._reviewedByUserId = reviewedByUserId;
     this._rejectionReason = null;
   }
 
-  reject(reason: string, reviewedAt: Date): void {
-    this.assertCanReview(reviewedAt);
+  reject(reason: string, reviewedAt: Date, reviewedByUserId: string): void {
+    this.assertCanReview(reviewedAt, reviewedByUserId);
     const normalizedReason = reason?.trim();
     if (!normalizedReason || normalizedReason.length > 500) {
       throw new ValidationError('O motivo da rejeição deve conter entre 1 e 500 caracteres.');
     }
     this._status = PaymentStatus.REJECTED;
     this._reviewedAt = new Date(reviewedAt);
+    this._reviewedByUserId = reviewedByUserId;
     this._rejectionReason = normalizedReason;
   }
 
-  private assertCanReview(reviewedAt: Date): void {
+  private assertCanReview(reviewedAt: Date, reviewedByUserId: string): void {
     if (this._status !== PaymentStatus.SUBMITTED) {
       throw new PaymentStateError('Somente um pagamento submetido pode ser revisado.');
     }
@@ -196,6 +220,16 @@ export class PaymentTransaction {
       reviewedAt < this._submittedAt
     ) {
       throw new ValidationError('A data de revisão do pagamento é inválida.');
+    }
+    PaymentTransaction.assertUserId(reviewedByUserId, 'revisão');
+    if (this._submittedByUserId === reviewedByUserId) {
+      throw new PaymentStateError('O autor da submissão não pode revisar o próprio pagamento.');
+    }
+  }
+
+  private static assertUserId(value: string, action: string): void {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      throw new ValidationError(`O usuário de ${action} deve ser um UUID válido.`);
     }
   }
 
@@ -228,5 +262,11 @@ export class PaymentTransaction {
   }
   get requestFingerprint(): string {
     return this._requestFingerprint;
+  }
+  get submittedByUserId(): string | null {
+    return this._submittedByUserId;
+  }
+  get reviewedByUserId(): string | null {
+    return this._reviewedByUserId;
   }
 }

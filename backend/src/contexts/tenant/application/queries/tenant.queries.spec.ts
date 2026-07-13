@@ -27,26 +27,27 @@ describe('TenantQueries', () => {
       where: jest.fn().mockReturnThis(),
       getRawMany: jest.fn(),
       getRawOne: jest.fn(),
+      getCount: jest.fn(),
+      andWhere: jest.fn().mockReturnThis(),
     } as unknown as jest.Mocked<SelectQueryBuilder<Tenant>>;
     repository = {
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-      count: jest.fn(),
     } as unknown as jest.Mocked<Repository<Tenant>>;
     queries = new TenantQueries(repository);
   });
 
   it('seleciona somente aliases públicos e pagina em ordem determinística', async () => {
     queryBuilder.getRawMany.mockResolvedValue([tenantView]);
-    repository.count.mockResolvedValue(23);
+    queryBuilder.getCount.mockResolvedValue(23);
 
-    await expect(queries.findAll(3, 10)).resolves.toEqual({
+    await expect(queries.findAll({ page: 3, limit: 10 })).resolves.toEqual({
       data: [tenantView],
       total: 23,
       page: 3,
       limit: 10,
     });
 
-    expect(repository.createQueryBuilder.mock.calls).toEqual([['tenant']]);
+    expect(repository.createQueryBuilder.mock.calls).toEqual([['tenant'], ['tenant']]);
     expect(queryBuilder.select.mock.calls).toEqual([['tenant.id', 'id']]);
     expect(queryBuilder.addSelect.mock.calls).toEqual([
       ['tenant.cpf', 'cpf'],
@@ -60,7 +61,7 @@ describe('TenantQueries', () => {
     expect(queryBuilder.offset.mock.calls).toEqual([[20]]);
     expect(queryBuilder.limit.mock.calls).toEqual([[10]]);
     expect(queryBuilder.getRawMany.mock.calls).toHaveLength(1);
-    expect(repository.count.mock.calls).toHaveLength(1);
+    expect(queryBuilder.getCount.mock.calls).toHaveLength(1);
   });
 
   it('retorna o tenant encontrado por id usando os mesmos aliases públicos', async () => {

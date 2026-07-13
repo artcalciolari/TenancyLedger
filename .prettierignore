@@ -3,6 +3,7 @@
 **/build/
 **/coverage/
 **/playwright-report/
+**/storybook-static/
 **/test-results/
 frontend/src/api/generated/
 package-lock.json

@@ -18,6 +18,11 @@ export const contractsApi = {
             status: filters.status,
             tenantId: filters.tenantId,
             propertyUnitId: filters.propertyUnitId,
+            q: filters.q,
+            moveInFrom: filters.moveInFrom,
+            moveInTo: filters.moveInTo,
+            endFrom: filters.endFrom,
+            endTo: filters.endTo,
           },
         },
       }),
@@ -31,6 +36,23 @@ export const contractsApi = {
       openApiClient.PATCH('/contracts/{id}/renew', {
         params: { path: { id } },
         body: input,
+      }),
+    ),
+  exportCsv: (filters: ContractListFilters): Promise<string> =>
+    executeOpenApi(
+      openApiClient.GET('/contracts/export.csv', {
+        params: {
+          query: {
+            status: filters.status,
+            tenantId: filters.tenantId,
+            propertyUnitId: filters.propertyUnitId,
+            q: filters.q,
+            moveInFrom: filters.moveInFrom,
+            moveInTo: filters.moveInTo,
+            endFrom: filters.endFrom,
+            endTo: filters.endTo,
+          },
+        },
       }),
     ),
 };

@@ -4,6 +4,7 @@ import * as bcrypt from 'bcryptjs';
 import { EntityManager, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
 import { User, UserRole } from '../domain/entities/user.entity';
 import { AuthService } from './auth.service';
+import type { RefreshSessionService } from './refresh-session.service';
 
 jest.mock('bcryptjs', () => {
   const actual = jest.requireActual<typeof import('bcryptjs')>('bcryptjs');
@@ -35,6 +36,7 @@ describe('AuthService', () => {
   let transactionManager: jest.Mocked<EntityManager>;
   let transactionUsers: jest.Mocked<Repository<User>>;
   let jwtService: jest.Mocked<JwtService>;
+  let refreshSessions: jest.Mocked<RefreshSessionService>;
   let service: AuthService;
 
   beforeEach(() => {
@@ -42,11 +44,13 @@ describe('AuthService', () => {
     bcryptHash.mockReset();
     queryBuilder = {
       addSelect: jest.fn().mockReturnThis(),
+      setLock: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn(),
     } as unknown as jest.Mocked<SelectQueryBuilder<User>>;
     transactionUsers = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
       findOne: jest.fn(),
       countBy: jest.fn(),
       save: jest.fn(),
@@ -73,7 +77,13 @@ describe('AuthService', () => {
     jwtService = {
       signAsync: jest.fn().mockResolvedValue('signed.jwt'),
     } as unknown as jest.Mocked<JwtService>;
-    service = new AuthService(users, jwtService);
+    refreshSessions = {
+      issue: jest.fn().mockResolvedValue('opaque-refresh-token'),
+      rotate: jest.fn(),
+      revoke: jest.fn().mockResolvedValue(undefined),
+      revokeAllForUser: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<RefreshSessionService>;
+    service = new AuthService(users, jwtService, refreshSessions);
   });
 
   afterEach(() => {
@@ -94,6 +104,7 @@ describe('AuthService', () => {
     ]);
     expect(result).toEqual({
       accessToken: 'signed.jwt',
+      refreshToken: 'opaque-refresh-token',
       user: { id: user.id, email: user.email, role: UserRole.ADMIN, active: true },
     });
     expect(jwtService.signAsync.mock.calls).toContainEqual([
@@ -105,6 +116,7 @@ describe('AuthService', () => {
       },
     ]);
     expect(JSON.stringify(result)).not.toContain('passwordHash');
+    expect(refreshSessions.issue.mock.calls).toContainEqual([user]);
   });
 
   it('executa bcrypt com hash dummy e devolve a mesma resposta para usuário inexistente', async () => {
@@ -155,6 +167,31 @@ describe('AuthService', () => {
     expect(users.findOne.mock.calls).toContainEqual([
       { where: { id: 'missing', active: true, tokenVersion: 2 } },
     ]);
+  });
+
+  it('rotaciona o refresh token e assina o acesso com o estado atual do usuário', async () => {
+    const user = User.create('manager@example.com', storedPasswordHash, UserRole.MANAGER);
+    user.id = '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee';
+    user.tokenVersion = 4;
+    refreshSessions.rotate.mockResolvedValue({
+      refreshToken: 'next-opaque-refresh-token',
+      user,
+    });
+
+    await expect(service.refresh('current-opaque-refresh-token')).resolves.toEqual({
+      accessToken: 'signed.jwt',
+      refreshToken: 'next-opaque-refresh-token',
+      user: { id: user.id, email: user.email, role: UserRole.MANAGER, active: true },
+    });
+    expect(refreshSessions.rotate.mock.calls).toContainEqual(['current-opaque-refresh-token']);
+    expect(jwtService.signAsync.mock.calls).toContainEqual([
+      { sub: user.id, email: user.email, role: UserRole.MANAGER, ver: 4 },
+    ]);
+  });
+
+  it('revoga a família de refresh no logout', async () => {
+    await service.logout('opaque-refresh-token');
+    expect(refreshSessions.revoke.mock.calls).toContainEqual(['opaque-refresh-token']);
   });
 
   describe('createUser', () => {
@@ -285,6 +322,10 @@ describe('AuthService', () => {
         tokenVersion: 1,
       });
       expect(transactionUsers.save.mock.calls).toContainEqual([viewer]);
+      expect(refreshSessions.revokeAllForUser.mock.calls).toContainEqual([
+        viewer.id,
+        transactionManager,
+      ]);
     });
 
     it('serializa a revalidação e a persistência na mesma transação', async () => {
@@ -333,7 +374,7 @@ describe('AuthService', () => {
         service.changePassword(user.id, 'wrong-password', 'brand-new-password'),
       ).rejects.toEqual(new UnauthorizedException('Senha atual inválida.'));
       expect(bcryptCompare.mock.calls).toEqual([['wrong-password', storedPasswordHash]]);
-      expect(bcryptHash.mock.calls).toHaveLength(0);
+      expect(bcryptHash).toHaveBeenCalledWith('brand-new-password', 12);
       expect(users.save.mock.calls).toHaveLength(0);
       expect(user.tokenVersion).toBe(0);
     });
@@ -351,7 +392,7 @@ describe('AuthService', () => {
         ['current-password', storedPasswordHash],
         ['current-password', storedPasswordHash],
       ]);
-      expect(bcryptHash.mock.calls).toHaveLength(0);
+      expect(bcryptHash).toHaveBeenCalledWith('current-password', 12);
       expect(users.save.mock.calls).toHaveLength(0);
       expect(user.tokenVersion).toBe(0);
     });
@@ -362,7 +403,7 @@ describe('AuthService', () => {
       queryBuilder.getOne.mockResolvedValue(user);
       bcryptCompare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       bcryptHash.mockResolvedValue(newPasswordHash);
-      users.save.mockResolvedValue(user);
+      transactionUsers.save.mockResolvedValue(user);
 
       await expect(
         service.changePassword(user.id, 'current-password', 'brand-new-password'),
@@ -372,9 +413,14 @@ describe('AuthService', () => {
         { userId: user.id },
       ]);
       expect(queryBuilder.andWhere.mock.calls).toContainEqual(['user.active = true']);
+      expect(queryBuilder.setLock.mock.calls).toContainEqual(['pessimistic_write']);
       expect(bcryptHash).toHaveBeenCalledWith('brand-new-password', 12);
       expect(user).toMatchObject({ passwordHash: newPasswordHash, tokenVersion: 1 });
-      expect(users.save.mock.calls).toContainEqual([user]);
+      expect(transactionUsers.save.mock.calls).toContainEqual([user]);
+      expect(refreshSessions.revokeAllForUser.mock.calls).toContainEqual([
+        user.id,
+        transactionManager,
+      ]);
     });
   });
 });

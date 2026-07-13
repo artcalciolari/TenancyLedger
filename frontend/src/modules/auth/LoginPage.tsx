@@ -21,7 +21,7 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 function safeReturnTo(value: string | null): string {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/invoices';
+  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard';
 }
 
 export function LoginPage() {
@@ -47,7 +47,7 @@ export function LoginPage() {
     };
   }, [searchParams]);
 
-  if (session) return <Navigate to="/invoices" replace />;
+  if (session) return <Navigate to="/dashboard" replace />;
 
   const onSubmit = async (values: LoginForm) => {
     try {
@@ -70,9 +70,16 @@ export function LoginPage() {
 
   const sessionExpired = searchParams.get('reason') === 'session-expired' || reason === 'expired';
   const passwordChanged = searchParams.get('reason') === 'password-changed';
+  const focusFirstError = () =>
+    window.requestAnimationFrame(() => document.getElementById('login-email')?.focus());
 
   return (
-    <Stack component="form" spacing={2.5} onSubmit={handleSubmit(onSubmit)} noValidate>
+    <Stack
+      component="form"
+      spacing={2.5}
+      onSubmit={handleSubmit(onSubmit, focusFirstError)}
+      noValidate
+    >
       {sessionExpired && (
         <Alert severity="info">Sua sessão expirou. Entre novamente para continuar.</Alert>
       )}
@@ -86,6 +93,7 @@ export function LoginPage() {
         render={({ field }) => (
           <TextField
             {...field}
+            id="login-email"
             autoComplete="username"
             autoFocus
             error={Boolean(errors.email)}

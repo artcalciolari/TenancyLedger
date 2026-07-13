@@ -44,6 +44,17 @@ function responseBody(response: request.Response): unknown {
   return response.body as unknown;
 }
 
+function firstResponseCookie(response: request.Response): string {
+  const headers: unknown = response.headers;
+  if (typeof headers !== 'object' || headers === null) {
+    throw new TypeError('Response headers are unavailable');
+  }
+  const value: unknown = Reflect.get(headers, 'set-cookie');
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
+  throw new Error('Response did not set a cookie');
+}
+
 function uniqueSuffix(): string {
   return `${Date.now().toString(36)}-${process.pid.toString(36)}-${Math.random()
     .toString(36)
@@ -113,6 +124,9 @@ describe('Tenancy Ledger API (e2e)', () => {
 
   let adminToken = '';
   let adminId = '';
+  let adminRefreshCookie = '';
+  let managerToken = '';
+  let managerId = '';
   let viewerToken = '';
   let viewerId = '';
   let tenantId = '';
@@ -208,9 +222,30 @@ describe('Tenancy Ledger API (e2e)', () => {
 
     adminToken = readString(body, 'accessToken');
     adminId = readString(user, 'id');
+    const refreshCookie = firstResponseCookie(response);
+    adminRefreshCookie = refreshCookie.split(';')[0] ?? '';
     expect(adminToken.split('.')).toHaveLength(3);
     expect(user).toMatchObject({ email: email.toLowerCase(), role: 'ADMIN' });
     expect(JSON.stringify(body)).not.toContain('password');
+    expect(JSON.stringify(body)).not.toContain('refreshToken');
+    expect(refreshCookie).toContain('HttpOnly');
+    expect(refreshCookie).toContain('SameSite=Strict');
+  });
+
+  it('rotaciona o refresh token opaco sem expô-lo no corpo', async () => {
+    const previousCookie = adminRefreshCookie;
+    const response = await request(httpServer())
+      .post('/auth/refresh')
+      .set('cookie', previousCookie)
+      .expect(200);
+    const body = asRecord(responseBody(response));
+    const refreshCookie = firstResponseCookie(response);
+    adminRefreshCookie = refreshCookie.split(';')[0] ?? '';
+    adminToken = readString(body, 'accessToken');
+
+    expect(adminRefreshCookie).not.toBe(previousCookie);
+    expect(body).not.toHaveProperty('refreshToken');
+    expect(asRecord(body.user, 'refreshed user')).toMatchObject({ id: adminId, role: 'ADMIN' });
   });
 
   it('creates a tenant with minimized and masked personal data', async () => {
@@ -362,6 +397,22 @@ describe('Tenancy Ledger API (e2e)', () => {
     expect(deniedAudit.metadata).toMatchObject({ statusCode: 403, role: 'VIEWER' });
   });
 
+  it('creates a separate manager to enforce four-eyes payment review', async () => {
+    const managerEmail = `e2e.manager.${suffix}@example.test`;
+    const managerPassword = `Manager-${suffix}-Password!`;
+    const savedManager = await users.save(
+      User.create(managerEmail, await hash(managerPassword, 12), UserRole.MANAGER),
+    );
+    managerId = savedManager.id;
+
+    const loginResponse = await request(httpServer())
+      .post('/auth/login')
+      .send({ email: managerEmail, password: managerPassword })
+      .expect(200);
+    managerToken = readString(asRecord(responseBody(loginResponse)), 'accessToken');
+    expect(managerToken.split('.')).toHaveLength(3);
+  });
+
   it('generates exactly one invoice per contract and competence when rerun', async () => {
     expect(process.env.INVOICE_CRON_ENABLED).toBe('false');
     if (!app) throw new Error('E2E application was not initialized');
@@ -430,9 +481,14 @@ describe('Tenancy Ledger API (e2e)', () => {
       .field('method', 'CASH')
       .expect(409);
 
-    const approveResponse = await request(httpServer())
+    await request(httpServer())
       .patch(`/invoices/${invoiceId}/payments/${cashPaymentId}/approve`)
       .set('authorization', `Bearer ${adminToken}`)
+      .expect(409);
+
+    const approveResponse = await request(httpServer())
+      .patch(`/invoices/${invoiceId}/payments/${cashPaymentId}/approve`)
+      .set('authorization', `Bearer ${managerToken}`)
       .expect(200);
     const approvedInvoice = asRecord(responseBody(approveResponse));
     expect(approvedInvoice).toMatchObject({
@@ -445,7 +501,7 @@ describe('Tenancy Ledger API (e2e)', () => {
   it('rejects an invalid repeated payment-state transition', async () => {
     const response = await request(httpServer())
       .patch(`/invoices/${invoiceId}/payments/${cashPaymentId}/approve`)
-      .set('authorization', `Bearer ${adminToken}`)
+      .set('authorization', `Bearer ${managerToken}`)
       .expect('content-type', /application\/problem\+json/)
       .expect(409);
     expect(asRecord(responseBody(response))).toMatchObject({ status: 409 });
@@ -496,9 +552,15 @@ describe('Tenancy Ledger API (e2e)', () => {
   });
 
   it('rejects a submitted PIX payment and prevents reviewing it twice', async () => {
-    const rejectResponse = await request(httpServer())
+    await request(httpServer())
       .patch(`/invoices/${invoiceId}/payments/${pixPaymentId}/reject`)
       .set('authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'O autor não pode revisar a própria submissão.' })
+      .expect(409);
+
+    const rejectResponse = await request(httpServer())
+      .patch(`/invoices/${invoiceId}/payments/${pixPaymentId}/reject`)
+      .set('authorization', `Bearer ${managerToken}`)
       .send({ reason: 'Comprovante divergente no teste E2E.' })
       .expect(200);
     const invoice = asRecord(responseBody(rejectResponse));
@@ -518,9 +580,52 @@ describe('Tenancy Ledger API (e2e)', () => {
 
     await request(httpServer())
       .patch(`/invoices/${invoiceId}/payments/${pixPaymentId}/reject`)
-      .set('authorization', `Bearer ${adminToken}`)
+      .set('authorization', `Bearer ${managerToken}`)
       .send({ reason: 'Segunda revisão inválida.' })
       .expect(409);
+  });
+
+  it('persiste e isola notificações de submissão e revisão por usuário', async () => {
+    const managerPageResponse = await request(httpServer())
+      .get('/notifications?page=1&limit=20')
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    const managerPage = asRecord(responseBody(managerPageResponse));
+    const managerNotifications = asArray(managerPage.data, 'manager notifications').map((entry) =>
+      asRecord(entry, 'notification'),
+    );
+    const submitted = managerNotifications.find(
+      (entry) => entry.type === 'PAYMENT_SUBMITTED' && entry.resourceId === invoiceId,
+    );
+    if (!submitted) throw new Error('Manager did not receive the payment notification');
+    expect(submitted).toMatchObject({ resourceType: 'INVOICE', readAt: null });
+    expect(Number(managerPage.unreadCount)).toBeGreaterThanOrEqual(2);
+
+    await request(httpServer())
+      .patch(`/notifications/${readString(submitted, 'id')}/read`)
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    await request(httpServer())
+      .patch('/notifications/read-all')
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(204);
+
+    const readPageResponse = await request(httpServer())
+      .get('/notifications?page=1&limit=20')
+      .set('authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(asRecord(responseBody(readPageResponse)).unreadCount).toBe(0);
+
+    const adminPageResponse = await request(httpServer())
+      .get('/notifications?page=1&limit=20')
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const adminTypes = asArray(
+      asRecord(responseBody(adminPageResponse)).data,
+      'admin notifications',
+    ).map((entry) => asRecord(entry, 'notification').type);
+    expect(adminTypes).toEqual(expect.arrayContaining(['PAYMENT_APPROVED', 'PAYMENT_REJECTED']));
+    expect(managerId).not.toBe(adminId);
   });
 
   it('records successful authenticated mutations with actor and resource correlation', async () => {

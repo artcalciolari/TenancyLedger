@@ -39,6 +39,7 @@ describe('environmentSchema', () => {
       JWT_EXPIRES_IN: '15m',
       JWT_ISSUER: 'tenancy-ledger',
       JWT_AUDIENCE: 'tenancy-ledger-api',
+      REFRESH_TOKEN_TTL_DAYS: 30,
       MINIO_ENDPOINT: 'localhost',
       MINIO_PORT: 9000,
       MINIO_PUBLIC_ENDPOINT: 'http://localhost:9000',
@@ -59,6 +60,11 @@ describe('environmentSchema', () => {
       expect(error?.details[0]?.path).toEqual(['JWT_EXPIRES_IN']);
     },
   );
+
+  it.each([0, -1, 366, 1.5])('rejeita REFRESH_TOKEN_TTL_DAYS inválido: %s', (value) => {
+    const { error } = environmentSchema.validate({ REFRESH_TOKEN_TTL_DAYS: value });
+    expect(error?.details[0]?.path).toEqual(['REFRESH_TOKEN_TTL_DAYS']);
+  });
 
   it.each(['*', 'https://app.example.com,*', 'ftp://app.example.com', 'not a URL'])(
     'rejeita origem CORS insegura ou inválida: %s',

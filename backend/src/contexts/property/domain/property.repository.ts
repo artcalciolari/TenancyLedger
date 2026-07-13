@@ -5,6 +5,8 @@ export const PROPERTY_REPOSITORY_TOKEN = Symbol('PROPERTY_REPOSITORY_TOKEN');
 export interface PropertyListOptions {
   page: number;
   limit: number;
+  q?: string;
+  type?: PropertyUnit['type'];
 }
 
 export interface PropertyListResult {

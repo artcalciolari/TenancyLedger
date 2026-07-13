@@ -12,6 +12,8 @@ const NOW = new Date('2026-07-10T12:00:00.000Z');
 const IDEMPOTENCY_KEY = 'payment-attempt-0001';
 const SECOND_IDEMPOTENCY_KEY = 'payment-attempt-0002';
 const REQUEST_FINGERPRINT = 'a'.repeat(64);
+const SUBMITTER_ID = '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee';
+const REVIEWER_ID = 'e5c1163a-8151-41e3-b953-350cb36435b1';
 
 function assignId(target: object, id: string): void {
   Object.defineProperty(target, 'id', { value: id, configurable: true });
@@ -37,6 +39,7 @@ describe('Invoice payment state machine', () => {
       NOW,
       IDEMPOTENCY_KEY,
       REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
     );
     assignId(payment, 'cb7b6dfd-b0c2-4414-a45a-a2cd467308f6');
 
@@ -44,7 +47,7 @@ describe('Invoice payment state machine', () => {
     expect(invoice.status).toBe(InvoiceStatus.UNDER_REVIEW);
     expect(invoice.approvedAmountCents).toBe(0);
 
-    invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'));
+    invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'), REVIEWER_ID);
 
     expect(payment.status).toBe(PaymentStatus.APPROVED);
     expect(invoice.approvedAmountCents).toBe(50_00);
@@ -62,10 +65,16 @@ describe('Invoice payment state machine', () => {
       NOW,
       IDEMPOTENCY_KEY,
       REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
     );
     assignId(payment, 'd589dcf2-e1d1-4e2b-b132-d8458997097d');
 
-    invoice.rejectPayment(payment.id, 'Valor não recebido', new Date('2026-07-10T13:00:00.000Z'));
+    invoice.rejectPayment(
+      payment.id,
+      'Valor não recebido',
+      new Date('2026-07-10T13:00:00.000Z'),
+      REVIEWER_ID,
+    );
 
     expect(payment.status).toBe(PaymentStatus.REJECTED);
     expect(payment.rejectionReason).toBe('Valor não recebido');
@@ -83,9 +92,10 @@ describe('Invoice payment state machine', () => {
       NOW,
       IDEMPOTENCY_KEY,
       REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
     );
     assignId(first, '070eb85e-5982-4b0b-a7c3-c7387bd3daf9');
-    invoice.approvePayment(first.id, new Date('2026-07-10T13:00:00.000Z'));
+    invoice.approvePayment(first.id, new Date('2026-07-10T13:00:00.000Z'), REVIEWER_ID);
     const second = invoice.submitPayment(
       60_00,
       PaymentMethod.PIX,
@@ -94,9 +104,10 @@ describe('Invoice payment state machine', () => {
       new Date('2026-07-11T12:00:00.000Z'),
       SECOND_IDEMPOTENCY_KEY,
       'b'.repeat(64),
+      SUBMITTER_ID,
     );
     assignId(second, '223f6cc5-0db3-47ab-8cdf-101e23ac146f');
-    invoice.approvePayment(second.id, new Date('2026-07-11T13:00:00.000Z'));
+    invoice.approvePayment(second.id, new Date('2026-07-11T13:00:00.000Z'), REVIEWER_ID);
 
     expect(invoice.status).toBe(InvoiceStatus.PAID);
     expect(invoice.outstandingAmountCents).toBe(0);
@@ -109,6 +120,7 @@ describe('Invoice payment state machine', () => {
         NOW,
         'payment-attempt-0003',
         'c'.repeat(64),
+        SUBMITTER_ID,
       ),
     ).toThrow(InvoiceStateError);
   });
@@ -123,6 +135,7 @@ describe('Invoice payment state machine', () => {
       NOW,
       IDEMPOTENCY_KEY,
       REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
     );
 
     expect(() =>
@@ -134,6 +147,7 @@ describe('Invoice payment state machine', () => {
         NOW,
         SECOND_IDEMPOTENCY_KEY,
         'b'.repeat(64),
+        SUBMITTER_ID,
       ),
     ).toThrow(InvoiceStateError);
   });
@@ -148,18 +162,27 @@ describe('Invoice payment state machine', () => {
       NOW,
       IDEMPOTENCY_KEY,
       REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
     );
     assignId(payment, 'dc7da4da-dd69-4381-93a7-24f2896de197');
-    invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'));
+    invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'), REVIEWER_ID);
 
-    expect(() => invoice.approvePayment(payment.id, new Date('2026-07-10T14:00:00.000Z'))).toThrow(
-      PaymentStateError,
-    );
+    expect(() =>
+      invoice.approvePayment(payment.id, new Date('2026-07-10T14:00:00.000Z'), REVIEWER_ID),
+    ).toThrow(PaymentStateError);
   });
 
   it('marks an unpaid invoice overdue after its due date', () => {
     const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-09');
     invoice.refreshStatus(NOW);
+    expect(invoice.status).toBe(InvoiceStatus.OVERDUE);
+  });
+
+  it('usa a data civil informada sem antecipar o vencimento por UTC', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-12');
+    invoice.refreshStatus('2026-07-12');
+    expect(invoice.status).toBe(InvoiceStatus.OPEN);
+    invoice.refreshStatus('2026-07-13');
     expect(invoice.status).toBe(InvoiceStatus.OVERDUE);
   });
 
@@ -174,8 +197,32 @@ describe('Invoice payment state machine', () => {
         NOW,
         IDEMPOTENCY_KEY,
         REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
       ),
     ).toThrow(ValidationError);
+  });
+
+  it('registra autores e impede o autor de revisar o próprio pagamento', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    const payment = invoice.submitPayment(
+      25_00,
+      PaymentMethod.CASH,
+      null,
+      undefined,
+      NOW,
+      IDEMPOTENCY_KEY,
+      REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
+    );
+    assignId(payment, 'dad91a88-583f-4b2a-9ac6-0d8eb14cd266');
+
+    expect(payment.submittedByUserId).toBe(SUBMITTER_ID);
+    expect(() =>
+      invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'), SUBMITTER_ID),
+    ).toThrow('O autor da submissão não pode revisar o próprio pagamento.');
+
+    invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'), REVIEWER_ID);
+    expect(payment.reviewedByUserId).toBe(REVIEWER_ID);
   });
 
   it.each([

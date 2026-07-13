@@ -25,7 +25,10 @@ export function useCreateContract() {
     mutationFn: (input: CreateContractInput) => contractsApi.create(input),
     onSuccess: (contract) => {
       queryClient.setQueryData(queryKeys.contract(contract.id), contract);
-      return queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['contracts'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
+      ]);
     },
   });
 }
@@ -38,6 +41,7 @@ export function useRenewContract(id: string) {
       queryClient.setQueryData(queryKeys.contract(id), contract);
       void queryClient.invalidateQueries({ queryKey: ['contracts'] });
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     },
   });
 }

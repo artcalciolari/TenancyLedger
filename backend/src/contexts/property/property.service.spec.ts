@@ -121,7 +121,7 @@ describe('PropertyService', () => {
       const property = persistedProperty();
       list.mockResolvedValue({ items: [property], total: 41 });
 
-      await expect(service.list(3, 20)).resolves.toEqual({
+      await expect(service.list({ page: 3, limit: 20 })).resolves.toEqual({
         data: [
           {
             id: PROPERTY_ID,

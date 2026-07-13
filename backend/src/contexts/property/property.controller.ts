@@ -65,6 +65,21 @@ export class PropertyPaginationDto {
   @Min(1)
   @Max(100)
   limit = 20;
+
+  @ApiPropertyOptional({
+    maxLength: 120,
+    description: 'Busca parcial por bairro ou número da unidade.',
+    example: 'Centro',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @ApiPropertyOptional({ enum: UnitType, enumName: 'UnitType' })
+  @IsOptional()
+  @IsEnum(UnitType)
+  type?: UnitType;
 }
 
 @ApiProtected()
@@ -88,7 +103,7 @@ export class PropertyController {
   @ApiOperation({ summary: 'Listar imóveis' })
   @ApiOkResponse({ type: PaginatedPropertiesResponseDto })
   list(@Query() query: PropertyPaginationDto): Promise<PaginatedPropertiesView> {
-    return this.service.list(query.page, query.limit);
+    return this.service.list(query);
   }
 
   @Get(':id')

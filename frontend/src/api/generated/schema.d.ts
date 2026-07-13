@@ -50,6 +50,40 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Encerrar e revogar a família da sessão atual */
+        post: operations["AuthController_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotacionar a sessão e obter um novo JWT de acesso */
+        post: operations["AuthController_refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/users": {
         parameters: {
             query?: never;
@@ -83,6 +117,23 @@ export type paths = {
         head?: never;
         /** Alterar papel e estado de acesso de um usuário */
         patch: operations["AuthController_updateUserAccess"];
+        trace?: never;
+    };
+    "/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Registrar uma falha sanitizada do frontend */
+        post: operations["ClientObservabilityController_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/contracts": {
@@ -135,6 +186,40 @@ export type paths = {
         head?: never;
         /** Renovar contrato */
         patch: operations["ContractController_renew"];
+        trace?: never;
+    };
+    "/contracts/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exportar contratos filtrados em CSV */
+        get: operations["ContractController_exportCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar agregados globais do dashboard */
+        get: operations["DashboardController_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/health": {
@@ -236,6 +321,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/invoices/{id}/payments/by-idempotency-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recuperar o resultado de uma submissão idempotente */
+        get: operations["BillingController_getPaymentByIdempotencyKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invoices/{invoiceId}/payments/{paymentId}/approve": {
         parameters: {
             query?: never;
@@ -287,6 +389,23 @@ export type paths = {
         patch: operations["BillingController_rejectPayment"];
         trace?: never;
     };
+    "/invoices/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exportar faturas filtradas em CSV */
+        get: operations["BillingController_exportCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -295,6 +414,74 @@ export type paths = {
             cookie?: never;
         };
         get: operations["MetricsController_metrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar as notificações do usuário autenticado */
+        get: operations["NotificationController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Marcar uma notificação do usuário como lida */
+        patch: operations["NotificationController_markRead"];
+        trace?: never;
+    };
+    "/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Marcar todas as notificações do usuário como lidas */
+        patch: operations["NotificationController_markAllRead"];
+        trace?: never;
+    };
+    "/payments/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar pagamentos submetidos aguardando revisão */
+        get: operations["PaymentReviewController_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -397,6 +584,30 @@ export type components = {
              */
             newPassword: string;
         };
+        ClientErrorDto: {
+            /**
+             * @description Impressão digital opaca; mensagens e stacks nunca são recebidas.
+             * @example 5f9c6bb1a4438e12
+             */
+            fingerprint: string;
+            kind: components["schemas"]["ClientErrorKind"];
+            release?: string;
+            requestId?: string;
+            /** @description Somente o pathname, sem query string ou fragmento. */
+            route: string;
+            status?: number;
+        };
+        /** @enum {string} */
+        ClientErrorKind: "RUNTIME" | "RENDER" | "NETWORK";
+        ContractPropertySummaryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Centro */
+            neighborhood: string;
+            type: components["schemas"]["UnitType"];
+            /** @example 101-A */
+            unitNumber: string;
+        };
         ContractResponseDto: {
             /** @example 10 */
             billingDay: number;
@@ -419,9 +630,11 @@ export type components = {
              * @example 2026-07-01
              */
             moveInDate: string;
+            propertyUnit: components["schemas"]["ContractPropertySummaryDto"];
             /** Format: uuid */
             propertyUnitId: string;
             status: components["schemas"]["ContractStatus"];
+            tenant: components["schemas"]["ContractTenantSummaryDto"];
             /** Format: uuid */
             tenantId: string;
             /** Format: date-time */
@@ -429,6 +642,19 @@ export type components = {
         };
         /** @enum {string} */
         ContractStatus: "ACTIVE" | "EXPIRED" | "TERMINATED";
+        ContractTenantSummaryDto: {
+            civilStatus: components["schemas"]["TenantCivilStatus"];
+            /** @example ***.***.***-09 */
+            cpf: string;
+            /** @example l***@example.com */
+            email: string;
+            /** Format: uuid */
+            id: string;
+            /** @example (**) *****-9999 */
+            mobilePhone: string;
+            /** @example Engenheiro civil */
+            profession: string;
+        };
         CreateContractDto: {
             /** @example 10 */
             billingDay?: number;
@@ -484,11 +710,53 @@ export type components = {
             /** @example MANAGER */
             role: components["schemas"]["UserRole"];
         };
+        DashboardContractSummaryDto: {
+            active: number;
+            expired: number;
+            /** @description Contratos ativos que vencem nos próximos 30 dias. */
+            expiringNext30Days: number;
+            terminated: number;
+            total: number;
+        };
+        DashboardInvoiceSummaryDto: {
+            approvedAmountCents: number;
+            outstandingAmountCents: number;
+            overdueAmountCents: number;
+            total: number;
+            totalValueCents: number;
+            underReview: number;
+        };
+        DashboardPaymentSummaryDto: {
+            submitted: number;
+        };
+        DashboardSummaryResponseDto: {
+            /** Format: date */
+            asOf: string;
+            contracts: components["schemas"]["DashboardContractSummaryDto"];
+            invoices: components["schemas"]["DashboardInvoiceSummaryDto"];
+            payments: components["schemas"]["DashboardPaymentSummaryDto"];
+        };
+        IdempotentPaymentLookupResponseDto: {
+            invoice: components["schemas"]["InvoiceResponseDto"];
+            payment: components["schemas"]["PaymentResponseDto"];
+        };
+        InvoiceContractSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            propertyUnit: components["schemas"]["ContractPropertySummaryDto"];
+            /** Format: uuid */
+            propertyUnitId: string;
+            status: components["schemas"]["ContractStatus"];
+            tenant: components["schemas"]["ContractTenantSummaryDto"];
+            /** Format: uuid */
+            tenantId: string;
+        };
         InvoiceResponseDto: {
             /** @example 50000 */
             approvedAmountCents: number;
             /** @example 2026-07 */
             competence: string;
+            contract: components["schemas"]["InvoiceContractSummaryDto"];
             /** Format: uuid */
             contractId: string;
             /** Format: date-time */
@@ -528,6 +796,23 @@ export type components = {
             accessToken: string;
             user: components["schemas"]["UserResponseDto"];
         };
+        NotificationResponseDto: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            message: string;
+            /** Format: date-time */
+            readAt: string | null;
+            /** Format: uuid */
+            resourceId: string;
+            /** @example INVOICE */
+            resourceType: string;
+            title: string;
+            type: components["schemas"]["NotificationType"];
+        };
+        /** @enum {string} */
+        NotificationType: "PAYMENT_SUBMITTED" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED";
         PageMetaDto: {
             /** @example 20 */
             limit: number;
@@ -544,6 +829,15 @@ export type components = {
         };
         PaginatedInvoicesResponseDto: {
             data: components["schemas"]["InvoiceResponseDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        PaginatedNotificationsResponseDto: {
+            data: components["schemas"]["NotificationResponseDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+            unreadCount: number;
+        };
+        PaginatedPaymentReviewResponseDto: {
+            data: components["schemas"]["PaymentReviewItemResponseDto"][];
             meta: components["schemas"]["PageMetaDto"];
         };
         PaginatedPropertiesResponseDto: {
@@ -580,9 +874,29 @@ export type components = {
             rejectionReason: string | null;
             /** Format: date-time */
             reviewedAt: string | null;
+            /** Format: uuid */
+            reviewedByUserId: string | null;
             status: components["schemas"]["PaymentStatus"];
             /** Format: date-time */
             submittedAt: string;
+            /** Format: uuid */
+            submittedByUserId: string | null;
+        };
+        PaymentReviewInvoiceSummaryDto: {
+            approvedAmountCents: number;
+            competence: string;
+            /** Format: date */
+            dueDate: string;
+            /** Format: uuid */
+            id: string;
+            outstandingAmountCents: number;
+            status: components["schemas"]["InvoiceStatus"];
+            totalValueCents: number;
+        };
+        PaymentReviewItemResponseDto: {
+            contract: components["schemas"]["InvoiceContractSummaryDto"];
+            invoice: components["schemas"]["PaymentReviewInvoiceSummaryDto"];
+            payment: components["schemas"]["PaymentResponseDto"];
         };
         /** @enum {string} */
         PaymentStatus: "SUBMITTED" | "APPROVED" | "REJECTED";
@@ -857,6 +1171,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Define o refresh token opaco em cookie HttpOnly e SameSite=Strict. */
+                    "Set-Cookie"?: string;
                     /** @description Identificador de correlação da requisição. */
                     "X-Request-ID"?: string;
                     [name: string]: unknown;
@@ -877,6 +1193,128 @@ export interface operations {
                 };
             };
             /** @description E-mail ou senha inválidos. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    AuthController_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessão revogada e cookie removido. */
+            204: {
+                headers: {
+                    /** @description Expira o cookie de refresh. */
+                    "Set-Cookie"?: string;
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    AuthController_refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Rotaciona o refresh token opaco no cookie HttpOnly. */
+                    "Set-Cookie"?: string;
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Refresh token ausente, inválido, expirado ou reutilizado. */
             401: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
@@ -1185,12 +1623,97 @@ export interface operations {
             };
         };
     };
+    ClientObservabilityController_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientErrorDto"];
+            };
+        };
+        responses: {
+            /** @description Falha aceita para correlação operacional. */
+            202: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
     ContractController_list: {
         parameters: {
             query?: {
+                endFrom?: string;
+                endTo?: string;
                 limit?: number;
+                moveInFrom?: string;
+                moveInTo?: string;
                 page?: number;
                 propertyUnitId?: string;
+                /** @description Busca por contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                q?: string;
                 status?: components["schemas"]["ContractStatus"];
                 tenantId?: string;
             };
@@ -1584,6 +2107,171 @@ export interface operations {
             };
         };
     };
+    ContractController_exportCsv: {
+        parameters: {
+            query?: {
+                endFrom?: string;
+                endTo?: string;
+                limit?: number;
+                moveInFrom?: string;
+                moveInTo?: string;
+                page?: number;
+                propertyUnitId?: string;
+                /** @description Busca por contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                q?: string;
+                status?: components["schemas"]["ContractStatus"];
+                tenantId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo CSV UTF-8 com os contratos que atendem aos filtros. */
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    DashboardController_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummaryResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
     HealthController_live: {
         parameters: {
             query?: never;
@@ -1848,9 +2536,17 @@ export interface operations {
             query?: {
                 competence?: string;
                 contractId?: string;
+                dueFrom?: string;
+                dueTo?: string;
                 limit?: number;
                 page?: number;
+                paymentMethod?: components["schemas"]["PaymentMethod"];
+                paymentStatus?: components["schemas"]["PaymentStatus"];
+                propertyUnitId?: string;
+                /** @description Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                q?: string;
                 status?: components["schemas"]["InvoiceStatus"];
+                tenantId?: string;
             };
             header?: never;
             path?: never;
@@ -2100,6 +2796,97 @@ export interface operations {
             };
             /** @description Regra de negócio ou valor de domínio inválido. */
             422: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    BillingController_getPaymentByIdempotencyKey: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdempotentPaymentLookupResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Fatura ou pagamento não encontrado para a chave informada. */
+            404: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
                     "X-Request-ID"?: string;
@@ -2440,6 +3227,97 @@ export interface operations {
             };
         };
     };
+    BillingController_exportCsv: {
+        parameters: {
+            query?: {
+                competence?: string;
+                contractId?: string;
+                dueFrom?: string;
+                dueTo?: string;
+                limit?: number;
+                page?: number;
+                paymentMethod?: components["schemas"]["PaymentMethod"];
+                paymentStatus?: components["schemas"]["PaymentStatus"];
+                propertyUnitId?: string;
+                /** @description Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                q?: string;
+                status?: components["schemas"]["InvoiceStatus"];
+                tenantId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo CSV UTF-8 com as faturas que atendem aos filtros. */
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
     MetricsController_metrics: {
         parameters: {
             query?: never;
@@ -2492,11 +3370,343 @@ export interface operations {
             };
         };
     };
+    NotificationController_list: {
+        parameters: {
+            query?: {
+                limit?: number;
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationsResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    NotificationController_markRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Notificação não encontrada. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    NotificationController_markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    PaymentReviewController_list: {
+        parameters: {
+            query?: {
+                competence?: string;
+                limit?: number;
+                method?: components["schemas"]["PaymentMethod"];
+                page?: number;
+                propertyUnitId?: string;
+                /** @description Busca por fatura, contrato, locatário, CPF, bairro ou unidade. */
+                q?: string;
+                submittedFrom?: string;
+                submittedTo?: string;
+                tenantId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPaymentReviewResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
     PropertyController_list: {
         parameters: {
             query?: {
                 limit?: number;
                 page?: number;
+                /** @description Busca parcial por bairro ou número da unidade. */
+                q?: string;
+                type?: components["schemas"]["UnitType"];
             };
             header?: never;
             path?: never;
@@ -2765,8 +3975,11 @@ export interface operations {
     TenantController_findAll: {
         parameters: {
             query?: {
+                civilStatus?: components["schemas"]["TenantCivilStatus"];
                 limit?: number;
                 page?: number;
+                /** @description Busca parcial por CPF, profissão, e-mail ou telefone. */
+                q?: string;
             };
             header?: never;
             path?: never;

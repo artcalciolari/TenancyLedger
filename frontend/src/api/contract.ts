@@ -77,6 +77,25 @@ export type PaymentView = Schemas['PaymentResponseDto'];
 export type InvoiceView = Schemas['InvoiceResponseDto'];
 export type RejectPaymentInput = Schemas['RejectPaymentDto'];
 export type PaymentProofView = Schemas['PaymentProofUrlResponseDto'];
+export type DashboardSummary = Schemas['DashboardSummaryResponseDto'];
+export type IdempotentPaymentLookup = Schemas['IdempotentPaymentLookupResponseDto'];
+export type NotificationView = Schemas['NotificationResponseDto'];
+export type NotificationList = Schemas['PaginatedNotificationsResponseDto'];
+export type PaymentReviewItem = Schemas['PaymentReviewItemResponseDto'];
+
+export interface TenantListFilters {
+  page: number;
+  limit: number;
+  q?: string;
+  civilStatus?: TenantCivilStatus;
+}
+
+export interface PropertyListFilters {
+  page: number;
+  limit: number;
+  q?: string;
+  type?: UnitType;
+}
 
 export interface ContractListFilters {
   page: number;
@@ -84,6 +103,11 @@ export interface ContractListFilters {
   status?: ContractStatus;
   tenantId?: string;
   propertyUnitId?: string;
+  q?: string;
+  moveInFrom?: string;
+  moveInTo?: string;
+  endFrom?: string;
+  endTo?: string;
 }
 
 export interface InvoiceListFilters {
@@ -92,6 +116,25 @@ export interface InvoiceListFilters {
   contractId?: string;
   competence?: string;
   status?: InvoiceStatus;
+  q?: string;
+  dueFrom?: string;
+  dueTo?: string;
+  tenantId?: string;
+  propertyUnitId?: string;
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
+}
+
+export interface PaymentReviewFilters {
+  page: number;
+  limit: number;
+  q?: string;
+  competence?: string;
+  method?: PaymentMethod;
+  submittedFrom?: string;
+  submittedTo?: string;
+  tenantId?: string;
+  propertyUnitId?: string;
 }
 
 export interface SubmitPaymentInput {

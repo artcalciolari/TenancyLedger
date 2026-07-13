@@ -75,7 +75,9 @@ export function SubmitPaymentDialog({
 }) {
   const queryClient = useQueryClient();
   const [uncertain, setUncertain] = useState(false);
+  const [verified, setVerified] = useState(false);
   const pendingRef = useRef<{ input: SubmitPaymentInput; key: string } | null>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
   const {
     control,
     handleSubmit,
@@ -101,6 +103,7 @@ export function SubmitPaymentDialog({
         queryClient.invalidateQueries({ queryKey: queryKeys.invoice(invoiceId) }),
         queryClient.invalidateQueries({ queryKey: ['invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['payments', 'review'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
       ]);
       reset();
       onClose();
@@ -116,14 +119,42 @@ export function SubmitPaymentDialog({
       });
     },
   });
+  const verification = useMutation({
+    mutationFn: () => {
+      const pending = pendingRef.current;
+      if (!pending) throw new Error('Não há envio pendente para verificar.');
+      return invoicesApi.lookupPayment(invoiceId, pending.key);
+    },
+    retry: false,
+    onSuccess: async () => {
+      pendingRef.current = null;
+      setUncertain(false);
+      setVerified(true);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoice(invoiceId) }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments', 'review'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
+      ]);
+    },
+  });
+  const resetVerification = verification.reset;
 
   useEffect(() => {
     if (!open) {
       reset();
       setUncertain(false);
+      setVerified(false);
       pendingRef.current = null;
+      resetVerification();
     }
-  }, [open, reset]);
+  }, [open, reset, resetVerification]);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = window.requestAnimationFrame(() => amountInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
 
   useEffect(() => {
     if (method === 'CASH') {
@@ -147,6 +178,8 @@ export function SubmitPaymentDialog({
     };
     const request = { input, key: crypto.randomUUID() };
     pendingRef.current = request;
+    setVerified(false);
+    resetVerification();
     mutation.mutate(request);
   };
 
@@ -154,6 +187,7 @@ export function SubmitPaymentDialog({
     pendingRef.current = null;
     setUncertain(false);
     mutation.reset();
+    resetVerification();
   };
 
   return (
@@ -180,12 +214,31 @@ export function SubmitPaymentDialog({
               envio.
             </Alert>
           )}
+          {verified && (
+            <Alert severity="success">
+              O pagamento foi localizado pela chave de idempotência e a fatura foi atualizada.
+            </Alert>
+          )}
+          {verification.isError && (
+            <Alert
+              severity={
+                verification.error instanceof ApiError && verification.error.status === 404
+                  ? 'info'
+                  : 'error'
+              }
+            >
+              {verification.error instanceof ApiError && verification.error.status === 404
+                ? 'O pagamento ainda não foi localizado. Você pode tentar o mesmo envio novamente ou descartá-lo para editar.'
+                : 'Não foi possível verificar o pagamento agora. Tente novamente.'}
+            </Alert>
+          )}
           <Controller
             name="amount"
             control={control}
             render={({ field }) => (
               <TextField
                 {...field}
+                inputRef={amountInputRef}
                 label="Valor"
                 placeholder="0,00"
                 inputMode="decimal"
@@ -258,14 +311,12 @@ export function SubmitPaymentDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ flexWrap: 'wrap' }}>
-        {uncertain ? (
+        {verified ? (
+          <Button onClick={onClose}>Concluir</Button>
+        ) : uncertain ? (
           <>
-            <Button
-              onClick={() =>
-                queryClient.invalidateQueries({ queryKey: queryKeys.invoice(invoiceId) })
-              }
-            >
-              Verificar fatura
+            <Button onClick={() => verification.mutate()} disabled={verification.isPending}>
+              {verification.isPending ? 'Verificando…' : 'Verificar fatura'}
             </Button>
             <Button variant="outlined" onClick={discardUnknown}>
               Descartar e editar

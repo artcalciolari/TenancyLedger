@@ -23,6 +23,13 @@ export interface PaginatedPropertiesView {
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface ListPropertiesInput {
+  page: number;
+  limit: number;
+  q?: string;
+  type?: UnitType;
+}
+
 @Injectable()
 export class PropertyService {
   constructor(
@@ -57,8 +64,11 @@ export class PropertyService {
     return property;
   }
 
-  async list(page = 1, limit = 20): Promise<PaginatedPropertiesView> {
-    const result = await this.repository.list({ page, limit });
+  async list(
+    input: ListPropertiesInput = { page: 1, limit: 20 },
+  ): Promise<PaginatedPropertiesView> {
+    const { page, limit } = input;
+    const result = await this.repository.list(input);
     return {
       data: result.items.map((property) => PropertyService.toView(property)),
       meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) },

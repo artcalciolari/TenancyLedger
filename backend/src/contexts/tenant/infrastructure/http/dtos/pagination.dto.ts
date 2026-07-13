@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsInt, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { TenantCivilStatus } from '../../../domain/entities/tenant.entity';
 
 export class PaginationDto {
   @ApiPropertyOptional({ type: Number, minimum: 1, default: 1 })
@@ -15,4 +16,19 @@ export class PaginationDto {
   @Min(1)
   @Max(100)
   limit = 20;
+
+  @ApiPropertyOptional({
+    maxLength: 120,
+    description: 'Busca parcial por CPF, profissão, e-mail ou telefone.',
+    example: 'engenheiro',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @ApiPropertyOptional({ enum: TenantCivilStatus, enumName: 'TenantCivilStatus' })
+  @IsOptional()
+  @IsEnum(TenantCivilStatus)
+  civilStatus?: TenantCivilStatus;
 }

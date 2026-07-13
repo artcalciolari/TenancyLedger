@@ -5,6 +5,7 @@ build/
 coverage/
 .vite/
 playwright-report/
+storybook-static/
 test-results/
 
 # Logs and temporary files

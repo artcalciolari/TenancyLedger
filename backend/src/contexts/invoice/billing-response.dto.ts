@@ -6,6 +6,11 @@ import {
   PaymentStatus,
   ProofType,
 } from './domain/entities/payment-transaction.entity';
+import {
+  ContractPropertySummaryDto,
+  ContractTenantSummaryDto,
+} from '../contract/contract-response.dto';
+import { ContractStatus } from '../contract/domain/entities/contract.entity';
 
 export class PaymentResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -38,6 +43,27 @@ export class PaymentResponseDto {
 
   @ApiProperty({ type: String, maxLength: 500, nullable: true })
   rejectionReason!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  submittedByUserId!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  reviewedByUserId!: string | null;
+}
+
+export class InvoiceContractSummaryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty({ format: 'uuid' })
+  tenantId!: string;
+  @ApiProperty({ format: 'uuid' })
+  propertyUnitId!: string;
+  @ApiProperty({ enum: ContractStatus, enumName: 'ContractStatus' })
+  status!: ContractStatus;
+  @ApiProperty({ type: ContractTenantSummaryDto })
+  tenant!: ContractTenantSummaryDto;
+  @ApiProperty({ type: ContractPropertySummaryDto })
+  propertyUnit!: ContractPropertySummaryDto;
 }
 
 export class InvoiceResponseDto {
@@ -73,6 +99,42 @@ export class InvoiceResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   updatedAt!: Date;
+
+  @ApiProperty({ type: InvoiceContractSummaryDto })
+  contract!: InvoiceContractSummaryDto;
+}
+
+export class PaymentReviewInvoiceSummaryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty({ pattern: '^\\d{4}-(0[1-9]|1[0-2])$' })
+  competence!: string;
+  @ApiProperty({ type: String, format: 'date' })
+  dueDate!: string;
+  @ApiProperty({ enum: InvoiceStatus, enumName: 'InvoiceStatus' })
+  status!: InvoiceStatus;
+  @ApiProperty({ minimum: 1 })
+  totalValueCents!: number;
+  @ApiProperty({ minimum: 0 })
+  approvedAmountCents!: number;
+  @ApiProperty({ minimum: 0 })
+  outstandingAmountCents!: number;
+}
+
+export class PaymentReviewItemResponseDto {
+  @ApiProperty({ type: PaymentResponseDto })
+  payment!: PaymentResponseDto;
+  @ApiProperty({ type: PaymentReviewInvoiceSummaryDto })
+  invoice!: PaymentReviewInvoiceSummaryDto;
+  @ApiProperty({ type: InvoiceContractSummaryDto })
+  contract!: InvoiceContractSummaryDto;
+}
+
+export class PaginatedPaymentReviewResponseDto {
+  @ApiProperty({ type: [PaymentReviewItemResponseDto] })
+  data!: PaymentReviewItemResponseDto[];
+  @ApiProperty({ type: PageMetaDto })
+  meta!: PageMetaDto;
 }
 
 export class PaginatedInvoicesResponseDto {
@@ -81,6 +143,13 @@ export class PaginatedInvoicesResponseDto {
 
   @ApiProperty({ type: PageMetaDto })
   meta!: PageMetaDto;
+}
+
+export class IdempotentPaymentLookupResponseDto {
+  @ApiProperty({ type: InvoiceResponseDto })
+  invoice!: InvoiceResponseDto;
+  @ApiProperty({ type: PaymentResponseDto })
+  payment!: PaymentResponseDto;
 }
 
 export class PaymentProofUrlResponseDto {
