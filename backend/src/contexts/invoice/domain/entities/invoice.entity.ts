@@ -238,8 +238,7 @@ export class Invoice {
       this._status = InvoiceStatus.PARTIALLY_PAID;
       return;
     }
-    this._status =
-      this._dueDate < asOf ? InvoiceStatus.OVERDUE : InvoiceStatus.OPEN;
+    this._status = this._dueDate < asOf ? InvoiceStatus.OVERDUE : InvoiceStatus.OPEN;
   }
 
   private static assertDate(value: string): void {

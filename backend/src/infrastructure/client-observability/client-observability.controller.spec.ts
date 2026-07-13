@@ -8,7 +8,9 @@ import { ClientObservabilityController } from './client-observability.controller
 describe('ClientObservabilityController', () => {
   it('persists only the allow-listed correlation fields', async () => {
     const insert = jest.fn().mockResolvedValue(undefined);
-    const controller = new ClientObservabilityController({ insert } as unknown as Repository<AuditLog>);
+    const controller = new ClientObservabilityController({
+      insert,
+    } as unknown as Repository<AuditLog>);
     const user: AuthenticatedUser = {
       id: '039e0ba5-2c28-4616-8983-b3c332da522e',
       email: 'viewer@example.test',
