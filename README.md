@@ -1,78 +1,314 @@
-# 📚 Tenancy Ledger
+# Tenancy Ledger
 
-**A robust Modular Monolith for precise rental and property management.**
+[Português](#português) · [English](#english)
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) | ![Stack](https://img.shields.io/badge/stack-NestJS%20--%20TypeScript-3162FF.svg)
+Backend de gestão de locações construído como monólito modular com NestJS, PostgreSQL
+e armazenamento S3 compatível. O projeto prioriza integridade relacional,
+idempotência do faturamento e rastreabilidade de pagamentos.
 
----
+## Português
 
-## 🎯 Overview
-Tenancy Ledger is a disciplined property management system designed for landlords who require absolute financial transparency and auditability regarding rental payments and contractual obligations. It moves beyond simple tracking to function as an immutable ledger of all tenancy events.
+### Estado atual
 
-The core focus is **Data Integrity**, ensuring that the state of a lease or invoice can never become ambiguous due to poor design choices.
+Esta base entrega a fundação do backend, sem frontend:
 
-## ⚙️ Architectural Philosophy (DDD)
-This project utilizes the **Domain-Driven Design (DDD)** principles implemented via a **Modular Monolith**.
+- autenticação JWT, gestão administrativa de usuários e autorização por papéis
+  (`ADMIN`, `MANAGER` e `VIEWER`);
+- cadastro e consulta paginada de inquilinos e imóveis;
+- criação, consulta e renovação de contratos;
+- geração diária e idempotente de faturas por contrato e competência;
+- registro idempotente de pagamentos parciais, com aprovação ou rejeição explícita;
+- valores monetários representados em centavos inteiros;
+- PostgreSQL administrado somente por migrations, sem `synchronize`;
+- comprovantes privados no MinIO, validados por conteúdo e acessados por URL temporária;
+- healthchecks, métricas Prometheus protegidas, logs estruturados com redação de PII,
+  trilha append-only (incluindo auditoria transacional do ledger no banco), rate limit
+  e validação das variáveis de ambiente.
 
-Instead of treating the system as one big application, we define distinct **Bounded Contexts**—logical boundaries where terms have precise meanings:
+A conciliação continua sendo manual e não há portal de inquilino, notificações ou
+integração bancária. Esses são candidatos para a próxima etapa junto do frontend.
 
-1.  **Tenant Management:** Manages identity and legal documentation ($\text{CPF/RG}$).
-2.  **Contract Management:** Defines the rules of engagement (amount, due date, term).
-3.  **Billing & Status Tracking (The Ledger):** The critical context responsible for creating invoices and managing the *State Machine* of payments. This module ensures every payment is a permanent, verifiable transaction record.
+### Arquitetura
 
-> **Key Design Principle:** Separation of Concerns. Logic related to *who* the tenant is should never influence the logic that determines if an invoice is overdue.
+O código segue um monólito modular: cada contexto mantém suas regras e sua
+persistência, enquanto infraestrutura transversal fica fora dos contextos.
 
-## ✨ Key Features
-*   **Auditable Financial Ledger:** Tracks not just *if* a payment occurred, but *when*, *how much*, and links it directly to proof-of-payment documentation.
-*   **Tenant Document Management:** Securely stores and manages legal documents ($\text{CPF}$, $\text{RG}$) per tenant record.
-*   **Contract Lifecycle Tracking:** Defines lease terms and automatically calculates billing cycles and late fees based on defined business rules.
-*   **Modular Structure:** Clear separation of Bounded Contexts using NestJS Modules for high maintainability and low coupling.
-
-## 🛠️ Tech Stack
-*   **Framework:** NestJS (TypeScript)
-*   **Architecture:** Modular Monolith / DDD
-*   **Database:** PostgreSQL (Chosen for strict relational integrity required by the ledger context)
-*   **File Storage:** S3 compatible storage (for storing document proofs).
-
-## 🚀 Getting Started
-Follow these steps to set up the development environment.
-
-### Prerequisites
-*   Node.js (v18+)
-*   NestJS CLI
-
-### Installation
-```bash
-# Clone the repository
-git clone https://github.com/artcalciolari/TenancyLedger.git
-cd TenancyLedger
-
-# Install dependencies
-npm install
-
-# Run the application in development mode
-npm run start:dev 
+```text
+src/
+├── contexts/
+│   ├── auth/       # identidade, JWT e autorização
+│   ├── tenant/     # dados cadastrais de inquilinos
+│   ├── property/   # unidades imobiliárias
+│   ├── contract/   # vigência e condições da locação
+│   └── invoice/    # faturas, pagamentos e geração agendada
+├── core/           # erros e componentes compartilhados
+├── database/       # DataSource e migrations TypeORM
+└── infrastructure/ # integrações externas, como S3/MinIO
 ```
 
-## 🗺️ Roadmap & Architecture Plan
+As fronteiras são mantidas no código, mas todos os módulos são publicados em um
+único processo e usam o mesmo banco. Faturas possuem unicidade por contrato e
+competência (`AAAA-MM`), o que torna a repetição segura do job de geração.
+Pagamentos usam uma chave idempotente única por fatura; renovações e alterações do
+último administrador são serializadas no PostgreSQL para preservar invariantes sob concorrência.
 
-### Fase 1: Foundation & Identity (Concluído)
-* Implementação do Bounded Context de Inquilinos (Tenant Module).
-* Definição da entidade principal focada exclusivamente na representação da pessoa física e seus dados de identidade.  
+### Requisitos
 
-### Fase 2: Asset & Contract Management (Próximos Passos)
-* Criação da entidade Property Unit para mapear o ativo físico e sua localização de forma independente.
-* Construção do módulo de Contratos (Contract Module) para gerenciar o vínculo e as regras do jogo entre a pessoa e o ativo.
-* Implementação das regras do ciclo de vida contratual, definindo valor base, duração e possibilidade de renovação.  
+- Node.js 24 LTS e npm 11;
+- Docker com Docker Compose, para a execução completa ou apenas das dependências.
 
-### Fase 3: Financial Ledger & Billing Engine (Em Planejamento)
-* Estruturação do Invoice Module focado em isolar a lógica de faturamento do resto do sistema.
-* Desenvolvimento de um mecanismo automatizado (Cron job) no Invoice Service para buscar ativamente contratos próximos ao vencimento e gerar as faturas correspondentes.
-* Criação da sub-entidade de transações de pagamento para registrar datas, métodos (Pix, dinheiro) e vincular a URL do comprovante.
-* Integração do armazenamento de arquivos de comprovantes e documentos em buckets do MinIO.
+### Início rápido com Docker
 
-### Fase 4: Payment State Machine (Em Planejamento)
-* Implementação da máquina de estados para garantir a transição segura e auditável do status das faturas.
-* Mapeamento do estado inicial Pending para aguardar a ação do inquilino.
-* Configuração do estado Under Review, acionado quando um comprovante é anexado, travando a fatura para evitar o status de atraso indevido durante a análise.
-* Definição dos estados finais de conciliação financeira, separando liquidações parciais (Partially Paid) e integrais (Paid).  
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+No PowerShell, use `Copy-Item .env.example .env` no lugar de `cp`. O serviço
+`migrate` aplica as migrations depois que o PostgreSQL fica saudável; a API só é
+iniciada após PostgreSQL, MinIO e migrations estarem prontos.
+
+Serviços locais:
+
+| Serviço                             | Endereço                             |
+| ----------------------------------- | ------------------------------------ |
+| API                                 | `http://localhost:3000`              |
+| Liveness                            | `http://localhost:3000/health/live`  |
+| Readiness (PostgreSQL e MinIO)      | `http://localhost:3000/health/ready` |
+| OpenAPI/Swagger                     | `http://localhost:3000/docs`         |
+| Métricas (header `x-metrics-token`) | `http://localhost:3000/metrics`      |
+| MinIO API                           | `http://localhost:9000`              |
+| MinIO Console                       | `http://localhost:9001`              |
+| PostgreSQL                          | `localhost:5432`                     |
+
+As portas do Compose são vinculadas somente a `127.0.0.1`. Altere as credenciais
+do arquivo `.env` antes de usar um ambiente compartilhado. Para encerrar:
+
+`MINIO_PUBLIC_ENDPOINT` deve apontar para o endereço do storage acessível pelo
+navegador; o backend o usa para assinar URLs sem expor o hostname interno do Compose.
+
+```bash
+docker compose down
+```
+
+Use `docker compose down --volumes` apenas quando quiser apagar permanentemente
+os dados locais.
+
+### Execução local da API
+
+```bash
+cp .env.example .env
+npm ci
+docker compose up -d db minio
+npm run migration:run
+npm run start:dev
+```
+
+### Autenticação inicial
+
+Defina `AUTH_BOOTSTRAP_EMAIL` e `AUTH_BOOTSTRAP_PASSWORD` no `.env`. Na primeira
+inicialização, o backend cria esse usuário com papel `ADMIN`. As duas variáveis
+devem ser fornecidas juntas; a senha deve possuir ao menos 12 caracteres, com
+maiúscula, minúscula, número e símbolo.
+
+```bash
+curl --request POST http://localhost:3000/auth/login \
+  --header "Content-Type: application/json" \
+  --data '{"email":"admin@example.com","password":"ChangeMeNow123!"}'
+```
+
+Envie o token retornado nas demais chamadas:
+
+```text
+Authorization: Bearer <accessToken>
+```
+
+O login e o healthcheck são públicos. `/metrics` usa o segredo `METRICS_TOKEN` no
+header `x-metrics-token`. As demais rotas exigem JWT e aplicam os papéis necessários.
+
+### Endpoints
+
+| Método  | Rota                                               | Finalidade                          |
+| ------- | -------------------------------------------------- | ----------------------------------- |
+| `GET`   | `/health` ou `/health/live`                        | Estado do processo da API           |
+| `GET`   | `/health/ready`                                    | Estado do PostgreSQL e do MinIO     |
+| `POST`  | `/auth/login`                                      | Obter token JWT                     |
+| `POST`  | `/auth/users`                                      | Criar usuário (`ADMIN`)             |
+| `GET`   | `/auth/users`                                      | Listar usuários (`ADMIN`)           |
+| `PATCH` | `/auth/users/:id/access`                           | Alterar papel/atividade             |
+| `POST`  | `/auth/change-password`                            | Alterar a própria senha             |
+| `POST`  | `/tenants`                                         | Criar inquilino                     |
+| `GET`   | `/tenants`                                         | Listar inquilinos com paginação     |
+| `GET`   | `/tenants/:id`                                     | Consultar inquilino                 |
+| `POST`  | `/properties`                                      | Criar imóvel                        |
+| `GET`   | `/properties`                                      | Listar imóveis com paginação        |
+| `GET`   | `/properties/:id`                                  | Consultar imóvel                    |
+| `POST`  | `/contracts`                                       | Criar contrato                      |
+| `GET`   | `/contracts`                                       | Listar contratos                    |
+| `GET`   | `/contracts/:id`                                   | Consultar contrato                  |
+| `PATCH` | `/contracts/:id/renew`                             | Renovar contrato                    |
+| `GET`   | `/invoices`                                        | Listar faturas                      |
+| `GET`   | `/invoices/:id`                                    | Consultar fatura e pagamentos       |
+| `POST`  | `/invoices/:id/payments`                           | Registrar pagamento                 |
+| `PATCH` | `/invoices/:invoiceId/payments/:paymentId/approve` | Aprovar pagamento                   |
+| `PATCH` | `/invoices/:invoiceId/payments/:paymentId/reject`  | Rejeitar pagamento                  |
+| `GET`   | `/invoices/:invoiceId/payments/:paymentId/proof`   | Obter URL temporária do comprovante |
+
+Consulte `/docs` para esquemas, parâmetros e respostas. Campos monetários usam o
+sufixo `Cents` e aceitam somente inteiros; por exemplo, `monthlyBaseValueCents: 150000`
+representa R$ 1.500,00.
+
+Pagamentos não realizados em dinheiro usam `multipart/form-data`: envie `amountCents`,
+`method`, `proofType` e o arquivo no campo `proof`. São aceitos PDF, JPEG, PNG e WebP
+de até 10 MiB; MIME e assinatura binária precisam coincidir. Toda submissão exige o
+header `Idempotency-Key` (8 a 128 caracteres ASCII visíveis). Repetir a mesma chave e
+o mesmo conteúdo devolve o pagamento existente; reutilizá-la com conteúdo diferente
+retorna conflito sem duplicar o registro ou o upload.
+
+### Migrations
+
+Nunca habilite `synchronize` para conveniência. Toda alteração de esquema deve
+ser registrada e revisada como migration.
+
+```bash
+# Ver migrations e aplicar pendências
+npm run migration:show
+npm run migration:run
+
+# Gerar migration a partir das entidades
+npm run migration:generate -- src/database/migrations/DescribeChange
+
+# Reverter somente a última migration
+npm run migration:revert
+```
+
+Na imagem compilada, os comandos `migration:*:prod` validam e exigem apenas as
+variáveis `DB_*`; segredos de JWT, métricas e storage não precisam ser expostos ao job.
+
+O job diário de faturamento considera apenas contratos ativos e usa
+`INVOICE_CRON_TIME_ZONE` e `INVOICE_GENERATION_DAYS_AHEAD`. Pode ser desativado
+com `INVOICE_CRON_ENABLED=false`.
+
+### Scripts de desenvolvimento
+
+| Comando                  | Ação                                       |
+| ------------------------ | ------------------------------------------ |
+| `npm run start:dev`      | Executa a API com recarga automática       |
+| `npm run build`          | Compila a aplicação                        |
+| `npm run typecheck`      | Verifica tipos sem gerar arquivos          |
+| `npm run format:check`   | Verifica formatação Prettier               |
+| `npm run lint:check`     | Executa ESLint sem alterar arquivos        |
+| `npm test`               | Executa testes unitários                   |
+| `npm run test:ci`        | Executa testes unitários com cobertura     |
+| `npm run test:e2e:ci`    | Executa testes de integração com cobertura |
+| `npm run security:audit` | Audita dependências de produção            |
+
+O workflow de CI usa Node 24 LTS, instala com `npm ci`, executa todas essas validações,
+aplica migrations em PostgreSQL real, testa com MinIO e constrói a imagem Docker.
+A cobertura é publicada como artefato do workflow.
+
+### Produção
+
+A imagem é multi-stage, contém apenas dependências de produção e executa como o
+usuário sem privilégios `node`. Configure segredos reais fora do repositório. Em
+`NODE_ENV=production`, o backend exige TLS para PostgreSQL/MinIO, SSE no storage,
+segredos JWT/métricas explícitos e rejeita credenciais de desenvolvimento. Habilite
+criptografia em repouso no serviço/volume PostgreSQL e no backup. Execute
+`npm run migration:run:prod` na imagem compilada como etapa única antes de subir réplicas.
+Para uma CA privada ou mTLS do PostgreSQL, monte os PEMs e configure
+`DB_SSL_CA_FILE`, `DB_SSL_CERT_FILE` e `DB_SSL_KEY_FILE` (certificado e chave juntos).
+O bucket de produção deve existir previamente e suportar SSE-S3 `AES256`; no MinIO,
+configure KMS/KES. A API testa `HeadBucket`, escrita criptografada e remoção de um
+objeto efêmero durante o startup e falha cedo se a policy ou o SSE estiverem incorretos.
+Antes de aceitar uploads de usuários externos, conecte uma etapa de quarentena e
+antimalware; a validação atual cobre tamanho, MIME/magic bytes e entrega como anexo.
+
+## English
+
+### Current status
+
+This repository provides the backend foundation; it does not include a frontend:
+
+- JWT authentication, administrative user management, and role-based access
+  (`ADMIN`, `MANAGER`, and `VIEWER`);
+- tenant and property creation and paginated queries;
+- contract creation, queries, and renewal;
+- daily, idempotent invoice generation by contract and billing period;
+- idempotent partial-payment records with explicit approval or rejection;
+- monetary values represented as integer cents;
+- PostgreSQL managed only through migrations, with no `synchronize`;
+- private proof files in S3-compatible MinIO with content validation and signed URLs;
+- healthchecks, protected Prometheus metrics, PII-redacted structured logs,
+  append-only audit trails (including transactional database ledger audit), rate limiting,
+  and environment validation.
+
+Reconciliation is still manual. There is no tenant portal, notification system, or
+bank integration yet. These are natural candidates for the frontend phase.
+
+### Architecture
+
+The application is a modular monolith. Authentication, tenants, properties,
+contracts, and invoices are separate contexts inside one NestJS process and one
+PostgreSQL database. Cross-cutting code lives under `core`, `database`, and
+`infrastructure`. A unique constraint on contract and `YYYY-MM` period makes
+invoice generation safe to retry.
+Payment submissions use a per-invoice idempotency key, while contract renewal and
+last-admin changes are serialized in PostgreSQL to preserve concurrency invariants.
+
+### Requirements and quick start
+
+- Node.js 24 LTS and npm 11;
+- Docker with Docker Compose for the full stack or local dependencies.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+On PowerShell, use `Copy-Item .env.example .env`. The one-shot `migrate` service
+runs after PostgreSQL becomes healthy, and the API waits for PostgreSQL, MinIO,
+and migrations. The local addresses are listed in the Portuguese service table
+above; Compose binds every published port to `127.0.0.1`.
+
+To run the API directly on the host:
+
+```bash
+cp .env.example .env
+npm ci
+docker compose up -d db minio
+npm run migration:run
+npm run start:dev
+```
+
+### Authentication and API
+
+Set `AUTH_BOOTSTRAP_EMAIL` and `AUTH_BOOTSTRAP_PASSWORD` together. At startup, the
+application creates the initial `ADMIN`; the password must contain at least 12
+characters with upper/lowercase, a number, and a symbol. Call `POST /auth/login`,
+then send the returned token as `Authorization: Bearer <accessToken>`. Metrics use
+`x-metrics-token`; all business routes require JWT.
+
+The endpoint table, migration commands, and npm scripts above are language-neutral
+and apply unchanged. Monetary fields end in `Cents` and accept integers only.
+Open `/docs` for the complete OpenAPI schema.
+`POST /invoices/:id/payments` also requires an `Idempotency-Key` header (8–128 visible
+ASCII characters); retrying the same request returns the existing payment.
+
+### Production notes
+
+The multi-stage image contains production dependencies only and runs as the
+unprivileged `node` user. Keep secrets outside the repository. Production startup
+requires TLS/SSE and explicit JWT, metrics, database, and MinIO secrets. Enable
+database/backup encryption at rest. Apply compiled migrations once before starting
+API replicas, and keep schema synchronization disabled.
+Set `MINIO_PUBLIC_ENDPOINT` to the HTTPS object-storage address reachable by browsers.
+Migration jobs require only `DB_*` settings. Private PostgreSQL CAs and mTLS are supported
+through `DB_SSL_CA_FILE`, `DB_SSL_CERT_FILE`, and `DB_SSL_KEY_FILE`. Pre-provision the
+production bucket and configure MinIO KMS/KES for SSE-S3; startup verifies encrypted write
+and delete capability. Add quarantine/antimalware scanning before enabling public uploads.
+
+## Licença / License
+
+Distribuído sob a licença MIT. Consulte [LICENSE](LICENSE).
+
+Distributed under the MIT License. See [LICENSE](LICENSE).

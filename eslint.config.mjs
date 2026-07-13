@@ -1,7 +1,6 @@
 // @ts-check
 import eslint from '@eslint/js';
 import { defineConfig } from 'eslint/config';
-import stylistic from '@stylistic/eslint-plugin';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -11,12 +10,6 @@ export default defineConfig(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
-  stylistic.configs.customize({
-    indent: 2,
-    quotes: 'single',
-    semi: true,
-    braceStyle: 'allman',
-  }),
   {
     languageOptions: {
       globals: {
@@ -33,8 +26,11 @@ export default defineConfig(
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/explicit-function-return-type': ['error', { allowExpressions: true }],
     },
   },
 );

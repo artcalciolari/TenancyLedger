@@ -2,12 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-describe('AppController', () =>
-{
+describe('AppController', () => {
   let appController: AppController;
 
-  beforeEach(async () =>
-  {
+  beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
       providers: [AppService],
@@ -16,11 +14,13 @@ describe('AppController', () =>
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () =>
-  {
-    it('should return "Hello World!"', () =>
-    {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe('root', () => {
+    it('returns API metadata', () => {
+      expect(appController.getInfo()).toEqual({
+        name: 'Tenancy Ledger API',
+        status: 'ok',
+        documentation: '/docs',
+      });
     });
   });
 });

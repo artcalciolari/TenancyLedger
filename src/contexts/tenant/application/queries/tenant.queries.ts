@@ -1,61 +1,57 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Tenant } from '../../domain/entities/tenant.entity';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Tenant, TenantCivilStatus } from '../../domain/entities/tenant.entity';
 
-// Defina exatamente o que a sua API vai devolver.
-// Isso evita vazar o modelo de Domínio para fora.
 export interface TenantView {
-  id: string | null;
-  cpf: string | null;
-  email: string | null;
-  mobilePhone: string | null;
+  id: string;
+  cpf: string;
+  profession: string;
+  civilStatus: TenantCivilStatus;
+  email: string;
+  mobilePhone: string;
+}
+
+export interface PaginatedTenantView {
+  data: TenantView[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 @Injectable()
-export class TenantQueries
-{
+export class TenantQueries {
   constructor(
     @InjectRepository(Tenant)
     private readonly repository: Repository<Tenant>,
-  ) { }
+  ) {}
 
-  // O QueryBuilder é a melhor forma de consultar dados de leitura,
-  // pois permite apelidar os retornos e usar getRawMany/getRawOne
-  // para pular a pesada hidratação de Entidades do TypeORM.
-  private get baseQuery()
-  {
-    return this.repository.createQueryBuilder('tenant')
+  private get baseQuery(): SelectQueryBuilder<Tenant> {
+    return this.repository
+      .createQueryBuilder('tenant')
       .select('tenant.id', 'id')
       .addSelect('tenant.cpf', 'cpf')
-      .addSelect('tenant._email', '_email')
-      .addSelect('tenant._mobilePhone', '_mobilePhone')
-      .addSelect('tenant._profession', '_profession')
-      .addSelect('tenant._civilStatus', '_civilStatus');
+      .addSelect('tenant.profession', 'profession')
+      .addSelect('tenant.civilStatus', 'civilStatus')
+      .addSelect('tenant.email', 'email')
+      .addSelect('tenant.mobilePhone', 'mobilePhone');
   }
 
-  async findAll(): Promise<TenantView[]>
-  {
-    return this.baseQuery.getRawMany();
+  async findAll(page: number, limit: number): Promise<PaginatedTenantView> {
+    const [data, total] = await Promise.all([
+      this.baseQuery
+        .orderBy('tenant.createdAt', 'DESC')
+        .addOrderBy('tenant.id', 'ASC')
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .getRawMany<TenantView>(),
+      this.repository.count(),
+    ]);
+
+    return { data, total, page, limit };
   }
 
-  async findById(id: string): Promise<TenantView | null>
-  {
-    return await this.baseQuery.where('tenant.id = :id', { id }).getRawOne() ?? null;
-  }
-
-  async findByCpf(cpf: string): Promise<TenantView | null>
-  {
-    return await this.baseQuery.where('tenant.cpf = :cpf', { cpf }).getRawOne() ?? null;
-  }
-
-  async findByEmail(email: string): Promise<TenantView | null>
-  {
-    return await this.baseQuery.where('tenant._email = :email', { email }).getRawOne() ?? null;
-  }
-
-  async findByMobilePhone(mobilePhone: string): Promise<TenantView | null>
-  {
-    return await this.baseQuery.where('tenant._mobilePhone = :mobilePhone', { mobilePhone }).getRawOne() ?? null;
+  async findById(id: string): Promise<TenantView | null> {
+    return (await this.baseQuery.where('tenant.id = :id', { id }).getRawOne<TenantView>()) ?? null;
   }
 }
