@@ -18,7 +18,7 @@ export default defineConfig({
   fullyParallel: !integrationEnabled,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI || integrationEnabled ? 1 : undefined,
+  workers: process.env.CI || integrationEnabled ? 3 : undefined,
   reporter: process.env.CI
     ? [['html', { open: 'never', outputFolder: reportDirectory }], ['github']]
     : 'list',
