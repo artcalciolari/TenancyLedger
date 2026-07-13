@@ -42,7 +42,7 @@ export class AuthService {
     const user = await this.users
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('LOWER(user.email) = :email', { email: normalizedEmail })
+      .where('user.email = :email', { email: normalizedEmail })
       .getOne();
 
     const passwordMatches = await compare(password, user?.passwordHash ?? dummyPasswordHash);

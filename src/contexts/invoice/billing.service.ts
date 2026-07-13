@@ -103,7 +103,6 @@ export class BillingService {
     PaymentTransaction.assertIdempotencyKey(input.idempotencyKey);
     const idempotencyKey = input.idempotencyKey;
     const requestFingerprint = BillingService.paymentFingerprint(input);
-    await this.getById(invoiceId);
     if (input.method === PaymentMethod.CASH && input.proof) {
       throw new ValidationError('Pagamentos em dinheiro não devem enviar comprovante digital.');
     }
