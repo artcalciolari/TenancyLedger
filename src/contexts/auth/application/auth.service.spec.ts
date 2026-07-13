@@ -89,7 +89,7 @@ describe('AuthService', () => {
     const result = await service.login(' ADMIN@example.com ', 'correct-password');
 
     expect(queryBuilder.where.mock.calls).toContainEqual([
-      'LOWER(user.email) = :email',
+      'user.email = :email',
       { email: 'admin@example.com' },
     ]);
     expect(result).toEqual({
