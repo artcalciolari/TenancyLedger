@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { PlaceholderPage } from '../../components/feedback/PlaceholderPage';
+import { RouteErrorPage } from '../../components/feedback/AppErrorBoundary';
 import { LoadingState } from '../../components/feedback/QueryState';
 import { AppShell } from '../../layouts/AppShell';
 import { AuthLayout } from '../../layouts/AuthLayout';
@@ -8,6 +9,11 @@ import { RequireAuth, RequireRole } from './guards';
 
 const LoginPage = lazy(() =>
   import('../../modules/auth/LoginPage').then((module) => ({ default: module.LoginPage })),
+);
+const DashboardPage = lazy(() =>
+  import('../../modules/dashboard/DashboardPage').then((module) => ({
+    default: module.DashboardPage,
+  })),
 );
 const ChangePasswordPage = lazy(() =>
   import('../../modules/auth/ChangePasswordPage').then((module) => ({
@@ -89,6 +95,7 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <AuthLayout>{page(<LoginPage />)}</AuthLayout>,
+    errorElement: <RouteErrorPage />,
   },
   {
     path: '/',
@@ -97,8 +104,13 @@ export const router = createBrowserRouter([
         <AppShell />
       </RequireAuth>
     ),
+    errorElement: <RouteErrorPage />,
     children: [
-      { index: true, element: <Navigate to="/invoices" replace /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      {
+        path: 'dashboard',
+        element: page(<DashboardPage />),
+      },
       {
         path: 'invoices',
         element: page(<InvoiceListPage />),
@@ -166,7 +178,7 @@ export const router = createBrowserRouter([
             title="Acesso negado"
             description="Você não tem permissão para acessar esta página."
             kind="forbidden"
-            action={{ label: 'Voltar para faturas', to: '/invoices' }}
+            action={{ label: 'Voltar para a visão geral', to: '/dashboard' }}
           />
         ),
       },
@@ -177,7 +189,7 @@ export const router = createBrowserRouter([
             title="Página não encontrada"
             description="Confira o endereço ou retorne para a página inicial."
             kind="not-found"
-            action={{ label: 'Ir para faturas', to: '/invoices' }}
+            action={{ label: 'Ir para a visão geral', to: '/dashboard' }}
           />
         ),
       },

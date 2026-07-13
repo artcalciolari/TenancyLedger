@@ -23,8 +23,7 @@ export function ChangePasswordPage() {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       });
-      endSession('logged-out');
-      void navigate('/login?reason=password-changed', { replace: true });
+      endSession('password-changed');
     } catch {
       // A mutação mantém o problema disponível para a mensagem persistente abaixo.
     }

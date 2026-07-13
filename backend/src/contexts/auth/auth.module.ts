@@ -6,6 +6,8 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminBootstrapService } from './application/admin-bootstrap.service';
 import { AuthService } from './application/auth.service';
+import { RefreshSessionService } from './application/refresh-session.service';
+import { RefreshSession } from './domain/entities/refresh-session.entity';
 import { User } from './domain/entities/user.entity';
 import { AuthController } from './infrastructure/http/auth.controller';
 import { JwtAuthGuard } from './infrastructure/security/jwt-auth.guard';
@@ -29,7 +31,7 @@ function jwtExpirationSeconds(value: string): number {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, RefreshSession]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -53,6 +55,7 @@ function jwtExpirationSeconds(value: string): number {
   controllers: [AuthController],
   providers: [
     AuthService,
+    RefreshSessionService,
     AdminBootstrapService,
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },

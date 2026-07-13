@@ -64,6 +64,15 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'JWT de acesso.' },
       'bearer',
     )
+    .addCookieAuth(
+      'refresh_token',
+      {
+        type: 'apiKey',
+        in: 'cookie',
+        description: 'Token opaco HttpOnly, rotacionado a cada renovação de sessão.',
+      },
+      'refreshCookie',
+    )
     .build();
 
   return enrichOpenApiDocument(

@@ -32,6 +32,14 @@ describe('parseContractFilters', () => {
       propertyUnitId: undefined,
     });
   });
+
+  it('limita a busca e descarta datas civis impossíveis', () => {
+    const filters = parseContractFilters(
+      new URLSearchParams({ q: 'x'.repeat(140), moveInFrom: '2026-02-31' }),
+    );
+    expect(filters.q).toHaveLength(120);
+    expect(filters.moveInFrom).toBeUndefined();
+  });
 });
 
 describe('isUuid', () => {

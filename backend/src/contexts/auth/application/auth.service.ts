@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { compare, hash } from 'bcryptjs';
 import { QueryFailedError, Repository } from 'typeorm';
 import { User, UserRole } from '../domain/entities/user.entity';
+import { RefreshSessionService } from './refresh-session.service';
 
 const dummyPasswordHash = '$2b$12$ZqxB49XFtCJPJPojjNn1Z.Da6Y6CgeN33AeGyQRzzyAD8LhElMCc2';
 const accessManagementAdvisoryLock = ['tenancy-ledger', 'active-admin-access'] as const;
@@ -27,18 +28,22 @@ export interface JwtPayload {
   ver: number;
 }
 
+export interface AuthenticationResult {
+  accessToken: string;
+  refreshToken: string;
+  user: AuthenticatedUser;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly refreshSessions: RefreshSessionService,
   ) {}
 
-  async login(
-    email: string,
-    password: string,
-  ): Promise<{ accessToken: string; user: AuthenticatedUser }> {
+  async login(email: string, password: string): Promise<AuthenticationResult> {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.users
       .createQueryBuilder('user')
@@ -52,17 +57,24 @@ export class AuthService {
     }
 
     const authenticatedUser = this.toAuthenticatedUser(user);
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      ver: user.tokenVersion,
-    };
-
     return {
-      accessToken: await this.jwtService.signAsync(payload),
+      accessToken: await this.signAccessToken(user),
+      refreshToken: await this.refreshSessions.issue(user),
       user: authenticatedUser,
     };
+  }
+
+  async refresh(refreshToken: string | undefined): Promise<AuthenticationResult> {
+    const rotated = await this.refreshSessions.rotate(refreshToken);
+    return {
+      accessToken: await this.signAccessToken(rotated.user),
+      refreshToken: rotated.refreshToken,
+      user: this.toAuthenticatedUser(rotated.user),
+    };
+  }
+
+  logout(refreshToken: string | undefined): Promise<void> {
+    return this.refreshSessions.revoke(refreshToken);
   }
 
   async validatePayload(payload: JwtPayload): Promise<AuthenticatedUser | null> {
@@ -133,7 +145,9 @@ export class AuthService {
         }
       }
       user.updateAccess(role, active);
-      return this.toAuthenticatedUser(await users.save(user));
+      const saved = await users.save(user);
+      await this.refreshSessions.revokeAllForUser(user.id, manager);
+      return this.toAuthenticatedUser(saved);
     });
   }
 
@@ -142,21 +156,40 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.users
-      .createQueryBuilder('user')
-      .addSelect('user.passwordHash')
-      .where('user.id = :userId', { userId })
-      .andWhere('user.active = true')
-      .getOne();
-    const passwordMatches = await compare(currentPassword, user?.passwordHash ?? dummyPasswordHash);
-    if (!user || !passwordMatches) {
-      throw new UnauthorizedException('Senha atual inválida.');
-    }
-    if (await compare(newPassword, user.passwordHash)) {
-      throw new ConflictException('A nova senha deve ser diferente da senha atual.');
-    }
-    user.changePasswordHash(await hash(newPassword, 12));
-    await this.users.save(user);
+    const newPasswordHash = await hash(newPassword, 12);
+    await this.users.manager.transaction(async (manager) => {
+      const users = manager.getRepository(User);
+      const user = await users
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .setLock('pessimistic_write')
+        .where('user.id = :userId', { userId })
+        .andWhere('user.active = true')
+        .getOne();
+      const passwordMatches = await compare(
+        currentPassword,
+        user?.passwordHash ?? dummyPasswordHash,
+      );
+      if (!user || !passwordMatches) {
+        throw new UnauthorizedException('Senha atual inválida.');
+      }
+      if (await compare(newPassword, user.passwordHash)) {
+        throw new ConflictException('A nova senha deve ser diferente da senha atual.');
+      }
+      user.changePasswordHash(newPasswordHash);
+      await users.save(user);
+      await this.refreshSessions.revokeAllForUser(user.id, manager);
+    });
+  }
+
+  private signAccessToken(user: User): Promise<string> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      ver: user.tokenVersion,
+    };
+    return this.jwtService.signAsync(payload);
   }
 
   private toAuthenticatedUser(user: User): AuthenticatedUser {

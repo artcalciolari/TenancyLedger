@@ -3,6 +3,9 @@
 FROM node:24-alpine AS builder
 WORKDIR /workspace
 
+ARG VITE_APP_RELEASE=local
+ENV VITE_APP_RELEASE=$VITE_APP_RELEASE
+
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/package.json
 COPY frontend/package.json ./frontend/package.json

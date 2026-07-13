@@ -27,6 +27,10 @@ function assertCompleteContract(document) {
     'ContractResponseDto',
     'InvoiceResponseDto',
     'PaymentResponseDto',
+    'DashboardSummaryResponseDto',
+    'PaginatedPaymentReviewResponseDto',
+    'PaginatedNotificationsResponseDto',
+    'ClientErrorDto',
     'ProblemDetailsDto',
   ];
   for (const name of requiredObjectSchemas) {
@@ -36,6 +40,18 @@ function assertCompleteContract(document) {
         `OpenAPI incompleto: components.schemas.${name} não possui propriedades. ` +
           'Confirme que a API em OPENAPI_URL foi reconstruída a partir do código atual.',
       );
+    }
+  }
+  for (const [name, schema] of Object.entries(schemas ?? {})) {
+    const isEmptyObject =
+      schema?.type === 'object' &&
+      Object.keys(schema.properties ?? {}).length === 0 &&
+      !schema.additionalProperties &&
+      !schema.allOf &&
+      !schema.oneOf &&
+      !schema.anyOf;
+    if (isEmptyObject) {
+      throw new Error(`OpenAPI incompleto: components.schemas.${name} é um objeto vazio.`);
     }
   }
   if (!schemas.UserResponseDto.properties.active) {
@@ -51,6 +67,42 @@ function assertCompleteContract(document) {
   }
   if (!paymentOperation?.requestBody?.content?.['multipart/form-data']) {
     throw new Error('OpenAPI incompleto: o multipart de pagamento não está documentado.');
+  }
+
+  const requiredPaths = [
+    '/auth/refresh',
+    '/auth/logout',
+    '/dashboard/summary',
+    '/payments/review',
+    '/notifications',
+    '/contracts/export.csv',
+    '/invoices/export.csv',
+    '/client-errors',
+  ];
+  for (const path of requiredPaths) {
+    if (!document?.paths?.[path]) {
+      throw new Error(`OpenAPI incompleto: a operação ${path} não está documentada.`);
+    }
+  }
+
+  const refreshCookie = document?.components?.securitySchemes?.refreshCookie;
+  if (
+    refreshCookie?.type !== 'apiKey' ||
+    refreshCookie?.in !== 'cookie' ||
+    refreshCookie?.name !== 'refresh_token'
+  ) {
+    throw new Error('OpenAPI incompleto: o cookie HttpOnly de refresh não está documentado.');
+  }
+  for (const operation of [
+    document?.paths?.['/auth/refresh']?.post,
+    document?.paths?.['/auth/logout']?.post,
+  ]) {
+    const usesRefreshCookie = operation?.security?.some((requirement) =>
+      Object.hasOwn(requirement, 'refreshCookie'),
+    );
+    if (!usesRefreshCookie) {
+      throw new Error('OpenAPI incompleto: refresh/logout deve declarar refreshCookie.');
+    }
   }
 }
 

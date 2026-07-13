@@ -196,7 +196,7 @@ jobs:
   frontend:
     name: Frontend quality, tests and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -247,9 +247,12 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Build Storybook component catalog
+        run: npm run storybook:build
+
       - name: Build frontend production image
         working-directory: ${{ github.workspace }}
-        run: docker build --file frontend/Dockerfile --tag tenancy-ledger-frontend:ci .
+        run: docker build --build-arg VITE_APP_RELEASE=${{ github.sha }} --file frontend/Dockerfile --tag tenancy-ledger-frontend:ci .
 
       - name: Smoke-test frontend production image
         run: |
@@ -268,16 +271,179 @@ jobs:
         run: docker rm --force tenancy-ledger-frontend-ci || true
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Run frontend end-to-end tests
         run: npm run e2e
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-functional
+          PLAYWRIGHT_OUTPUT_DIR: test-results-functional
+
+      - name: Run Linux visual regression tests
+        working-directory: ${{ github.workspace }}
+        run: >-
+          docker run --rm --ipc=host --network=host
+          --volume "${{ github.workspace }}:/workspace"
+          --workdir /workspace/frontend
+          --env CI=1
+          --env PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report-visual
+          --env PLAYWRIGHT_OUTPUT_DIR=test-results-visual
+          mcr.microsoft.com/playwright:v1.61.1-noble
+          npm run e2e:visual
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          path: |
+            frontend/playwright-report-functional/
+            frontend/playwright-report-visual/
+            frontend/test-results-functional/
+            frontend/test-results-visual/
           if-no-files-found: warn
           retention-days: 14
+
+  frontend-integration:
+    name: Full-stack browser integration (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    services:
+      postgres:
+        image: postgres:18.3-alpine3.22@sha256:af27ebd3413839ccfdcdf88e91ca76ad82117e52192067b76de9bb5be7ea6e04
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tenancyledger_fullstack_e2e
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tenancyledger_fullstack_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      E2E_INTEGRATION: '1'
+      E2E_FULLSTACK_BROWSER: ${{ matrix.browser }}
+      NODE_ENV: test
+      PORT: 3000
+      CORS_ORIGINS: http://127.0.0.1:5173
+      SWAGGER_ENABLED: 'false'
+      LOG_LEVEL: silent
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: tenancyledger_fullstack_e2e
+      DB_SSL: 'false'
+      JWT_SECRET: fullstack-e2e-jwt-secret-with-at-least-32-characters
+      JWT_EXPIRES_IN: 15m
+      JWT_ISSUER: tenancy-ledger-fullstack-e2e
+      JWT_AUDIENCE: tenancy-ledger-fullstack-e2e
+      REFRESH_TOKEN_TTL_DAYS: 1
+      THROTTLE_TTL_MS: 60000
+      THROTTLE_LIMIT: 200
+      METRICS_TOKEN: fullstack-e2e-metrics-token
+      MINIO_ENDPOINT: 127.0.0.1
+      MINIO_PORT: 9000
+      MINIO_PUBLIC_ENDPOINT: http://127.0.0.1:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: payment-proofs-fullstack-e2e
+      MINIO_USE_SSL: 'false'
+      MINIO_AUTO_CREATE_BUCKET: 'false'
+      STORAGE_SSE_ENABLED: 'false'
+      INVOICE_CRON_ENABLED: 'false'
+      INVOICE_CRON_TIME_ZONE: America/Sao_Paulo
+      INVOICE_GENERATION_DAYS_AHEAD: 7
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Start MinIO
+        run: |
+          docker run --detach --name minio-fullstack-e2e \
+            --publish 9000:9000 \
+            --env MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+            --env MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            --health-cmd "curl --fail http://localhost:9000/minio/health/live" \
+            --health-interval 2s --health-timeout 5s --health-retries 15 \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e \
+            server /data
+
+          for attempt in {1..30}; do
+            if [ "$(docker inspect --format '{{.State.Health.Status}}' minio-fullstack-e2e)" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs minio-fullstack-e2e
+          exit 1
+
+      - name: Create private proof bucket
+        run: >-
+          node -e "const { S3Client, CreateBucketCommand } = require('@aws-sdk/client-s3');
+          const client = new S3Client({ endpoint: 'http://127.0.0.1:9000', region: 'us-east-1',
+          forcePathStyle: true, credentials: { accessKeyId: process.env.MINIO_ACCESS_KEY,
+          secretAccessKey: process.env.MINIO_SECRET_KEY } });
+          client.send(new CreateBucketCommand({ Bucket: process.env.MINIO_BUCKET_NAME }))
+          .catch((error) => { console.error(error); process.exit(1); });"
+
+      - name: Apply migrations and prepare deterministic fixtures
+        run: |
+          npm run --workspace backend migration:run
+          npm run --workspace backend test:e2e:seed
+
+      - name: Start backend
+        run: |
+          npm run --workspace backend start > backend-fullstack-e2e.log 2>&1 &
+          echo $! > backend-fullstack-e2e.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:3000/health/ready; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat backend-fullstack-e2e.log
+          exit 1
+
+      - name: Install browser
+        working-directory: frontend
+        run: npx playwright install --with-deps "${{ matrix.browser }}"
+
+      - name: Run real browser integration
+        run: npm run --workspace frontend e2e:integration
+
+      - name: Upload full-stack diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullstack-e2e-diagnostics-${{ matrix.browser }}
+          path: |
+            backend-fullstack-e2e.log
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop full-stack services
+        if: always()
+        run: |
+          if [ -f backend-fullstack-e2e.pid ]; then kill "$(cat backend-fullstack-e2e.pid)" || true; fi
+          docker rm --force minio-fullstack-e2e || true

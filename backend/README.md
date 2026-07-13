@@ -10,7 +10,8 @@ idempotência do faturamento e rastreabilidade de pagamentos.
 
 ### Estado atual
 
-Esta base entrega a fundação do backend, sem frontend:
+Este diretório contém o backend do monorepo. A aplicação administrativa React está em
+`../frontend` e consome as seguintes capacidades:
 
 - autenticação JWT, gestão administrativa de usuários e autorização por papéis
   (`ADMIN`, `MANAGER` e `VIEWER`);
@@ -18,6 +19,9 @@ Esta base entrega a fundação do backend, sem frontend:
 - criação, consulta e renovação de contratos;
 - geração diária e idempotente de faturas por contrato e competência;
 - registro idempotente de pagamentos parciais, com aprovação ou rejeição explícita;
+- refresh token opaco e rotativo em cookie `HttpOnly`, com detecção de reutilização;
+- visão geral agregada, busca avançada, exportações CSV e fila de revisão por pagamento;
+- segregação de funções entre submissão e revisão, além de notificações transacionais;
 - valores monetários representados em centavos inteiros;
 - PostgreSQL administrado somente por migrations, sem `synchronize`;
 - comprovantes privados no MinIO, validados por conteúdo e acessados por URL temporária;
@@ -25,8 +29,9 @@ Esta base entrega a fundação do backend, sem frontend:
   trilha append-only (incluindo auditoria transacional do ledger no banco), rate limit
   e validação das variáveis de ambiente.
 
-A conciliação continua sendo manual e não há portal de inquilino, notificações ou
-integração bancária. Esses são candidatos para a próxima etapa junto do frontend.
+A conciliação continua sendo manual pela interface administrativa. Ainda não há portal
+de inquilino ou integração bancária; esses itens permanecem fora do escopo atual do backend
+e do frontend.
 
 ### Arquitetura
 
@@ -40,7 +45,9 @@ src/
 │   ├── tenant/     # dados cadastrais de inquilinos
 │   ├── property/   # unidades imobiliárias
 │   ├── contract/   # vigência e condições da locação
-│   └── invoice/    # faturas, pagamentos e geração agendada
+│   ├── invoice/    # faturas, pagamentos e geração agendada
+│   ├── dashboard/  # agregados operacionais globais
+│   └── notification/ # avisos transacionais por usuário
 ├── core/           # erros e componentes compartilhados
 ├── database/       # DataSource e migrations TypeORM
 └── infrastructure/ # integrações externas, como S3/MinIO
@@ -123,8 +130,10 @@ Envie o token retornado nas demais chamadas:
 Authorization: Bearer <accessToken>
 ```
 
-O login e o healthcheck são públicos. `/metrics` usa o segredo `METRICS_TOKEN` no
-header `x-metrics-token`. As demais rotas exigem JWT e aplicam os papéis necessários.
+Login e healthchecks são públicos. Refresh e logout usam exclusivamente o cookie HttpOnly de
+sessão; o logout é idempotente e sempre expira o cookie recebido. `/metrics` usa o segredo
+`METRICS_TOKEN` no header `x-metrics-token`. As demais rotas exigem JWT e aplicam os papéis
+necessários.
 
 ### Endpoints
 
@@ -133,6 +142,8 @@ header `x-metrics-token`. As demais rotas exigem JWT e aplicam os papéis necess
 | `GET`   | `/health` ou `/health/live`                        | Estado do processo da API           |
 | `GET`   | `/health/ready`                                    | Estado do PostgreSQL e do MinIO     |
 | `POST`  | `/auth/login`                                      | Obter token JWT                     |
+| `POST`  | `/auth/refresh`                                    | Rotacionar a sessão                 |
+| `POST`  | `/auth/logout`                                     | Revogar a sessão atual              |
 | `POST`  | `/auth/users`                                      | Criar usuário (`ADMIN`)             |
 | `GET`   | `/auth/users`                                      | Listar usuários (`ADMIN`)           |
 | `PATCH` | `/auth/users/:id/access`                           | Alterar papel/atividade             |
@@ -145,14 +156,23 @@ header `x-metrics-token`. As demais rotas exigem JWT e aplicam os papéis necess
 | `GET`   | `/properties/:id`                                  | Consultar imóvel                    |
 | `POST`  | `/contracts`                                       | Criar contrato                      |
 | `GET`   | `/contracts`                                       | Listar contratos                    |
+| `GET`   | `/contracts/export.csv`                            | Exportar contratos filtrados        |
 | `GET`   | `/contracts/:id`                                   | Consultar contrato                  |
 | `PATCH` | `/contracts/:id/renew`                             | Renovar contrato                    |
 | `GET`   | `/invoices`                                        | Listar faturas                      |
+| `GET`   | `/invoices/export.csv`                             | Exportar faturas filtradas          |
 | `GET`   | `/invoices/:id`                                    | Consultar fatura e pagamentos       |
 | `POST`  | `/invoices/:id/payments`                           | Registrar pagamento                 |
+| `GET`   | `/invoices/:id/payments/by-idempotency-key`        | Conciliar envio por idempotência    |
 | `PATCH` | `/invoices/:invoiceId/payments/:paymentId/approve` | Aprovar pagamento                   |
 | `PATCH` | `/invoices/:invoiceId/payments/:paymentId/reject`  | Rejeitar pagamento                  |
 | `GET`   | `/invoices/:invoiceId/payments/:paymentId/proof`   | Obter URL temporária do comprovante |
+| `GET`   | `/payments/review`                                 | Fila paginada por pagamento         |
+| `GET`   | `/dashboard/summary`                               | Totais globais consolidados         |
+| `GET`   | `/notifications`                                   | Listar notificações do usuário      |
+| `PATCH` | `/notifications/:id/read`                          | Marcar notificação como lida        |
+| `PATCH` | `/notifications/read-all`                          | Marcar todas como lidas             |
+| `POST`  | `/client-errors`                                   | Registrar fingerprint sanitizado    |
 
 Consulte `/docs` para esquemas, parâmetros e respostas. Campos monetários usam o
 sufixo `Cents` e aceitam somente inteiros; por exemplo, `monthlyBaseValueCents: 150000`
@@ -201,11 +221,16 @@ com `INVOICE_CRON_ENABLED=false`.
 | `npm test`               | Executa testes unitários                   |
 | `npm run test:ci`        | Executa testes unitários com cobertura     |
 | `npm run test:e2e:ci`    | Executa testes de integração com cobertura |
+| `npm run test:e2e:seed`  | Prepara fixtures do E2E full-stack         |
 | `npm run security:audit` | Audita dependências de produção            |
 
 O workflow de CI usa Node 24 LTS, instala com `npm ci`, executa todas essas validações,
 aplica migrations em PostgreSQL real, testa com MinIO e constrói a imagem Docker.
 A cobertura é publicada como artefato do workflow.
+
+O comando `test:e2e:seed` é destrutivo e exclusivo para testes: ele exige simultaneamente
+`NODE_ENV=test`, `E2E_INTEGRATION=1` e um `DB_DATABASE` cujo nome contenha o segmento `e2e`.
+Ele não publica endpoint e nunca deve ser apontado para um banco compartilhado.
 
 ### Produção
 
@@ -227,7 +252,8 @@ antimalware; a validação atual cobre tamanho, MIME/magic bytes e entrega como 
 
 ### Current status
 
-This repository provides the backend foundation; it does not include a frontend:
+This directory contains the monorepo backend. The React administrative application lives
+in `../frontend` and consumes these capabilities:
 
 - JWT authentication, administrative user management, and role-based access
   (`ADMIN`, `MANAGER`, and `VIEWER`);
@@ -242,8 +268,9 @@ This repository provides the backend foundation; it does not include a frontend:
   append-only audit trails (including transactional database ledger audit), rate limiting,
   and environment validation.
 
-Reconciliation is still manual. There is no tenant portal, notification system, or
-bank integration yet. These are natural candidates for the frontend phase.
+Reconciliation remains manual through the administrative interface. Transactional payment
+notifications are available; a tenant portal and bank integration remain outside the current
+backend and frontend scope.
 
 ### Architecture
 
@@ -285,8 +312,9 @@ npm run start:dev
 Set `AUTH_BOOTSTRAP_EMAIL` and `AUTH_BOOTSTRAP_PASSWORD` together. At startup, the
 application creates the initial `ADMIN`; the password must contain at least 12
 characters with upper/lowercase, a number, and a symbol. Call `POST /auth/login`,
-then send the returned token as `Authorization: Bearer <accessToken>`. Metrics use
-`x-metrics-token`; all business routes require JWT.
+then send the returned token as `Authorization: Bearer <accessToken>`. Login also sets
+an opaque, rotating `HttpOnly` refresh cookie used by `/auth/refresh` and revoked by
+`/auth/logout`. Metrics use `x-metrics-token`; all business routes require JWT.
 
 The endpoint table, migration commands, and npm scripts above are language-neutral
 and apply unchanged. Monetary fields end in `Cents` and accept integers only.

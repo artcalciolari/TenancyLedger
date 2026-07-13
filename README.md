@@ -5,6 +5,11 @@ Sistema de gestão de locações organizado como um monorepo npm:
 - `backend/`: API NestJS, PostgreSQL e armazenamento S3 compatível;
 - `frontend/`: aplicação administrativa React e TypeScript.
 
+O frontend cobre visão geral agregada, usuários, locatários, imóveis, contratos, faturas,
+revisão de pagamentos, exportações e notificações, com autorização por papel e preferência
+local de tema.
+Consulte o [README do frontend](frontend/README.md) para detalhes e comandos específicos.
+
 ## Requisitos
 
 - Node.js 24 LTS e npm 11;
@@ -55,7 +60,18 @@ npm run lint:check
 npm run typecheck
 npm run test:ci
 npm run build
+npm run storybook:build
 ```
+
+O E2E full-stack é opt-in e pressupõe a infraestrutura exclusiva de teste já preparada:
+
+```bash
+E2E_INTEGRATION=1 npm run test:e2e:integration
+```
+
+Consulte o [README do frontend](frontend/README.md#e2e-full-stack) para migrations, seed seguro e
+execução local. A CI mantém essa suíte em jobs separados com PostgreSQL e MinIO reais para
+Chromium, Firefox e WebKit.
 
 O contrato tipado do frontend é gerado a partir de `backend/docs/openapi.json`:
 

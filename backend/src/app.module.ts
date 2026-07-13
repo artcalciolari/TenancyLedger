@@ -13,11 +13,14 @@ import { ContractModule } from './contexts/contract/contract.module';
 import { BillingModule } from './contexts/invoice/billing.module';
 import { PropertyModule } from './contexts/property/property.module';
 import { TenantModule } from './contexts/tenant/tenant.module';
+import { NotificationModule } from './contexts/notification/notification.module';
 import { AuditModule } from './core/infrastructure/audit/audit.module';
 import { createTypeOrmOptions } from './database/typeorm.options';
 import { HealthModule } from './infrastructure/health/health.module';
+import { ClientObservabilityModule } from './infrastructure/client-observability/client-observability.module';
 import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { StorageModule } from './infrastructure/storage.module';
+import { DashboardModule } from './contexts/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -47,6 +50,8 @@ import { StorageModule } from './infrastructure/storage.module';
               'req.headers.authorization',
               'req.headers.cookie',
               'req.headers.x-metrics-token',
+              'req.url',
+              'req.query',
               'res.headers.set-cookie',
               'req.body.password',
               'req.body.cpf',
@@ -80,7 +85,10 @@ import { StorageModule } from './infrastructure/storage.module';
     PropertyModule,
     ContractModule,
     BillingModule,
+    DashboardModule,
+    NotificationModule,
     StorageModule,
+    ClientObservabilityModule,
     AuditModule,
     HealthModule,
   ],

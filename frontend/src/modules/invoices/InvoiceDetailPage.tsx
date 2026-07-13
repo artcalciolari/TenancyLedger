@@ -154,13 +154,24 @@ export function InvoiceDetailPage() {
                 {payment.hasProof && (
                   <PaymentProofButton invoiceId={invoice.id} paymentId={payment.id} />
                 )}
-                {canManage && payment.status === 'SUBMITTED' && (
-                  <ReviewPaymentActions
-                    invoiceId={invoice.id}
-                    paymentId={payment.id}
-                    amountCents={payment.amountCents}
-                  />
-                )}
+                {canManage &&
+                  payment.status === 'SUBMITTED' &&
+                  payment.submittedByUserId !== session?.user.id && (
+                    <ReviewPaymentActions
+                      invoiceId={invoice.id}
+                      paymentId={payment.id}
+                      amountCents={payment.amountCents}
+                      method={payment.method}
+                      competence={invoice.competence}
+                    />
+                  )}
+                {canManage &&
+                  payment.status === 'SUBMITTED' &&
+                  payment.submittedByUserId === session?.user.id && (
+                    <Alert severity="warning">
+                      Revisão indisponível: você enviou este pagamento.
+                    </Alert>
+                  )}
               </Stack>
               {payment.rejectionReason && (
                 <>

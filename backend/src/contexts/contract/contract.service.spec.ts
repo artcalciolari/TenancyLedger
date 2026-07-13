@@ -2,6 +2,8 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { QueryFailedError, Repository } from 'typeorm';
 import { PropertyUnit } from '../property/domain/property-unit.entity';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
+import { TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
+import { UnitType } from '../property/domain/property-unit.entity';
 import { ContractService, CreateContractInput } from './contract.service';
 import { Contract, ContractStatus } from './domain/entities/contract.entity';
 import type { IContractRepository } from './domain/repositories/contract.repository.interface';
@@ -9,6 +11,9 @@ import type { IContractRepository } from './domain/repositories/contract.reposit
 const CONTRACT_ID = '8768a5d6-1a7e-41b9-bbd0-cd18f4d4ad9c';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
 const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const SECOND_CONTRACT_ID = 'c69df19a-100c-4131-bf25-64ee7e249f66';
+const SECOND_TENANT_ID = '15821999-f689-46d2-b2e7-ce1aef5a6ebf';
+const SECOND_PROPERTY_ID = 'b3309ca5-a4ef-4575-a627-60d2ad635aee';
 const CREATED_AT = new Date('2026-07-12T12:00:00.000Z');
 const UPDATED_AT = new Date('2026-07-12T13:00:00.000Z');
 
@@ -64,6 +69,8 @@ describe('ContractService', () => {
   let hasOverlap: jest.MockedFunction<IContractRepository['hasOverlap']>;
   let tenantExistsBy: jest.MockedFunction<ExistsBy>;
   let propertyExistsBy: jest.MockedFunction<ExistsBy>;
+  let tenantFindBy: jest.Mock;
+  let propertyFindBy: jest.Mock;
 
   beforeEach(() => {
     save = jest.fn().mockImplementation((contract: Contract) => Promise.resolve(contract));
@@ -83,13 +90,33 @@ describe('ContractService', () => {
       list,
       hasOverlap,
       findActiveInPeriod: jest.fn().mockResolvedValue([]),
+      listForExport: jest.fn().mockResolvedValue([]),
+      markExpired: jest.fn().mockResolvedValue(0),
     };
     tenantExistsBy = jest.fn().mockResolvedValue(true);
     propertyExistsBy = jest.fn().mockResolvedValue(true);
+    tenantFindBy = jest.fn().mockResolvedValue([
+      {
+        id: TENANT_ID,
+        cpf: '12345678909',
+        profession: 'Engenheiro civil',
+        civilStatus: TenantCivilStatus.SINGLE,
+        email: 'locatario@example.com',
+        mobilePhone: '11999999999',
+      } as Tenant,
+    ]);
+    propertyFindBy = jest.fn().mockResolvedValue([
+      {
+        id: PROPERTY_ID,
+        neighborhood: 'Centro',
+        type: UnitType.APARTMENT,
+        unitNumber: '101-A',
+      } as PropertyUnit,
+    ]);
     service = new ContractService(
       repository,
-      { existsBy: tenantExistsBy } as unknown as Repository<Tenant>,
-      { existsBy: propertyExistsBy } as unknown as Repository<PropertyUnit>,
+      { existsBy: tenantExistsBy, findBy: tenantFindBy } as unknown as Repository<Tenant>,
+      { existsBy: propertyExistsBy, findBy: propertyFindBy } as unknown as Repository<PropertyUnit>,
     );
   });
 
@@ -206,11 +233,79 @@ describe('ContractService', () => {
             status: ContractStatus.ACTIVE,
             createdAt: CREATED_AT,
             updatedAt: UPDATED_AT,
+            tenant: {
+              id: TENANT_ID,
+              cpf: '***.***.***-09',
+              profession: 'Engenheiro civil',
+              civilStatus: TenantCivilStatus.SINGLE,
+              email: 'l***@example.com',
+              mobilePhone: '(**) *****-9999',
+            },
+            propertyUnit: {
+              id: PROPERTY_ID,
+              neighborhood: 'Centro',
+              type: UnitType.APARTMENT,
+              unitNumber: '101-A',
+            },
           },
         ],
         meta: { page: 2, limit: 10, total: 21, totalPages: 3 },
       });
-      expect(list).toHaveBeenCalledWith(options);
+      expect(list).toHaveBeenCalledWith(expect.objectContaining(options));
+      expect(list.mock.calls[0]?.[0].asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('exportCsv', () => {
+    it('neutralizes =, +, -, and @ formula prefixes in exported contract cells', async () => {
+      const first = persistedContract();
+      const second = assignPersistenceFields(
+        Contract.create(SECOND_TENANT_ID, SECOND_PROPERTY_ID, '2026-08-01', 210_000, 12, true, 12),
+        SECOND_CONTRACT_ID,
+      );
+      repository.listForExport.mockResolvedValue([first, second]);
+      tenantFindBy.mockResolvedValue([
+        {
+          id: TENANT_ID,
+          cpf: '12345678909',
+          profession: 'Engenheiro civil',
+          civilStatus: TenantCivilStatus.SINGLE,
+          email: 'primeiro@example.com',
+          mobilePhone: '11999999999',
+        } as Tenant,
+        {
+          id: SECOND_TENANT_ID,
+          cpf: '52998224725',
+          profession: 'Arquiteta',
+          civilStatus: TenantCivilStatus.SINGLE,
+          email: 'segunda@example.com',
+          mobilePhone: '11988888888',
+        } as Tenant,
+      ]);
+      propertyFindBy.mockResolvedValue([
+        {
+          id: PROPERTY_ID,
+          neighborhood: '=1+1',
+          type: UnitType.APARTMENT,
+          unitNumber: '+SUM(A1:A2)',
+        } as PropertyUnit,
+        {
+          id: SECOND_PROPERTY_ID,
+          neighborhood: '-2+3',
+          type: UnitType.HOUSE,
+          unitNumber: '@SUM(A1:A2)',
+        } as PropertyUnit,
+      ]);
+
+      const csv = await service.exportCsv({ page: 1, limit: 20 });
+      const cells = csv
+        .split('\r\n')
+        .slice(1)
+        .flatMap((row) => row.split(','));
+
+      expect(cells).toEqual(
+        expect.arrayContaining(["'=1+1", "'+SUM(A1:A2)", "'-2+3", "'@SUM(A1:A2)"]),
+      );
     });
   });
 

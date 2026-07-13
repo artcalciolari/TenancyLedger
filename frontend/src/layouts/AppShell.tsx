@@ -2,6 +2,7 @@ import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -27,11 +28,13 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router';
 import type { UserRole } from '../api/contract';
+import { ThemePreferenceMenu } from '../components/settings/ThemePreferenceMenu';
 import { hasRole, MANAGEMENT_ROLES, roleLabel } from '../lib/roles/roles';
 import { useAuth } from '../modules/auth/useAuth';
+import { NotificationsMenu } from '../modules/notifications/NotificationsMenu';
 
 const drawerWidth = 264;
 
@@ -43,6 +46,7 @@ interface NavigationItem {
 }
 
 const navigation: NavigationItem[] = [
+  { label: 'Visão geral', to: '/dashboard', icon: <DashboardOutlinedIcon /> },
   { label: 'Faturas', to: '/invoices', icon: <ReceiptLongOutlinedIcon /> },
   {
     label: 'Revisão de pagamentos',
@@ -62,6 +66,7 @@ const navigation: NavigationItem[] = [
 ];
 
 const pageTitles: Record<string, string> = {
+  '/dashboard': 'Visão geral',
   '/invoices': 'Faturas',
   '/payments/review': 'Revisão de pagamentos',
   '/contracts': 'Contratos',
@@ -89,6 +94,7 @@ export function AppShell() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('lg'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const { session, endSession } = useAuth();
 
@@ -100,7 +106,11 @@ export function AppShell() {
     [session],
   );
 
-  const drawer = (
+  useEffect(() => {
+    if (mobileOpen) mobileCloseButtonRef.current?.focus();
+  }, [mobileOpen]);
+
+  const drawer = (temporary: boolean) => (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Toolbar sx={{ gap: 1.5 }}>
         <ApartmentOutlinedIcon color="primary" />
@@ -109,6 +119,7 @@ export function AppShell() {
         </Typography>
         {!desktop && (
           <IconButton
+            ref={temporary ? mobileCloseButtonRef : undefined}
             aria-label="Fechar menu"
             onClick={() => setMobileOpen(false)}
             sx={{ ml: 'auto' }}
@@ -194,6 +205,8 @@ export function AppShell() {
             {titleForPath(location.pathname)}
           </Typography>
           <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
+            <NotificationsMenu />
+            <ThemePreferenceMenu />
             <Avatar sx={{ bgcolor: 'primary.main', height: 36, width: 36 }}>
               {session?.user.email.charAt(0).toUpperCase()}
             </Avatar>
@@ -230,7 +243,7 @@ export function AppShell() {
             '& .MuiDrawer-paper': { width: drawerWidth },
           }}
         >
-          {drawer}
+          {drawer(true)}
         </Drawer>
         <Drawer
           variant="permanent"
@@ -240,7 +253,7 @@ export function AppShell() {
             '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
           }}
         >
-          {drawer}
+          {drawer(false)}
         </Drawer>
       </Box>
       <Box

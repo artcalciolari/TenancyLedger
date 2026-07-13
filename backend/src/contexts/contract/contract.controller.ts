@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  StreamableFile,
+} from '@nestjs/common';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -7,6 +17,8 @@ import {
   IsInt,
   IsOptional,
   IsUUID,
+  IsString,
+  MaxLength,
   Max,
   Min,
 } from 'class-validator';
@@ -23,6 +35,7 @@ import {
   ApiProperty,
   ApiPropertyOptional,
   ApiTags,
+  ApiProduces,
 } from '@nestjs/swagger';
 import { ContractResponseDto, PaginatedContractsResponseDto } from './contract-response.dto';
 import {
@@ -99,6 +112,35 @@ export class ContractPaginationDto {
   @IsOptional()
   @IsUUID('4')
   propertyUnitId?: string;
+
+  @ApiPropertyOptional({
+    maxLength: 120,
+    description: 'Busca por contrato, locatário, CPF, e-mail, bairro ou unidade.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  moveInFrom?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  moveInTo?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  endFrom?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  endTo?: string;
 }
 
 export class RenewContractDto {
@@ -123,7 +165,7 @@ export class ContractController {
   @ApiConflictProblem('A unidade possui contrato com vigência sobreposta.')
   @ApiUnprocessableProblem()
   async create(@Body() dto: CreateContractDto): Promise<ContractResponseDto> {
-    return ContractService.toView(await this.contractService.create(dto));
+    return this.contractService.toDetailedView(await this.contractService.create(dto));
   }
 
   @Get()
@@ -132,6 +174,22 @@ export class ContractController {
   @ApiOkResponse({ type: PaginatedContractsResponseDto })
   list(@Query() query: ContractPaginationDto): Promise<PaginatedContractsView> {
     return this.contractService.list(query);
+  }
+
+  @Get('export.csv')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @ApiOperation({ summary: 'Exportar contratos filtrados em CSV' })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({
+    description: 'Arquivo CSV UTF-8 com os contratos que atendem aos filtros.',
+    schema: { type: 'string', format: 'binary' },
+  })
+  async exportCsv(@Query() query: ContractPaginationDto): Promise<StreamableFile> {
+    const csv = await this.contractService.exportCsv(query);
+    return new StreamableFile(Buffer.from(`\uFEFF${csv}`, 'utf8'), {
+      type: 'text/csv; charset=utf-8',
+      disposition: 'attachment; filename="contracts.csv"',
+    });
   }
 
   @Get(':id')
@@ -143,7 +201,7 @@ export class ContractController {
   async get(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ): Promise<ContractResponseDto> {
-    return ContractService.toView(await this.contractService.getById(id));
+    return this.contractService.toDetailedView(await this.contractService.getById(id));
   }
 
   @Patch(':id/renew')
@@ -158,6 +216,8 @@ export class ContractController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: RenewContractDto,
   ): Promise<ContractResponseDto> {
-    return ContractService.toView(await this.contractService.renew(id, dto.extraMonths));
+    return this.contractService.toDetailedView(
+      await this.contractService.renew(id, dto.extraMonths),
+    );
   }
 }

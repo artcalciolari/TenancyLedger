@@ -11,10 +11,13 @@ import {
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { PaymentMethod } from '../../api/contract';
 import { ApiError } from '../../api/problem';
 import { queryKeys } from '../../api/query-keys';
 import { formatCents } from '../../lib/money/money';
+import { formatCompetence } from '../../lib/dates/dates';
 import { invoicesApi } from './api';
+import { paymentMethodLabels } from './labels';
 
 type Action = 'approve' | 'reject' | null;
 
@@ -22,10 +25,14 @@ export function ReviewPaymentActions({
   invoiceId,
   paymentId,
   amountCents,
+  method,
+  competence,
 }: {
   invoiceId: string;
   paymentId: string;
   amountCents: number;
+  method: PaymentMethod;
+  competence: string;
 }) {
   const queryClient = useQueryClient();
   const [action, setAction] = useState<Action>(null);
@@ -43,6 +50,7 @@ export function ReviewPaymentActions({
         queryClient.invalidateQueries({ queryKey: queryKeys.invoice(invoiceId) }),
         queryClient.invalidateQueries({ queryKey: ['invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['payments', 'review'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
       ]);
     },
     onError: async (error) => {
@@ -99,8 +107,8 @@ export function ReviewPaymentActions({
         <DialogContent>
           <DialogContentText sx={{ mb: action === 'reject' ? 2 : 0 }}>
             {action === 'approve'
-              ? `Confirma a aprovação de ${formatCents(amountCents)}?`
-              : `Informe o motivo da rejeição de ${formatCents(amountCents)}.`}
+              ? `Confirma a aprovação de ${formatCents(amountCents)}, por ${paymentMethodLabels[method]}, na fatura ${formatCompetence(competence)}?`
+              : `Informe o motivo da rejeição de ${formatCents(amountCents)}, por ${paymentMethodLabels[method]}, na fatura ${formatCompetence(competence)}.`}
           </DialogContentText>
           {action === 'reject' && (
             <TextField

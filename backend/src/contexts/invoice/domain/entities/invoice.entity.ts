@@ -131,6 +131,8 @@ export class Invoice {
     submittedAt: Date,
     idempotencyKey: string,
     requestFingerprint: string,
+    submittedByUserId: string,
+    statusAsOf = submittedAt.toISOString().slice(0, 10),
   ): PaymentTransaction {
     if (this._status === InvoiceStatus.PAID) {
       throw new InvoiceStateError('Não é possível adicionar pagamentos a uma fatura já quitada.');
@@ -161,9 +163,10 @@ export class Invoice {
       submittedAt,
       idempotencyKey,
       requestFingerprint,
+      submittedByUserId,
     );
     this._transactions.push(transaction);
-    this.recalculateStatus(submittedAt);
+    this.recalculateStatus(statusAsOf);
     return transaction;
   }
 
@@ -171,29 +174,46 @@ export class Invoice {
     return this._transactions.find((transaction) => transaction.idempotencyKey === idempotencyKey);
   }
 
-  approvePayment(paymentId: string, reviewedAt: Date): PaymentTransaction {
+  approvePayment(
+    paymentId: string,
+    reviewedAt: Date,
+    reviewedByUserId: string,
+    statusAsOf = reviewedAt.toISOString().slice(0, 10),
+  ): PaymentTransaction {
     const transaction = this.findPayment(paymentId);
     const approvedAfterReview = this.approvedAmountCents + transaction.amountCents;
     if (approvedAfterReview > this._totalValueCents) {
       throw new InvoiceStateError('A aprovação causaria pagamento acima do valor da fatura.');
     }
-    transaction.approve(reviewedAt);
-    this.recalculateStatus(reviewedAt);
+    transaction.approve(reviewedAt, reviewedByUserId);
+    this.recalculateStatus(statusAsOf);
     return transaction;
   }
 
-  rejectPayment(paymentId: string, reason: string, reviewedAt: Date): PaymentTransaction {
+  rejectPayment(
+    paymentId: string,
+    reason: string,
+    reviewedAt: Date,
+    reviewedByUserId: string,
+    statusAsOf = reviewedAt.toISOString().slice(0, 10),
+  ): PaymentTransaction {
     const transaction = this.findPayment(paymentId);
-    transaction.reject(reason, reviewedAt);
-    this.recalculateStatus(reviewedAt);
+    transaction.reject(reason, reviewedAt, reviewedByUserId);
+    this.recalculateStatus(statusAsOf);
     return transaction;
   }
 
-  refreshStatus(asOf: Date): void {
-    if (!(asOf instanceof Date) || Number.isNaN(asOf.getTime())) {
+  refreshStatus(asOf: Date | string): void {
+    const civilDate =
+      typeof asOf === 'string'
+        ? asOf
+        : asOf instanceof Date && !Number.isNaN(asOf.getTime())
+          ? asOf.toISOString().slice(0, 10)
+          : null;
+    if (!civilDate || !/^\d{4}-\d{2}-\d{2}$/.test(civilDate)) {
       throw new ValidationError('A data de referência da fatura é inválida.');
     }
-    this.recalculateStatus(asOf);
+    this.recalculateStatus(civilDate);
   }
 
   private findPayment(paymentId: string): PaymentTransaction {
@@ -204,7 +224,7 @@ export class Invoice {
     return transaction;
   }
 
-  private recalculateStatus(asOf: Date): void {
+  private recalculateStatus(asOf: string): void {
     const approved = this.approvedAmountCents;
     if (approved === this._totalValueCents) {
       this._status = InvoiceStatus.PAID;
@@ -219,7 +239,7 @@ export class Invoice {
       return;
     }
     this._status =
-      this._dueDate < asOf.toISOString().slice(0, 10) ? InvoiceStatus.OVERDUE : InvoiceStatus.OPEN;
+      this._dueDate < asOf ? InvoiceStatus.OVERDUE : InvoiceStatus.OPEN;
   }
 
   private static assertDate(value: string): void {

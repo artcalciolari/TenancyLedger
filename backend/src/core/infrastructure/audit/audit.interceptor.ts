@@ -38,6 +38,7 @@ export class AuditInterceptor implements NestInterceptor {
 
   private shouldAudit(request: Request): boolean {
     if (request.path.startsWith('/health')) return false;
+    if (request.path.startsWith('/client-errors')) return false;
     if (request.method !== 'GET' && request.method !== 'HEAD') return true;
 
     return ['/tenants', '/properties', '/contracts', '/invoices', '/payments'].some((path) =>

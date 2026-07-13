@@ -1,4 +1,4 @@
-import type { PaymentMethod, ProofType } from '../../api/contract';
+import type { PaymentMethod, PaymentStatus, ProofType } from '../../api/contract';
 
 export const invoiceStatusLabels = {
   OPEN: 'Em aberto',
@@ -12,6 +12,12 @@ export const paymentMethodLabels: Record<PaymentMethod, string> = {
   PIX: 'PIX',
   CASH: 'Dinheiro',
   BANK_TRANSFER: 'Transferência bancária',
+};
+
+export const paymentStatusLabels: Record<PaymentStatus, string> = {
+  SUBMITTED: 'Enviado',
+  APPROVED: 'Aprovado',
+  REJECTED: 'Rejeitado',
 };
 
 export const proofTypeLabels: Record<ProofType, string> = {

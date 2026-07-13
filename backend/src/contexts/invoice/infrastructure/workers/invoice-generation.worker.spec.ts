@@ -36,6 +36,12 @@ class FakeContractRepository implements IContractRepository {
   list(): Promise<ContractListResult> {
     return Promise.resolve({ items: [], total: 0 });
   }
+  listForExport(): Promise<Contract[]> {
+    return Promise.resolve([]);
+  }
+  markExpired(): Promise<number> {
+    return Promise.resolve(0);
+  }
   hasOverlap(): Promise<boolean> {
     return Promise.resolve(false);
   }
@@ -56,6 +62,12 @@ class FakeInvoiceRepository implements IInvoiceRepository {
     return Promise.resolve(null);
   }
   list(): Promise<InvoiceListResult> {
+    return Promise.resolve({ items: [], total: 0 });
+  }
+  listForExport(): Promise<Invoice[]> {
+    return Promise.resolve([]);
+  }
+  listPaymentsForReview(): Promise<{ items: []; total: number }> {
     return Promise.resolve({ items: [], total: 0 });
   }
   updateWithLock(): Promise<Invoice | null> {

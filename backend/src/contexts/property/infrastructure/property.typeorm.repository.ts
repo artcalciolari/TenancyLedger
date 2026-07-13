@@ -31,12 +31,23 @@ export class PropertyTypeOrmRepository implements IPropertyRepository {
       .getOne();
   }
 
-  async list({ page, limit }: PropertyListOptions): Promise<PropertyListResult> {
-    const [items, total] = await this.repository.findAndCount({
-      order: { createdAt: 'DESC', id: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  async list({ page, limit, q, type }: PropertyListOptions): Promise<PropertyListResult> {
+    const query = this.repository
+      .createQueryBuilder('property')
+      .orderBy('property.createdAt', 'DESC')
+      .addOrderBy('property.id', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit);
+    const term = q?.trim();
+    if (term) {
+      const escaped = term.replace(/[\\%_]/g, (character) => `\\${character}`);
+      query.andWhere(
+        `(property.neighborhood ILIKE :q ESCAPE '\\' OR property.unitNumber ILIKE :q ESCAPE '\\')`,
+        { q: `%${escaped}%` },
+      );
+    }
+    if (type) query.andWhere('property.type = :type', { type });
+    const [items, total] = await query.getManyAndCount();
     return { items, total };
   }
 }

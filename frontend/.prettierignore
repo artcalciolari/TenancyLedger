@@ -2,6 +2,6 @@ dist
 coverage
 node_modules
 playwright-report
+storybook-static
 test-results
 src/api/generated
-

@@ -19,6 +19,13 @@ export interface PaginatedTenantView {
   limit: number;
 }
 
+export interface TenantListFilters {
+  page: number;
+  limit: number;
+  q?: string;
+  civilStatus?: TenantCivilStatus;
+}
+
 @Injectable()
 export class TenantQueries {
   constructor(
@@ -37,18 +44,45 @@ export class TenantQueries {
       .addSelect('tenant.mobilePhone', 'mobilePhone');
   }
 
-  async findAll(page: number, limit: number): Promise<PaginatedTenantView> {
+  async findAll(filters: TenantListFilters): Promise<PaginatedTenantView> {
+    const { page, limit } = filters;
+    const dataQuery = this.applyFilters(this.baseQuery, filters);
+    const countQuery = this.applyFilters(this.repository.createQueryBuilder('tenant'), filters);
     const [data, total] = await Promise.all([
-      this.baseQuery
+      dataQuery
         .orderBy('tenant.createdAt', 'DESC')
         .addOrderBy('tenant.id', 'ASC')
         .offset((page - 1) * limit)
         .limit(limit)
         .getRawMany<TenantView>(),
-      this.repository.count(),
+      countQuery.getCount(),
     ]);
 
     return { data, total, page, limit };
+  }
+
+  private applyFilters(
+    query: SelectQueryBuilder<Tenant>,
+    filters: Pick<TenantListFilters, 'q' | 'civilStatus'>,
+  ): SelectQueryBuilder<Tenant> {
+    const q = filters.q?.trim();
+    if (q) {
+      const escaped = q.replace(/[\\%_]/g, (character) => `\\${character}`);
+      const digits = q.replace(/\D/g, '');
+      query.andWhere(
+        `(
+          tenant.profession ILIKE :q ESCAPE '\\'
+          OR tenant.email ILIKE :q ESCAPE '\\'
+          OR tenant.cpf LIKE :digits ESCAPE '\\'
+          OR tenant.mobilePhone LIKE :digits ESCAPE '\\'
+        )`,
+        { q: `%${escaped}%`, digits: `%${digits || escaped}%` },
+      );
+    }
+    if (filters.civilStatus) {
+      query.andWhere('tenant.civilStatus = :civilStatus', { civilStatus: filters.civilStatus });
+    }
+    return query;
   }
 
   async findById(id: string): Promise<TenantView | null> {

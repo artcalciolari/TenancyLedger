@@ -12,6 +12,7 @@ export default tseslint.config(
       'dist',
       'node_modules',
       'playwright-report',
+      'storybook-static',
       'test-results',
       'src/api/generated',
     ],
@@ -56,7 +57,7 @@ export default tseslint.config(
     languageOptions: { globals: globals.vitest },
   },
   {
-    files: ['*.config.{js,ts}', 'scripts/*.mjs', 'e2e/**/*.{ts,tsx}'],
+    files: ['*.config.{js,ts}', '.storybook/**/*.{ts,tsx}', 'scripts/*.mjs', 'e2e/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.node } },
   },
   prettier,

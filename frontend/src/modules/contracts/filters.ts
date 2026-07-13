@@ -3,13 +3,30 @@ import {
   type ContractListFilters,
   type ContractStatus,
 } from '../../api/contract';
+import { isUuidV4 } from '../../lib/identifiers/uuid';
 
 const allowedLimits = new Set([20, 50, 100]);
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function positiveInteger(value: string | null, fallback: number): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 1 ? parsed : fallback;
+}
+
+function nonEmpty(value: string | null): string | undefined {
+  const normalized = value?.trim();
+  return normalized === undefined || normalized === '' ? undefined : normalized;
+}
+
+function civilDate(value: string | null): string | undefined {
+  const normalized = nonEmpty(value);
+  if (!normalized || !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return undefined;
+  const [year, month, day] = normalized.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year ?? 0, (month ?? 0) - 1, day ?? 0));
+  return parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === (month ?? 0) - 1 &&
+    parsed.getUTCDate() === day
+    ? normalized
+    : undefined;
 }
 
 export function parseContractFilters(search: URLSearchParams): ContractListFilters {
@@ -23,11 +40,16 @@ export function parseContractFilters(search: URLSearchParams): ContractListFilte
     status: CONTRACT_STATUSES.includes(status as ContractStatus)
       ? (status as ContractStatus)
       : undefined,
-    tenantId: tenantId && uuidPattern.test(tenantId) ? tenantId : undefined,
-    propertyUnitId: propertyUnitId && uuidPattern.test(propertyUnitId) ? propertyUnitId : undefined,
+    tenantId: tenantId && isUuidV4(tenantId) ? tenantId : undefined,
+    propertyUnitId: propertyUnitId && isUuidV4(propertyUnitId) ? propertyUnitId : undefined,
+    q: nonEmpty(search.get('q')?.slice(0, 120) ?? null),
+    moveInFrom: civilDate(search.get('moveInFrom')),
+    moveInTo: civilDate(search.get('moveInTo')),
+    endFrom: civilDate(search.get('endFrom')),
+    endTo: civilDate(search.get('endTo')),
   };
 }
 
 export function isUuid(value: string): boolean {
-  return uuidPattern.test(value);
+  return isUuidV4(value);
 }

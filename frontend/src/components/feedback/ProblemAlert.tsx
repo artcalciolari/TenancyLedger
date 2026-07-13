@@ -1,5 +1,7 @@
 import { Alert, AlertTitle, Box, Button, Stack, Typography } from '@mui/material';
+import { useEffect } from 'react';
 import { ApiError } from '../../api/problem';
+import { reportClientError } from '../../lib/observability/client-observability';
 
 interface ProblemAlertProps {
   error: unknown;
@@ -8,6 +10,10 @@ interface ProblemAlertProps {
 
 export function ProblemAlert({ error, onRetry }: ProblemAlertProps) {
   const problem = error instanceof ApiError ? error.problem : null;
+  useEffect(() => {
+    reportClientError(error, { kind: 'NETWORK' });
+  }, [error]);
+
   return (
     <Alert
       severity="error"

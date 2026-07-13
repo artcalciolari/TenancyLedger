@@ -3,6 +3,8 @@ import type {
   InvoiceView,
   Paginated,
   PaymentProofView,
+  PaymentReviewFilters,
+  PaymentReviewItem,
   RejectPaymentInput,
   SubmitPaymentInput,
 } from '../../api/contract';
@@ -19,6 +21,32 @@ export const invoicesApi = {
             contractId: filters.contractId,
             competence: filters.competence,
             status: filters.status,
+            q: filters.q,
+            dueFrom: filters.dueFrom,
+            dueTo: filters.dueTo,
+            tenantId: filters.tenantId,
+            propertyUnitId: filters.propertyUnitId,
+            paymentMethod: filters.paymentMethod,
+            paymentStatus: filters.paymentStatus,
+          },
+        },
+      }),
+    );
+  },
+  review(filters: PaymentReviewFilters): Promise<Paginated<PaymentReviewItem>> {
+    return executeOpenApi(
+      openApiClient.GET('/payments/review', {
+        params: {
+          query: {
+            page: filters.page,
+            limit: filters.limit,
+            q: filters.q,
+            competence: filters.competence,
+            method: filters.method,
+            submittedFrom: filters.submittedFrom,
+            submittedTo: filters.submittedTo,
+            tenantId: filters.tenantId,
+            propertyUnitId: filters.propertyUnitId,
           },
         },
       }),
@@ -68,6 +96,33 @@ export const invoicesApi = {
     return executeOpenApi(
       openApiClient.GET('/invoices/{invoiceId}/payments/{paymentId}/proof', {
         params: { path: { invoiceId, paymentId } },
+      }),
+    );
+  },
+  lookupPayment(id: string, idempotencyKey: string) {
+    return executeOpenApi(
+      openApiClient.GET('/invoices/{id}/payments/by-idempotency-key', {
+        params: { path: { id }, header: { 'Idempotency-Key': idempotencyKey } },
+      }),
+    );
+  },
+  exportCsv(filters: InvoiceListFilters): Promise<string> {
+    return executeOpenApi(
+      openApiClient.GET('/invoices/export.csv', {
+        params: {
+          query: {
+            contractId: filters.contractId,
+            competence: filters.competence,
+            status: filters.status,
+            q: filters.q,
+            dueFrom: filters.dueFrom,
+            dueTo: filters.dueTo,
+            tenantId: filters.tenantId,
+            propertyUnitId: filters.propertyUnitId,
+            paymentMethod: filters.paymentMethod,
+            paymentStatus: filters.paymentStatus,
+          },
+        },
       }),
     );
   },

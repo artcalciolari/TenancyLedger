@@ -58,7 +58,7 @@ export class TenantController {
   @ApiOperation({ summary: 'Listar locatários' })
   @ApiOkResponse({ type: PaginatedTenantResponseDto })
   async findAll(@Query() query: PaginationDto): Promise<PaginatedTenantResponseDto> {
-    return toPaginatedTenantResponse(await this.tenantQueries.findAll(query.page, query.limit));
+    return toPaginatedTenantResponse(await this.tenantQueries.findAll(query));
   }
 
   @Get(':id')

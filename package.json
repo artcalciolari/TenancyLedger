@@ -23,6 +23,9 @@
     "test": "npm run --workspaces --if-present test",
     "test:ci": "npm run --workspaces --if-present test:ci",
     "test:e2e": "npm run --workspace backend test:e2e:ci && npm run --workspace frontend e2e",
+    "test:e2e:integration": "npm run --workspace frontend e2e:integration",
+    "storybook": "npm run --workspace frontend storybook",
+    "storybook:build": "npm run --workspace frontend storybook:build",
     "api:generate": "npm run --workspace backend openapi:generate && npm run --workspace frontend api:generate",
     "api:check": "npm run --workspace backend openapi:check && npm run --workspace frontend api:check",
     "security:audit": "npm audit --workspaces --omit=dev --audit-level=high"

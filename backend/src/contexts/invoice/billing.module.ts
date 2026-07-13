@@ -6,6 +6,10 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { Invoice } from './domain/entities/invoice.entity';
 import { PaymentTransaction } from './domain/entities/payment-transaction.entity';
+import { Contract } from '../contract/domain/entities/contract.entity';
+import { Tenant } from '../tenant/domain/entities/tenant.entity';
+import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { PaymentReviewController } from './payment-review.controller';
 import { INVOICE_REPOSITORY_TOKEN } from './domain/invoice.repository';
 import { InvoiceTypeOrmRepository } from './infrastructure/invoice.typeorm.repository';
 import {
@@ -16,11 +20,11 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, PaymentTransaction]),
+    TypeOrmModule.forFeature([Invoice, PaymentTransaction, Contract, Tenant, PropertyUnit]),
     ScheduleModule.forRoot(),
     ContractModule,
   ],
-  controllers: [BillingController],
+  controllers: [BillingController, PaymentReviewController],
   providers: [
     BillingService,
     InvoiceGenerationWorker,

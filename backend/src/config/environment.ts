@@ -71,6 +71,7 @@ export const environmentSchema = Joi.object({
     .default('15m'),
   JWT_ISSUER: Joi.string().min(3).default('tenancy-ledger'),
   JWT_AUDIENCE: Joi.string().min(3).default('tenancy-ledger-api'),
+  REFRESH_TOKEN_TTL_DAYS: Joi.number().integer().min(1).max(365).default(30),
   AUTH_BOOTSTRAP_EMAIL: Joi.string().email({ tlds: { allow: false } }),
   AUTH_BOOTSTRAP_PASSWORD: Joi.string()
     .min(12)
