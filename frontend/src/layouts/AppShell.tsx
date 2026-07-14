@@ -444,7 +444,7 @@ export function AppShell() {
                 fontWeight: 600,
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
-                color: brand.textTertiary,
+                color: brand.textSecondary,
               }}
             >
               {crumb}

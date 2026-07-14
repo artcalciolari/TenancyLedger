@@ -137,7 +137,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
           </Typography>
           {children}
           <Typography
-            sx={{ mt: 3.5, fontSize: '0.82rem', color: brand.textTertiary, textAlign: 'center' }}
+            sx={{ mt: 3.5, fontSize: '0.82rem', color: brand.textSecondary, textAlign: 'center' }}
           >
             Problemas para acessar? Fale com o administrador do sistema.
           </Typography>

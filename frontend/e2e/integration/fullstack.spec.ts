@@ -12,7 +12,7 @@ const ids = {
 async function login(page: Page, email: string, secret = password): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('E-mail').fill(email);
-  await page.getByLabel('Senha').fill(secret);
+  await page.getByLabel('Senha', { exact: true }).fill(secret);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL('/dashboard');
   await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();

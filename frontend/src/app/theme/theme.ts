@@ -16,7 +16,7 @@ export const brand = {
   sidebarItemInactiveFg: '#AEBBBD',
   sidebarIconInactive: '#7C8C90',
   sidebarIconActive: '#79C2C7',
-  sidebarGroupLabel: '#5E7075',
+  sidebarGroupLabel: '#8A9AA0',
   sidebarFooterMuted: '#8D9B9E',
   accent: '#0E6E78',
   accentDark: '#0B565E',

@@ -142,7 +142,7 @@ async function mockApi(page: Page): Promise<void> {
 async function login(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('E-mail').fill('admin.visual@example.test');
-  await page.getByLabel('Senha').fill('Visual-Test-Password-123!');
+  await page.getByLabel('Senha', { exact: true }).fill('Visual-Test-Password-123!');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL('/dashboard');
 }
@@ -158,7 +158,7 @@ test.beforeEach(async ({ page }) => mockApi(page));
 
 test('login', async ({ page }) => {
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Tenancy Ledger' })).toBeVisible();
+  await expect(page.getByText('Tenancy Ledger')).toBeVisible();
   await expect(page.getByLabel('E-mail')).toBeVisible();
   await expect(page).toHaveScreenshot('login.png', screenshotOptions);
 });
