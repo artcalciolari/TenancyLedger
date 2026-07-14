@@ -5,6 +5,7 @@ import { Tenant, TenantCivilStatus } from '../../domain/entities/tenant.entity';
 
 export interface TenantView {
   id: string;
+  name: string;
   cpf: string;
   profession: string;
   civilStatus: TenantCivilStatus;
@@ -37,6 +38,7 @@ export class TenantQueries {
     return this.repository
       .createQueryBuilder('tenant')
       .select('tenant.id', 'id')
+      .addSelect('tenant.name', 'name')
       .addSelect('tenant.cpf', 'cpf')
       .addSelect('tenant.profession', 'profession')
       .addSelect('tenant.civilStatus', 'civilStatus')
@@ -71,7 +73,8 @@ export class TenantQueries {
       const digits = q.replace(/\D/g, '');
       query.andWhere(
         `(
-          tenant.profession ILIKE :q ESCAPE '\\'
+          tenant.name ILIKE :q ESCAPE '\\'
+          OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'
           OR tenant.mobilePhone LIKE :digits ESCAPE '\\'

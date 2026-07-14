@@ -8,6 +8,7 @@ import { CpfVO } from '../../domain/value-objects/cpf.vo';
 
 // Pode virar um arquivo separado depois se reaproveitar, mas manter perto do Use Case é pragmático agora.
 export interface CreateTenantInput {
+  name: string;
   cpf: string;
   rg: string;
   profession: string;
@@ -37,6 +38,7 @@ export class CreateTenantUseCase {
     }
 
     const tenant = Tenant.create(
+      input.name,
       normalizedCpf,
       input.rg,
       input.profession,

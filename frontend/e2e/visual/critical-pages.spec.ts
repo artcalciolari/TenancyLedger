@@ -84,6 +84,7 @@ async function mockApi(page: Page): Promise<void> {
             status: 'ACTIVE',
             tenant: {
               id: '20000000-0000-4000-8000-000000000001',
+              name: 'Larissa Andrade',
               cpf: '***.***.***-09',
               email: 'l***@example.test',
               mobilePhone: '(**) *****-9001',
@@ -117,6 +118,7 @@ async function mockApi(page: Page): Promise<void> {
             status: 'ACTIVE',
             tenant: {
               id: '20000000-0000-4000-8000-000000000002',
+              name: 'Marcelo Nogueira',
               cpf: '***.***.***-42',
               email: 'm***@example.test',
               mobilePhone: '(**) *****-9002',

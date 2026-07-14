@@ -32,6 +32,7 @@ test('executa cadastro, filtros e conciliação real com segregação e notifica
   await login(page, 'manager.e2e@example.test');
 
   await page.goto('/tenants/new');
+  await page.getByLabel('Nome completo').fill('Beatriz Engenheira E2E');
   await page.getByLabel('CPF').fill('52998224725');
   await page.getByLabel('RG').fill('E2E-RG-02');
   await page.getByLabel('Profissão').fill('Engenheira E2E');

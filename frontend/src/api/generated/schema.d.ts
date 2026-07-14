@@ -119,6 +119,41 @@ export type paths = {
         patch: operations["AuthController_updateUserAccess"];
         trace?: never;
     };
+    "/buildings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar prédios */
+        get: operations["BuildingController_list"];
+        put?: never;
+        /** Cadastrar prédio */
+        post: operations["BuildingController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/buildings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar prédio */
+        get: operations["BuildingController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/client-errors": {
         parameters: {
             query?: never;
@@ -575,6 +610,49 @@ export type components = {
              */
             status: "ok";
         };
+        BuildingDetailResponseDto: {
+            /** @example Rua das Flores, 123 */
+            address?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            /** @example Edifício Aurora */
+            name: string;
+            /** @example Centro */
+            neighborhood: string;
+            /** @example 8 */
+            occupiedUnits: number;
+            /** @example 12 */
+            totalUnits: number;
+            units: components["schemas"]["BuildingUnitResponseDto"][];
+        };
+        BuildingResponseDto: {
+            /** @example Rua das Flores, 123 */
+            address?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            /** @example Edifício Aurora */
+            name: string;
+            /** @example Centro */
+            neighborhood: string;
+            /** @example 8 */
+            occupiedUnits: number;
+            /** @example 12 */
+            totalUnits: number;
+        };
+        BuildingUnitResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Centro */
+            neighborhood: string;
+            occupied: boolean;
+            type: components["schemas"]["UnitType"];
+            /** @example 101-A */
+            unitNumber: string;
+        };
         ChangePasswordDto: {
             /** Format: password */
             currentPassword: string;
@@ -652,8 +730,18 @@ export type components = {
             id: string;
             /** @example (**) *****-9999 */
             mobilePhone: string;
+            /** @example Maria da Silva */
+            name: string;
             /** @example Engenheiro civil */
             profession: string;
+        };
+        CreateBuildingDto: {
+            /** @example Rua das Flores, 123 */
+            address?: string;
+            /** @example Edifício Aurora */
+            name: string;
+            /** @example Centro */
+            neighborhood: string;
         };
         CreateContractDto: {
             /** @example 10 */
@@ -674,6 +762,8 @@ export type components = {
             tenantId: string;
         };
         CreatePropertyDto: {
+            /** Format: uuid */
+            buildingId?: string;
             /** @example Centro */
             neighborhood: string;
             type: components["schemas"]["UnitType"];
@@ -691,6 +781,8 @@ export type components = {
             email: string;
             /** @example +55 11 99999-9999 */
             mobilePhone: string;
+            /** @example Maria da Silva */
+            name: string;
             /** @example Engenheiro civil */
             profession: string;
             /** @example 12.345.678-9 */
@@ -823,6 +915,10 @@ export type components = {
             /** @example 3 */
             totalPages: number;
         };
+        PaginatedBuildingsResponseDto: {
+            data: components["schemas"]["BuildingResponseDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
         PaginatedContractsResponseDto: {
             data: components["schemas"]["ContractResponseDto"][];
             meta: components["schemas"]["PageMetaDto"];
@@ -927,12 +1023,18 @@ export type components = {
         /** @enum {string} */
         ProofType: "DIGITAL_SLIP" | "SIGNED_RECEIPT" | "BANK_STATEMENT";
         PropertyResponseDto: {
+            /** Format: uuid */
+            buildingId?: string | null;
+            /** @example Edifício Aurora */
+            buildingName?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
             id: string;
             /** @example Centro */
             neighborhood: string;
+            /** @example false */
+            occupied: boolean;
             type: components["schemas"]["UnitType"];
             /** @example 101-A */
             unitNumber: string;
@@ -963,22 +1065,24 @@ export type components = {
         TenantResponseDto: {
             civilStatus: components["schemas"]["TenantCivilStatus"];
             /**
-             * @description CPF mascarado.
+             * @description CPF mascarado para VIEWER.
              * @example ***.***.***-09
              */
             cpf: string;
             /**
-             * @description E-mail mascarado.
+             * @description E-mail mascarado para VIEWER.
              * @example l***@example.com
              */
             email: string;
             /** Format: uuid */
             id: string;
             /**
-             * @description Telefone mascarado.
+             * @description Telefone mascarado para VIEWER.
              * @example (**) *****-9999
              */
             mobilePhone: string;
+            /** @example Maria da Silva */
+            name: string;
             /** @example Engenheiro civil */
             profession: string;
         };
@@ -1590,6 +1694,278 @@ export interface operations {
             };
             /** @description A alteração removeria o próprio acesso ou o último administrador ativo. */
             409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    BuildingController_list: {
+        parameters: {
+            query?: {
+                limit?: number;
+                page?: number;
+                /** @description Busca parcial por nome, bairro ou endereço. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBuildingsResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    BuildingController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBuildingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildingResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Já existe um prédio com este nome. */
+            409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Regra de negócio ou valor de domínio inválido. */
+            422: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    BuildingController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildingDetailResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Prédio não encontrado. */
+            404: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
                     "X-Request-ID"?: string;
@@ -3702,6 +4078,7 @@ export interface operations {
     PropertyController_list: {
         parameters: {
             query?: {
+                buildingId?: string;
                 limit?: number;
                 page?: number;
                 /** @description Busca parcial por bairro ou número da unidade. */

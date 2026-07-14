@@ -206,6 +206,7 @@ export class BillingService {
       data: result.items.map((item) => {
         const tenant = TenantResponseDto.from({
           id: item.tenantId,
+          name: item.tenantName,
           cpf: item.tenantCpf,
           profession: item.tenantProfession,
           civilStatus: item.tenantCivilStatus,
@@ -273,6 +274,7 @@ export class BillingService {
       'outstandingAmountCents',
       'contractId',
       'tenantId',
+      'tenantName',
       'tenantCpf',
       'propertyUnitId',
       'propertyNeighborhood',
@@ -291,6 +293,7 @@ export class BillingService {
         invoice.outstandingAmountCents,
         invoice.contractId,
         context?.tenantId ?? '',
+        context?.tenant.name ?? '',
         context?.tenant.cpf ?? '',
         context?.propertyUnitId ?? '',
         context?.propertyUnit.neighborhood ?? '',

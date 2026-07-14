@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { TENANT_CIVIL_STATUSES } from '../../api/contract';
 
 export const createTenantSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(3, 'O nome deve ter no mínimo 3 caracteres.')
+    .max(120, 'O nome deve ter no máximo 120 caracteres.'),
   cpf: z
     .string()
     .trim()

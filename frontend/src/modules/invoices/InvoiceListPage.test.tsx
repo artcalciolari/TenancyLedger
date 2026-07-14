@@ -36,6 +36,7 @@ describe('InvoiceListPage', () => {
     renderPage();
 
     await waitFor(() => expect(listInvoices).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole('button', { name: 'Filtros avançados' }));
     const input = screen.getByRole('textbox', { name: 'ID do contrato' });
     await user.type(input, '123e');
     expect(listInvoices).toHaveBeenCalledTimes(1);

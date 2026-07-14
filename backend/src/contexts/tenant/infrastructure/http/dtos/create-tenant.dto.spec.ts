@@ -5,6 +5,7 @@ import { CreateTenantDto } from './create-tenant.dto';
 
 describe('CreateTenantDto', () => {
   const validInput = {
+    name: 'Maria da Silva',
     cpf: '529.982.247-25',
     rg: '12.345.678-9',
     profession: 'Engenheira',

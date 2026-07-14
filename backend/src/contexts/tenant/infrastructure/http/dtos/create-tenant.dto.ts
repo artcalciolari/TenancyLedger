@@ -16,6 +16,13 @@ const trim = ({ value }: TransformFnParams): unknown =>
   typeof value === 'string' ? value.trim() : (value as unknown);
 
 export class CreateTenantDto {
+  @ApiProperty({ minLength: 3, maxLength: 120, example: 'Maria da Silva' })
+  @Transform(trim)
+  @IsString()
+  @MinLength(3)
+  @MaxLength(120)
+  name!: string;
+
   @ApiProperty({ example: '123.456.789-09', pattern: '^\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}$' })
   @Transform(trim)
   @IsString()

@@ -1,7 +1,8 @@
-import { LaunchOutlined, ReceiptLongOutlined } from '@mui/icons-material';
+import { LaunchOutlined, ReceiptOutlined } from '@mui/icons-material';
 import { Alert, Button, Link, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { ApiError } from '../../api/problem';
+import { brand } from '../../app/theme/theme';
 import { invoicesApi } from './api';
 
 interface ProofAccess {
@@ -49,7 +50,7 @@ export function PaymentProofButton({
   };
 
   return (
-    <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
+    <Stack spacing={0.75} sx={{ alignItems: 'flex-start' }}>
       {access ? (
         <>
           <Link
@@ -57,23 +58,37 @@ export function PaymentProofButton({
             target="_blank"
             rel="noopener noreferrer"
             underline="hover"
-            sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center' }}
+            sx={{
+              display: 'inline-flex',
+              gap: 0.75,
+              alignItems: 'center',
+              fontSize: '0.86rem',
+              fontWeight: 600,
+              color: 'primary.main',
+            }}
           >
-            Abrir comprovante <LaunchOutlined fontSize="small" />
+            Abrir comprovante <LaunchOutlined sx={{ fontSize: 18 }} />
           </Link>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: brand.textTertiary }}>
             Link temporário: {remaining}s restantes
           </Typography>
         </>
       ) : (
         <Button
-          variant="text"
+          variant="outlined"
           size="small"
-          startIcon={<ReceiptLongOutlined />}
+          startIcon={<ReceiptOutlined sx={{ fontSize: 19 }} />}
           onClick={generate}
           disabled={loading}
+          sx={{
+            height: 40,
+            borderColor: brand.borderInput,
+            color: 'primary.main',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+          }}
         >
-          {loading ? 'Gerando…' : 'Gerar acesso'}
+          {loading ? 'Gerando…' : 'Ver comprovante'}
         </Button>
       )}
       {error && <Alert severity="error">{error}</Alert>}

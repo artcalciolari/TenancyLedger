@@ -59,9 +59,9 @@ async function seed(): Promise<void> {
     await manager.query(
       `
         INSERT INTO tenants
-          (id, cpf, rg, profession, civil_status, email, mobile_phone, created_at, updated_at)
+          (id, full_name, cpf, rg, profession, civil_status, email, mobile_phone, created_at, updated_at)
         VALUES
-          ($1, '16899535009', 'E2E-SEED-01', 'Locatário Seed E2E', 'SINGLE',
+          ($1, 'Tenant Seed E2E', '16899535009', 'E2E-SEED-01', 'Locatário Seed E2E', 'SINGLE',
            'tenant.seed.e2e@example.test', '11999990001',
            '2026-01-01T10:00:00Z', '2026-01-01T10:00:00Z')
       `,

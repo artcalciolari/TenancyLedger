@@ -12,6 +12,7 @@ import { InvoiceGenerationWorker } from '../src/contexts/invoice/infrastructure/
 import { AuditLog } from '../src/core/infrastructure/audit/audit-log.entity';
 
 interface TenantInput {
+  name: string;
   cpf: string;
   rg: string;
   profession: string;
@@ -78,6 +79,11 @@ function formatCpf(cpf: string): string {
   return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
 }
 
+function normalizedPhoneDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 13 && digits.startsWith('55') ? digits.slice(2) : digits;
+}
+
 function dateInSaoPaulo(date = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
@@ -140,6 +146,7 @@ describe('Tenancy Ledger API (e2e)', () => {
   const numericSeed = `${Date.now()}${process.pid}`.replace(/\D/g, '').slice(-9);
   const tenantCpf = validCpf(numericSeed);
   const tenantInput: TenantInput = {
+    name: `Locatária E2E ${suffix}`,
     cpf: formatCpf(tenantCpf),
     rg: `RG${Date.now().toString(36).slice(-10).toUpperCase()}`,
     profession: 'Engenheira de Software',
@@ -248,7 +255,7 @@ describe('Tenancy Ledger API (e2e)', () => {
     expect(asRecord(body.user, 'refreshed user')).toMatchObject({ id: adminId, role: 'ADMIN' });
   });
 
-  it('creates a tenant with minimized and masked personal data', async () => {
+  it('creates a tenant and returns unminimized contact data to ADMIN', async () => {
     const response = await request(httpServer())
       .post('/tenants')
       .set('authorization', `Bearer ${adminToken}`)
@@ -259,15 +266,15 @@ describe('Tenancy Ledger API (e2e)', () => {
 
     tenantId = readString(body, 'id');
     expect(body).toMatchObject({
-      cpf: `***.***.***-${tenantCpf.slice(-2)}`,
+      name: tenantInput.name,
+      cpf: tenantCpf,
       profession: tenantInput.profession,
       civilStatus: tenantInput.civilStatus,
-      email: 'e***@example.test',
-      mobilePhone: `(**) *****-${tenantInput.mobilePhone.slice(-4)}`,
+      email: tenantInput.email,
+      mobilePhone: normalizedPhoneDigits(tenantInput.mobilePhone),
     });
     expect(body).not.toHaveProperty('rg');
     expect(JSON.stringify(body)).not.toContain(tenantInput.rg);
-    expect(JSON.stringify(body)).not.toContain(tenantCpf);
   });
 
   it('returns 409 when normalized tenant identity data is duplicated', async () => {
@@ -287,7 +294,7 @@ describe('Tenancy Ledger API (e2e)', () => {
     expect(asRecord(responseBody(response))).toMatchObject({ status: 409 });
   });
 
-  it('paginates tenants without exposing unmasked fields', async () => {
+  it('paginates tenants without ever exposing the RG', async () => {
     const response = await request(httpServer())
       .get('/tenants?page=1&limit=1')
       .set('authorization', `Bearer ${adminToken}`)
@@ -303,7 +310,17 @@ describe('Tenancy Ledger API (e2e)', () => {
     expect(JSON.stringify(data)).not.toContain('"rg"');
   });
 
-  it('creates a property unit and an active contract', async () => {
+  it('creates a building, a property unit linked to it, and an active contract', async () => {
+    const buildingResponse = await request(httpServer())
+      .post('/buildings')
+      .set('authorization', `Bearer ${adminToken}`)
+      .send({
+        name: `Edifício E2E ${suffix}`,
+        neighborhood: `E2E-${suffix}`,
+      })
+      .expect(201);
+    const buildingId = readString(asRecord(responseBody(buildingResponse)), 'id');
+
     const propertyResponse = await request(httpServer())
       .post('/properties')
       .set('authorization', `Bearer ${adminToken}`)
@@ -311,9 +328,21 @@ describe('Tenancy Ledger API (e2e)', () => {
         neighborhood: `E2E-${suffix}`,
         type: 'APARTMENT',
         unitNumber: `UNIT-${suffix}`,
+        buildingId,
       })
       .expect(201);
-    propertyId = readString(asRecord(responseBody(propertyResponse)), 'id');
+    const createdProperty = asRecord(responseBody(propertyResponse));
+    propertyId = readString(createdProperty, 'id');
+    expect(createdProperty).toMatchObject({ buildingId, buildingName: `Edifício E2E ${suffix}`, occupied: false });
+
+    const emptyBuildingResponse = await request(httpServer())
+      .get(`/buildings/${buildingId}`)
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(asRecord(responseBody(emptyBuildingResponse))).toMatchObject({
+      totalUnits: 1,
+      occupiedUnits: 0,
+    });
 
     const today = dateInSaoPaulo();
     const contractResponse = await request(httpServer())
@@ -338,6 +367,36 @@ describe('Tenancy Ledger API (e2e)', () => {
       monthlyBaseValueCents: 150_000,
       status: 'ACTIVE',
     });
+
+    const occupiedPropertyResponse = await request(httpServer())
+      .get(`/properties/${propertyId}`)
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(asRecord(responseBody(occupiedPropertyResponse))).toMatchObject({
+      buildingId,
+      occupied: true,
+    });
+
+    const occupiedBuildingResponse = await request(httpServer())
+      .get(`/buildings/${buildingId}`)
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(asRecord(responseBody(occupiedBuildingResponse))).toMatchObject({
+      totalUnits: 1,
+      occupiedUnits: 1,
+    });
+
+    const buildingsListResponse = await request(httpServer())
+      .get(`/buildings?q=${encodeURIComponent(suffix)}&page=1&limit=10`)
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const buildingsList = asArray(
+      asRecord(responseBody(buildingsListResponse)).data,
+      'buildings list data',
+    ).map((entry) => asRecord(entry, 'building'));
+    expect(buildingsList).toContainEqual(
+      expect.objectContaining({ id: buildingId, totalUnits: 1, occupiedUnits: 1 }),
+    );
   });
 
   it('serializes concurrent renewals without losing either extension', async () => {
@@ -395,6 +454,22 @@ describe('Tenancy Ledger API (e2e)', () => {
       resourceType: 'properties',
     });
     expect(deniedAudit.metadata).toMatchObject({ statusCode: 403, role: 'VIEWER' });
+  });
+
+  it('mascara o contato do locatário para VIEWER', async () => {
+    const response = await request(httpServer())
+      .get(`/tenants/${tenantId}`)
+      .set('authorization', `Bearer ${viewerToken}`)
+      .expect(200);
+    const body = asRecord(responseBody(response));
+
+    expect(body).toMatchObject({
+      name: tenantInput.name,
+      cpf: `***.***.***-${tenantCpf.slice(-2)}`,
+      email: 'e***@example.test',
+      mobilePhone: `(**) *****-${normalizedPhoneDigits(tenantInput.mobilePhone).slice(-4)}`,
+    });
+    expect(JSON.stringify(body)).not.toContain(tenantCpf);
   });
 
   it('creates a separate manager to enforce four-eyes payment review', async () => {

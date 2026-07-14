@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Alert, Button, MenuItem, Paper, Stack, TextField } from '@mui/material';
+import { Alert, Box, Button, Card, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm, type Control } from 'react-hook-form';
 import { useNavigate } from 'react-router';
@@ -10,6 +10,29 @@ import { tenantsApi } from './api';
 import { civilStatusLabel } from './labels';
 import { createTenantSchema, type CreateTenantForm } from './schemas';
 
+const fieldGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fit, minmax(240px, 1fr))' },
+  gap: 2.25,
+} as const;
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      sx={{
+        fontSize: '0.75rem',
+        fontWeight: 700,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        color: 'primary.main',
+        mb: 2,
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
 export function NewTenantPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -17,6 +40,7 @@ export function NewTenantPage() {
   const { control, handleSubmit } = useForm<CreateTenantForm>({
     resolver: zodResolver(createTenantSchema),
     defaultValues: {
+      name: '',
       cpf: '',
       rg: '',
       profession: '',
@@ -47,10 +71,22 @@ export function NewTenantPage() {
         title="Novo locatário"
         description="Cadastre os dados necessários para uma locação."
       />
-      <Paper variant="outlined" sx={{ maxWidth: 720, p: { xs: 2, sm: 3 } }}>
-        <Stack component="form" spacing={2.5} onSubmit={onSubmit} noValidate>
+      <Card sx={{ maxWidth: 960, p: { xs: 2, sm: 3.5 } }}>
+        <Stack component="form" spacing={3} onSubmit={onSubmit} noValidate>
           {apiMessage && <Alert severity="error">{apiMessage}</Alert>}
-          <BoxFields control={control} />
+          <Box>
+            <SectionLabel>Identificação</SectionLabel>
+            <Box sx={fieldGridSx}>
+              <IdentificationFields control={control} />
+            </Box>
+          </Box>
+          <Divider />
+          <Box>
+            <SectionLabel>Contato</SectionLabel>
+            <Box sx={fieldGridSx}>
+              <ContactFields control={control} />
+            </Box>
+          </Box>
           <Stack
             direction={{ xs: 'column-reverse', sm: 'row' }}
             spacing={1}
@@ -72,14 +108,26 @@ export function NewTenantPage() {
             </Button>
           </Stack>
         </Stack>
-      </Paper>
+      </Card>
     </>
   );
 }
 
-function BoxFields({ control }: { control: Control<CreateTenantForm> }) {
+function IdentificationFields({ control }: { control: Control<CreateTenantForm> }) {
   return (
     <>
+      <Controller
+        name="name"
+        control={control}
+        render={({ field, fieldState }) => (
+          <TextField
+            {...field}
+            label="Nome completo"
+            error={fieldState.invalid}
+            helperText={fieldState.error?.message}
+          />
+        )}
+      />
       <Controller
         name="cpf"
         control={control}
@@ -136,6 +184,13 @@ function BoxFields({ control }: { control: Control<CreateTenantForm> }) {
           </TextField>
         )}
       />
+    </>
+  );
+}
+
+function ContactFields({ control }: { control: Control<CreateTenantForm> }) {
+  return (
+    <>
       <Controller
         name="email"
         control={control}

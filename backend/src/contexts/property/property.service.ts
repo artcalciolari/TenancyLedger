@@ -1,13 +1,17 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { PropertyUnit, UnitType } from './domain/property-unit.entity';
 import { PROPERTY_REPOSITORY_TOKEN } from './domain/property.repository';
-import type { IPropertyRepository } from './domain/property.repository';
+import type { IPropertyRepository, PropertyWithOccupancy } from './domain/property.repository';
+import { Building } from './domain/building.entity';
+import { civilDateInTimeZone } from '../../core/domain/civil-date';
 
 export interface CreatePropertyInput {
   neighborhood: string;
   type: UnitType;
   unitNumber: string;
+  buildingId?: string | null;
 }
 
 export interface PropertyView {
@@ -16,6 +20,9 @@ export interface PropertyView {
   type: UnitType;
   unitNumber: string;
   createdAt: Date;
+  buildingId: string | null;
+  buildingName: string | null;
+  occupied: boolean;
 }
 
 export interface PaginatedPropertiesView {
@@ -28,6 +35,7 @@ export interface ListPropertiesInput {
   limit: number;
   q?: string;
   type?: UnitType;
+  buildingId?: string;
 }
 
 @Injectable()
@@ -35,10 +43,23 @@ export class PropertyService {
   constructor(
     @Inject(PROPERTY_REPOSITORY_TOKEN)
     private readonly repository: IPropertyRepository,
+    @InjectRepository(Building)
+    private readonly buildingRepository: Repository<Building>,
   ) {}
 
   async create(input: CreatePropertyInput): Promise<PropertyUnit> {
-    const property = PropertyUnit.create(input.neighborhood, input.type, input.unitNumber);
+    if (input.buildingId) {
+      const buildingExists = await this.buildingRepository.existsBy({ id: input.buildingId });
+      if (!buildingExists) {
+        throw new NotFoundException('Prédio não encontrado.');
+      }
+    }
+    const property = PropertyUnit.create(
+      input.neighborhood,
+      input.type,
+      input.unitNumber,
+      input.buildingId,
+    );
     const duplicate = await this.repository.findByLocation(
       property.neighborhood,
       property.unitNumber,
@@ -56,33 +77,40 @@ export class PropertyService {
     }
   }
 
-  async getById(id: string): Promise<PropertyUnit> {
-    const property = await this.repository.findById(id);
-    if (!property) {
+  async getById(id: string): Promise<PropertyView> {
+    const view = await this.repository.getView(id, this.currentCivilDate());
+    if (!view) {
       throw new NotFoundException('Unidade imobiliária não encontrada.');
     }
-    return property;
+    return PropertyService.toView(view);
   }
 
   async list(
     input: ListPropertiesInput = { page: 1, limit: 20 },
   ): Promise<PaginatedPropertiesView> {
     const { page, limit } = input;
-    const result = await this.repository.list(input);
+    const result = await this.repository.list({ ...input, asOf: this.currentCivilDate() });
     return {
-      data: result.items.map((property) => PropertyService.toView(property)),
+      data: result.items.map((item) => PropertyService.toView(item)),
       meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) },
     };
   }
 
-  static toView(property: PropertyUnit): PropertyView {
+  static toView({ property, buildingName, occupied }: PropertyWithOccupancy): PropertyView {
     return {
       id: property.id,
       neighborhood: property.neighborhood,
       type: property.type,
       unitNumber: property.unitNumber,
       createdAt: property.createdAt,
+      buildingId: property.buildingId,
+      buildingName,
+      occupied,
     };
+  }
+
+  private currentCivilDate(): string {
+    return civilDateInTimeZone(new Date());
   }
 
   private databaseErrorCode(error: unknown): string | undefined {

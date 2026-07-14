@@ -1,3 +1,4 @@
+import { CheckOutlined, CloseOutlined } from '@mui/icons-material';
 import {
   Alert,
   Button,
@@ -78,6 +79,7 @@ export function ReviewPaymentActions({
         <Button
           variant="outlined"
           color="error"
+          startIcon={<CloseOutlined />}
           onClick={() => {
             mutation.reset();
             setAction('reject');
@@ -87,6 +89,7 @@ export function ReviewPaymentActions({
         </Button>
         <Button
           color="success"
+          startIcon={<CheckOutlined />}
           onClick={() => {
             mutation.reset();
             setAction('approve');

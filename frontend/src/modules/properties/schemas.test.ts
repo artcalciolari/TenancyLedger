@@ -17,4 +17,30 @@ describe('createPropertySchema', () => {
         .success,
     ).toBe(false);
   });
+
+  it('aceita buildingId ausente ou UUID válido', () => {
+    expect(
+      createPropertySchema.safeParse({ neighborhood: 'Centro', type: 'HOUSE', unitNumber: '1' })
+        .success,
+    ).toBe(true);
+    expect(
+      createPropertySchema.safeParse({
+        neighborhood: 'Centro',
+        type: 'HOUSE',
+        unitNumber: '1',
+        buildingId: '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejeita buildingId inválido', () => {
+    expect(
+      createPropertySchema.safeParse({
+        neighborhood: 'Centro',
+        type: 'HOUSE',
+        unitNumber: '1',
+        buildingId: 'not-a-uuid',
+      }).success,
+    ).toBe(false);
+  });
 });

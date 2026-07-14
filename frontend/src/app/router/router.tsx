@@ -65,6 +65,21 @@ const PropertyDetailPage = lazy(() =>
     default: module.PropertyDetailPage,
   })),
 );
+const BuildingsPage = lazy(() =>
+  import('../../modules/buildings/BuildingsPage').then((module) => ({
+    default: module.BuildingsPage,
+  })),
+);
+const NewBuildingPage = lazy(() =>
+  import('../../modules/buildings/NewBuildingPage').then((module) => ({
+    default: module.NewBuildingPage,
+  })),
+);
+const BuildingDetailPage = lazy(() =>
+  import('../../modules/buildings/BuildingDetailPage').then((module) => ({
+    default: module.BuildingDetailPage,
+  })),
+);
 const TenantsPage = lazy(() =>
   import('../../modules/tenants/TenantsPage').then((module) => ({ default: module.TenantsPage })),
 );
@@ -158,6 +173,18 @@ export const router = createBrowserRouter([
       {
         path: 'properties/:propertyId',
         element: page(<PropertyDetailPage />),
+      },
+      {
+        path: 'buildings',
+        element: page(<BuildingsPage />),
+      },
+      {
+        path: 'buildings/new',
+        element: <RequireRole roles={managementRoles}>{page(<NewBuildingPage />)}</RequireRole>,
+      },
+      {
+        path: 'buildings/:buildingId',
+        element: page(<BuildingDetailPage />),
       },
       {
         path: 'users',

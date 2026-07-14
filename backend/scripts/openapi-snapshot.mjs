@@ -24,6 +24,7 @@ function assertCompleteContract(document) {
     'UserResponseDto',
     'TenantResponseDto',
     'PropertyResponseDto',
+    'BuildingResponseDto',
     'ContractResponseDto',
     'InvoiceResponseDto',
     'PaymentResponseDto',

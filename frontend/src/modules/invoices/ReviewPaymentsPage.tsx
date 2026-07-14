@@ -1,13 +1,15 @@
+import AutorenewOutlinedIcon from '@mui/icons-material/AutorenewOutlined';
 import ClearOutlinedIcon from '@mui/icons-material/ClearOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined';
 import {
   Alert,
   Box,
   Button,
+  Card,
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
   TextField,
@@ -23,6 +25,7 @@ import {
   type PaymentReviewItem,
 } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
+import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
@@ -177,24 +180,40 @@ export function ReviewPaymentsPage() {
     <>
       <PageHeader
         title="Revisão de pagamentos"
-        description="A fila é paginada por pagamento e atualizada enquanto esta página estiver visível."
+        description="Aprove ou recuse os pagamentos enviados pelos locatários."
       >
         <Button
           variant="outlined"
           startIcon={<RefreshOutlinedIcon />}
           onClick={() => void query.refetch()}
           disabled={query.isFetching}
+          sx={{ borderColor: brand.borderInput, color: brand.textPrimary, bgcolor: 'background.paper' }}
         >
           Atualizar
         </Button>
       </PageHeader>
-      <Paper
-        component="form"
-        onSubmit={applyFilters}
-        key={searchParams.toString()}
-        variant="outlined"
-        sx={{ mb: 2, p: 2 }}
+      <Stack
+        direction="row"
+        spacing={1.25}
+        sx={{
+          alignItems: 'center',
+          bgcolor: brand.accentTint,
+          border: `1px solid ${brand.accentTint}`,
+          borderRadius: '12px',
+          px: 2,
+          py: 1.5,
+          mb: 2,
+          color: brand.accentDark,
+          fontSize: '0.88rem',
+        }}
       >
+        <AutorenewOutlinedIcon sx={{ fontSize: 20 }} />
+        <Typography sx={{ fontSize: 'inherit', color: 'inherit' }}>
+          A fila é paginada por pagamento e atualiza sozinha a cada 30 segundos enquanto esta tela
+          estiver aberta.
+        </Typography>
+      </Stack>
+      <Card component="form" onSubmit={applyFilters} key={searchParams.toString()} sx={{ mb: 2, p: 2 }}>
         <Box
           sx={{
             display: 'grid',
@@ -258,7 +277,7 @@ export function ReviewPaymentsPage() {
             Limpar
           </Button>
         </Stack>
-      </Paper>
+      </Card>
       {query.isPending || pageOutOfRange ? (
         <LoadingState label="Carregando pagamentos…" />
       ) : query.isError ? (
@@ -266,84 +285,123 @@ export function ReviewPaymentsPage() {
       ) : groups.length === 0 ? (
         <EmptyState title="Fila em dia" description="Não há pagamentos aguardando revisão." />
       ) : (
-        <Stack spacing={2}>
+        <Stack spacing={1.75}>
           {groups.map((items) => {
             const first = items[0];
             if (!first) return null;
             return (
-              <Paper key={first.invoice.id} variant="outlined" sx={{ p: 2.5 }}>
-                <Typography component="h2" variant="h2">
-                  Fatura {formatCompetence(first.invoice.competence)}
-                </Typography>
-                <Typography color="text.secondary" sx={{ mb: 0.5 }}>
-                  {first.contract.tenant.cpf} · {first.contract.tenant.profession} ·{' '}
-                  {first.contract.propertyUnit.neighborhood}, unidade{' '}
-                  {first.contract.propertyUnit.unitNumber}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {items.length} pagamento(s) pendente(s) nesta página · saldo{' '}
-                  {formatCents(first.invoice.outstandingAmountCents)}
-                </Typography>
-                <Stack spacing={2}>
+              <Card key={first.invoice.id} sx={{ p: 0, overflow: 'hidden' }}>
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  sx={{
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    px: 2.5,
+                    py: 2,
+                    bgcolor: brand.surfaceSubtle,
+                    borderBottom: `1px solid ${brand.borderCard}`,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: brand.textPrimary }}>
+                      Fatura {formatCompetence(first.invoice.competence)} ·{' '}
+                      {first.contract.propertyUnit.neighborhood}, unidade{' '}
+                      {first.contract.propertyUnit.unitNumber}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.82rem', color: brand.textTertiary, mt: 0.25 }}>
+                      {first.contract.tenant.name} · CPF {first.contract.tenant.cpf} ·{' '}
+                      {items.length} pagamento(s) pendente(s)
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Typography
+                      sx={{
+                        fontSize: '0.72rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        color: brand.textTertiary,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Saldo
+                    </Typography>
+                    <Typography
+                      sx={{ fontSize: '0.95rem', fontWeight: 700, color: brand.textPrimary, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {formatCents(first.invoice.outstandingAmountCents)}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack spacing={2} sx={{ p: 2.5 }} divider={<Box sx={{ borderTop: `1px solid ${brand.borderRow}` }} />}>
                   {items.map(({ invoice, payment }) => {
                     const ownSubmission = payment.submittedByUserId === session?.user.id;
                     return (
                       <Box
                         key={payment.id}
                         sx={{
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          p: 2,
-                          display: 'grid',
-                          gridTemplateColumns: {
-                            xs: '1fr',
-                            md: 'minmax(220px,1fr) auto minmax(190px, auto)',
-                          },
-                          alignItems: { md: 'center' },
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
                           gap: 2,
                         }}
                       >
-                        <Box>
-                          <Typography sx={{ fontWeight: 700 }}>
-                            {formatCents(payment.amountCents)} ·{' '}
-                            {paymentMethodLabels[payment.method]}
+                        <Box sx={{ flex: '1 1 200px', minWidth: 180 }}>
+                          <Typography
+                            sx={{
+                              fontFamily: '"Newsreader", Georgia, serif',
+                              fontSize: '1.35rem',
+                              fontWeight: 500,
+                              color: brand.textPrimary,
+                            }}
+                          >
+                            {formatCents(payment.amountCents)}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Enviado em {formatDateTime(payment.submittedAt)}
+                          <Typography sx={{ fontSize: '0.83rem', color: brand.textTertiary }}>
+                            {paymentMethodLabels[payment.method]} · enviado em{' '}
+                            {formatDateTime(payment.submittedAt)}
                           </Typography>
                         </Box>
                         {payment.hasProof ? (
                           <PaymentProofButton invoiceId={invoice.id} paymentId={payment.id} />
                         ) : (
-                          <Alert severity="info">Sem comprovante digital</Alert>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            sx={{ alignItems: 'center', color: brand.textTertiary, fontSize: '0.84rem' }}
+                          >
+                            <InfoOutlinedIcon sx={{ fontSize: 19 }} />
+                            Sem comprovante digital
+                          </Stack>
                         )}
-                        {ownSubmission ? (
-                          <Alert severity="warning">
-                            Revisão indisponível: você enviou este pagamento.
-                          </Alert>
-                        ) : (
-                          <ReviewPaymentActions
-                            invoiceId={invoice.id}
-                            paymentId={payment.id}
-                            amountCents={payment.amountCents}
-                            method={payment.method}
-                            competence={invoice.competence}
-                          />
-                        )}
+                        <Box sx={{ ml: { md: 'auto' } }}>
+                          {ownSubmission ? (
+                            <Alert severity="warning" sx={{ maxWidth: 300 }}>
+                              Você enviou este pagamento, então não pode revisá-lo.
+                            </Alert>
+                          ) : (
+                            <ReviewPaymentActions
+                              invoiceId={invoice.id}
+                              paymentId={payment.id}
+                              amountCents={payment.amountCents}
+                              method={payment.method}
+                              competence={invoice.competence}
+                            />
+                          )}
+                        </Box>
                       </Box>
                     );
                   })}
                 </Stack>
-              </Paper>
+              </Card>
             );
           })}
-          <Paper>
+          <Card sx={{ p: 0 }}>
             <PaginationBar
               meta={query.data.meta}
               onChange={(page, limit) => update({ page, limit })}
             />
-          </Paper>
+          </Card>
         </Stack>
       )}
       {query.isFetching && !query.isPending && (
