@@ -333,7 +333,11 @@ describe('Tenancy Ledger API (e2e)', () => {
       .expect(201);
     const createdProperty = asRecord(responseBody(propertyResponse));
     propertyId = readString(createdProperty, 'id');
-    expect(createdProperty).toMatchObject({ buildingId, buildingName: `Edifício E2E ${suffix}`, occupied: false });
+    expect(createdProperty).toMatchObject({
+      buildingId,
+      buildingName: `Edifício E2E ${suffix}`,
+      occupied: false,
+    });
 
     const emptyBuildingResponse = await request(httpServer())
       .get(`/buildings/${buildingId}`)

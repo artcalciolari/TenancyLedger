@@ -187,7 +187,11 @@ export function ReviewPaymentsPage() {
           startIcon={<RefreshOutlinedIcon />}
           onClick={() => void query.refetch()}
           disabled={query.isFetching}
-          sx={{ borderColor: brand.borderInput, color: brand.textPrimary, bgcolor: 'background.paper' }}
+          sx={{
+            borderColor: brand.borderInput,
+            color: brand.textPrimary,
+            bgcolor: 'background.paper',
+          }}
         >
           Atualizar
         </Button>
@@ -213,7 +217,12 @@ export function ReviewPaymentsPage() {
           estiver aberta.
         </Typography>
       </Stack>
-      <Card component="form" onSubmit={applyFilters} key={searchParams.toString()} sx={{ mb: 2, p: 2 }}>
+      <Card
+        component="form"
+        onSubmit={applyFilters}
+        key={searchParams.toString()}
+        sx={{ mb: 2, p: 2 }}
+      >
         <Box
           sx={{
             display: 'grid',
@@ -304,7 +313,9 @@ export function ReviewPaymentsPage() {
                   }}
                 >
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: brand.textPrimary }}>
+                    <Typography
+                      sx={{ fontSize: '0.95rem', fontWeight: 700, color: brand.textPrimary }}
+                    >
                       Fatura {formatCompetence(first.invoice.competence)} ·{' '}
                       {first.contract.propertyUnit.neighborhood}, unidade{' '}
                       {first.contract.propertyUnit.unitNumber}
@@ -327,13 +338,22 @@ export function ReviewPaymentsPage() {
                       Saldo
                     </Typography>
                     <Typography
-                      sx={{ fontSize: '0.95rem', fontWeight: 700, color: brand.textPrimary, fontVariantNumeric: 'tabular-nums' }}
+                      sx={{
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        color: brand.textPrimary,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
                     >
                       {formatCents(first.invoice.outstandingAmountCents)}
                     </Typography>
                   </Box>
                 </Stack>
-                <Stack spacing={2} sx={{ p: 2.5 }} divider={<Box sx={{ borderTop: `1px solid ${brand.borderRow}` }} />}>
+                <Stack
+                  spacing={2}
+                  sx={{ p: 2.5 }}
+                  divider={<Box sx={{ borderTop: `1px solid ${brand.borderRow}` }} />}
+                >
                   {items.map(({ invoice, payment }) => {
                     const ownSubmission = payment.submittedByUserId === session?.user.id;
                     return (
@@ -368,7 +388,11 @@ export function ReviewPaymentsPage() {
                           <Stack
                             direction="row"
                             spacing={0.75}
-                            sx={{ alignItems: 'center', color: brand.textTertiary, fontSize: '0.84rem' }}
+                            sx={{
+                              alignItems: 'center',
+                              color: brand.textTertiary,
+                              fontSize: '0.84rem',
+                            }}
                           >
                             <InfoOutlinedIcon sx={{ fontSize: 19 }} />
                             Sem comprovante digital

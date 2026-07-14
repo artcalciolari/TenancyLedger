@@ -38,14 +38,11 @@ describe('TenantResponseDto', () => {
     expect(response.mobilePhone).toBe('(**) *****-4321');
   });
 
-  it.each([UserRole.ADMIN, UserRole.MANAGER])(
-    'expõe o contato bruto para %s',
-    (role) => {
-      const response = TenantResponseDto.from(tenant, role);
+  it.each([UserRole.ADMIN, UserRole.MANAGER])('expõe o contato bruto para %s', (role) => {
+    const response = TenantResponseDto.from(tenant, role);
 
-      expect(response.cpf).toBe('52998224725');
-      expect(response.email).toBe('maria@example.com');
-      expect(response.mobilePhone).toBe('11987654321');
-    },
-  );
+    expect(response.cpf).toBe('52998224725');
+    expect(response.email).toBe('maria@example.com');
+    expect(response.mobilePhone).toBe('11987654321');
+  });
 });

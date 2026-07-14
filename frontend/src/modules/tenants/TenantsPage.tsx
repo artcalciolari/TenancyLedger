@@ -122,7 +122,11 @@ export function TenantsPage() {
         key={searchParams.toString()}
         sx={{ mb: 2, p: 2 }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: { md: 'center' } }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: { md: 'center' } }}
+        >
           <TextField
             name="q"
             defaultValue={q ?? ''}
@@ -217,7 +221,11 @@ export function TenantsPage() {
                     <Typography variant="body2" sx={{ mt: 1.25 }}>
                       {civilStatusLabel(tenant.civilStatus)}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ overflowWrap: 'anywhere' }}
+                    >
                       {tenant.email}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -296,7 +304,13 @@ export function TenantsPage() {
                         </Stack>
                       </TableCell>
                       <TableCell>{civilStatusLabel(tenant.civilStatus)}</TableCell>
-                      <TableCell sx={{ overflowWrap: 'anywhere', fontSize: '0.86rem', color: brand.textSecondary }}>
+                      <TableCell
+                        sx={{
+                          overflowWrap: 'anywhere',
+                          fontSize: '0.86rem',
+                          color: brand.textSecondary,
+                        }}
+                      >
                         {tenant.email} · {tenant.mobilePhone}
                       </TableCell>
                       <TableCell align="right" sx={{ color: brand.borderInput }}>

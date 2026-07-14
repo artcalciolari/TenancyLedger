@@ -1,10 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/infrastructure/http/openapi.dto';
 import { UnitType } from './domain/property-unit.entity';
-import {
-  BuildingDetailView,
-  BuildingView,
-} from './building.service';
+import { BuildingDetailView, BuildingView } from './building.service';
 
 export class BuildingResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -16,7 +13,12 @@ export class BuildingResponseDto {
   @ApiProperty({ maxLength: 120, example: 'Centro' })
   neighborhood!: string;
 
-  @ApiPropertyOptional({ type: String, maxLength: 200, example: 'Rua das Flores, 123', nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    maxLength: 200,
+    example: 'Rua das Flores, 123',
+    nullable: true,
+  })
   address!: string | null;
 
   @ApiProperty({ format: 'date-time' })

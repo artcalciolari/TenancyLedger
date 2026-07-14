@@ -79,7 +79,9 @@ export function UserAccessDialog({
             >
               {user?.email.charAt(0).toUpperCase()}
             </Box>
-            <Typography sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{user?.email}</Typography>
+            <Typography sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+              {user?.email}
+            </Typography>
           </Stack>
           {user?.id === currentUserId && (
             <Alert severity="info">

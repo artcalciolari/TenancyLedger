@@ -80,7 +80,10 @@ export function createAppTheme() {
         defaultProps: { variant: 'contained' },
         styleOverrides: {
           root: { borderRadius: 11 },
-          contained: { boxShadow: brand.buttonShadow, '&:hover': { boxShadow: brand.buttonShadow } },
+          contained: {
+            boxShadow: brand.buttonShadow,
+            '&:hover': { boxShadow: brand.buttonShadow },
+          },
         },
       },
       MuiInputBase: { styleOverrides: { root: { minHeight: 44 } } },

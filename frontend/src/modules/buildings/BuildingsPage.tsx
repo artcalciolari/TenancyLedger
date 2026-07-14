@@ -124,7 +124,11 @@ export function BuildingsPage() {
         key={searchParams.toString()}
         sx={{ mb: 2, p: 2 }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: { md: 'center' } }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: { md: 'center' } }}
+        >
           <TextField
             name="q"
             defaultValue={q ?? ''}

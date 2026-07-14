@@ -35,7 +35,10 @@ function DetailField({ label, children }: { label: string; children: React.React
       <Typography component="div" sx={uppercaseLabelSx}>
         {label}
       </Typography>
-      <Typography component="div" sx={{ overflowWrap: 'anywhere', mt: 0.5, color: brand.textPrimary }}>
+      <Typography
+        component="div"
+        sx={{ overflowWrap: 'anywhere', mt: 0.5, color: brand.textPrimary }}
+      >
         {children}
       </Typography>
     </Box>
@@ -102,11 +105,17 @@ export function ContractDetailPage() {
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Typography component="h1" variant="h1">
-            {property.data ? `${property.data.neighborhood} · Unid. ${property.data.unitNumber}` : 'Contrato'}
+            {property.data
+              ? `${property.data.neighborhood} · Unid. ${property.data.unitNumber}`
+              : 'Contrato'}
           </Typography>
           <StatusChip status={contract.data.status} />
         </Stack>
-        {mayRenew && <Button onClick={() => setRenewOpen(true)} sx={{ flexShrink: 0 }}>Renovar contrato</Button>}
+        {mayRenew && (
+          <Button onClick={() => setRenewOpen(true)} sx={{ flexShrink: 0 }}>
+            Renovar contrato
+          </Button>
+        )}
       </Stack>
       <Stack spacing={2}>
         {renewedEndDate && (
@@ -188,12 +197,20 @@ export function ContractDetailPage() {
                     CPF {tenant.data.cpf} · {civilStatusLabel(tenant.data.civilStatus)}
                   </Typography>
                   <Typography
-                    sx={{ fontSize: '0.82rem', color: brand.textTertiary, overflowWrap: 'anywhere' }}
+                    sx={{
+                      fontSize: '0.82rem',
+                      color: brand.textTertiary,
+                      overflowWrap: 'anywhere',
+                    }}
                   >
                     {tenant.data.email}
                   </Typography>
                   <Typography
-                    sx={{ fontSize: '0.82rem', color: brand.textTertiary, overflowWrap: 'anywhere' }}
+                    sx={{
+                      fontSize: '0.82rem',
+                      color: brand.textTertiary,
+                      overflowWrap: 'anywhere',
+                    }}
                   >
                     {tenant.data.mobilePhone}
                   </Typography>
@@ -201,7 +218,12 @@ export function ContractDetailPage() {
                 <Typography
                   component={RouterLink}
                   to={`/tenants/${tenant.data.id}`}
-                  sx={{ fontSize: '0.85rem', fontWeight: 600, color: brand.accent, textDecoration: 'none' }}
+                  sx={{
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: brand.accent,
+                    textDecoration: 'none',
+                  }}
                 >
                   Abrir
                 </Typography>
@@ -243,7 +265,12 @@ export function ContractDetailPage() {
                 <Typography
                   component={RouterLink}
                   to={`/properties/${property.data.id}`}
-                  sx={{ fontSize: '0.85rem', fontWeight: 600, color: brand.accent, textDecoration: 'none' }}
+                  sx={{
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: brand.accent,
+                    textDecoration: 'none',
+                  }}
                 >
                   Abrir
                 </Typography>

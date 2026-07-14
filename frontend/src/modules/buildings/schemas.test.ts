@@ -12,9 +12,9 @@ describe('createBuildingSchema', () => {
   });
 
   it('rejeita nome vazio', () => {
-    expect(
-      createBuildingSchema.safeParse({ name: ' ', neighborhood: 'Centro' }).success,
-    ).toBe(false);
+    expect(createBuildingSchema.safeParse({ name: ' ', neighborhood: 'Centro' }).success).toBe(
+      false,
+    );
   });
 
   it('rejeita bairro vazio', () => {

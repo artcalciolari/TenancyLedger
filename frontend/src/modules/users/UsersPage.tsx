@@ -144,7 +144,11 @@ export function UsersPage() {
                         {user.email}
                       </Typography>
                     </Stack>
-                    <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ mt: 1.5, flexWrap: 'wrap', alignItems: 'center' }}
+                    >
                       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                         {roleIcons[user.role]}
                         <Typography variant="body2">{roleLabel(user.role)}</Typography>
@@ -197,7 +201,9 @@ export function UsersPage() {
                           >
                             {user.email.charAt(0).toUpperCase()}
                           </Box>
-                          <Typography sx={{ fontSize: '0.92rem', fontWeight: 600, color: brand.textPrimary }}>
+                          <Typography
+                            sx={{ fontSize: '0.92rem', fontWeight: 600, color: brand.textPrimary }}
+                          >
                             {user.email}
                           </Typography>
                         </Stack>

@@ -213,7 +213,9 @@ describe('PropertyService', () => {
   });
 
   it('maps only public property fields in toView', () => {
-    expect(PropertyService.toView(withOccupancy(persistedProperty(), 'Edifício Aurora', true))).toEqual({
+    expect(
+      PropertyService.toView(withOccupancy(persistedProperty(), 'Edifício Aurora', true)),
+    ).toEqual({
       id: PROPERTY_ID,
       neighborhood: 'Jardim América',
       type: UnitType.APARTMENT,

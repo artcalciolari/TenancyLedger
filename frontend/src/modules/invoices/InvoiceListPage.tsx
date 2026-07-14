@@ -310,7 +310,11 @@ export function InvoiceListPage() {
         <CsvExportButton exportCsv={() => invoicesApi.exportCsv(filters)} filename="faturas.csv" />
       </PageHeader>
       <Card sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <TextField
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
@@ -423,7 +427,9 @@ export function InvoiceListPage() {
                       <Typography sx={{ fontSize: '0.78rem', color: brand.textTertiary }}>
                         Mês ref. {formatCompetence(invoice.competence)}
                       </Typography>
-                      <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: brand.textPrimary }}>
+                      <Typography
+                        sx={{ fontSize: '1rem', fontWeight: 700, color: brand.textPrimary }}
+                      >
                         {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
                         {invoice.contract.propertyUnit.unitNumber}
                       </Typography>
@@ -518,7 +524,9 @@ export function InvoiceListPage() {
                           {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
                           {invoice.contract.propertyUnit.unitNumber}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}
+                        >
                           {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}
                         </Typography>
                       </TableCell>

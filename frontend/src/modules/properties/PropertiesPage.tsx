@@ -150,7 +150,11 @@ export function PropertiesPage() {
         key={searchParams.toString()}
         sx={{ mb: 2, p: 2 }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: { md: 'center' } }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: { md: 'center' } }}
+        >
           <TextField
             name="q"
             defaultValue={q ?? ''}
@@ -223,7 +227,9 @@ export function PropertiesPage() {
                         <Typography sx={{ fontWeight: 700 }}>
                           {property.neighborhood} · Unidade {property.unitNumber}
                         </Typography>
-                        <Typography color="text.secondary">{unitTypeLabel(property.type)}</Typography>
+                        <Typography color="text.secondary">
+                          {unitTypeLabel(property.type)}
+                        </Typography>
                       </Box>
                     </Stack>
                     <Typography variant="body2" sx={{ mt: 1.25 }}>

@@ -51,7 +51,10 @@ function MetricCard({ label, value, detail, icon, tone }: MetricCardProps) {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}
+        >
           <Typography
             sx={{
               fontSize: '0.78rem',
@@ -81,13 +84,27 @@ function MetricCard({ label, value, detail, icon, tone }: MetricCardProps) {
         </Stack>
         <Typography
           component="div"
-          sx={{ fontFamily: '"Newsreader", Georgia, serif', fontSize: '2.1rem', fontWeight: 500, lineHeight: 1, color: brand.textPrimary }}
+          sx={{
+            fontFamily: '"Newsreader", Georgia, serif',
+            fontSize: '2.1rem',
+            fontWeight: 500,
+            lineHeight: 1,
+            color: brand.textPrimary,
+          }}
         >
           {value}
         </Typography>
         <Stack direction="row" spacing={0.85} sx={{ alignItems: 'center', mt: 1.25 }}>
-          <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0 }} />
-          <Typography sx={{ fontSize: '0.82rem', color: tone ? statusTones[tone].fg : brand.textSecondary, fontWeight: tone ? 600 : 400 }}>
+          <Box
+            sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0 }}
+          />
+          <Typography
+            sx={{
+              fontSize: '0.82rem',
+              color: tone ? statusTones[tone].fg : brand.textSecondary,
+              fontWeight: tone ? 600 : 400,
+            }}
+          >
             {detail}
           </Typography>
         </Stack>
@@ -96,10 +113,21 @@ function MetricCard({ label, value, detail, icon, tone }: MetricCardProps) {
   );
 }
 
-function ListPanel({ title, count, children }: { title: string; count?: string; children: ReactNode }) {
+function ListPanel({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: string;
+  children: ReactNode;
+}) {
   return (
     <Card sx={{ height: '100%' }}>
-      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2, pb: 1.5 }}>
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2, pb: 1.5 }}
+      >
         <Typography component="h2" variant="h2">
           {title}
         </Typography>
@@ -196,7 +224,9 @@ export function DashboardPage() {
           <MetricCard
             label="Valor vencido"
             value={formatCents(data.invoices.overdueAmountCents)}
-            detail={data.invoices.overdueAmountCents > 0 ? 'Precisa de atenção' : 'Nenhuma pendência'}
+            detail={
+              data.invoices.overdueAmountCents > 0 ? 'Precisa de atenção' : 'Nenhuma pendência'
+            }
             icon={<ScheduleOutlinedIcon />}
             tone={data.invoices.overdueAmountCents > 0 ? 'error' : undefined}
           />
@@ -251,14 +281,20 @@ export function DashboardPage() {
                         {item.icon}
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontSize: '0.94rem', fontWeight: 600, color: brand.textPrimary }}>
+                        <Typography
+                          sx={{ fontSize: '0.94rem', fontWeight: 600, color: brand.textPrimary }}
+                        >
                           {item.title}
                         </Typography>
                         <Typography sx={{ fontSize: '0.83rem', color: brand.textSecondary }}>
                           {item.sub}
                         </Typography>
                       </Box>
-                      <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center', color: 'primary.main', flexShrink: 0 }}>
+                      <Stack
+                        direction="row"
+                        spacing={0.25}
+                        sx={{ alignItems: 'center', color: 'primary.main', flexShrink: 0 }}
+                      >
                         <Typography sx={{ fontSize: '0.86rem', fontWeight: 600, color: 'inherit' }}>
                           {item.cta}
                         </Typography>
@@ -275,7 +311,12 @@ export function DashboardPage() {
               <ListPanel title="Atividade recente">
                 <Stack>
                   {recentActivity.map((event) => (
-                    <Stack key={event.id} direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', px: 2, py: 1.1 }}>
+                    <Stack
+                      key={event.id}
+                      direction="row"
+                      spacing={1.5}
+                      sx={{ alignItems: 'flex-start', px: 2, py: 1.1 }}
+                    >
                       <Box
                         sx={{
                           width: 32,
@@ -293,14 +334,22 @@ export function DashboardPage() {
                         <NotificationsNoneOutlinedIcon sx={{ fontSize: 18 }} />
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontSize: '0.88rem', fontWeight: 600, color: brand.textPrimary }}>
+                        <Typography
+                          sx={{ fontSize: '0.88rem', fontWeight: 600, color: brand.textPrimary }}
+                        >
                           {event.title}
                         </Typography>
                         <Typography sx={{ fontSize: '0.8rem', color: brand.textSecondary }}>
                           {event.message}
                         </Typography>
                       </Box>
-                      <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary, whiteSpace: 'nowrap' }}>
+                      <Typography
+                        sx={{
+                          fontSize: '0.75rem',
+                          color: brand.textTertiary,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
                         {formatDateTime(event.createdAt)}
                       </Typography>
                     </Stack>
@@ -332,7 +381,13 @@ export function DashboardPage() {
               to="/invoices"
               direction="row"
               spacing={0.25}
-              sx={{ alignItems: 'center', color: 'primary.main', textDecoration: 'none', fontSize: '0.86rem', fontWeight: 600 }}
+              sx={{
+                alignItems: 'center',
+                color: 'primary.main',
+                textDecoration: 'none',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+              }}
             >
               Ver todas
               <ChevronRightOutlinedIcon sx={{ fontSize: 18 }} />

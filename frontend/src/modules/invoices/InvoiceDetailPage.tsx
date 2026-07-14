@@ -125,7 +125,11 @@ export function InvoiceDetailPage() {
           </Typography>
         </Box>
         {canManage && availableCents > 0 && (
-          <Button startIcon={<AddOutlined />} onClick={() => setPaymentOpen(true)} sx={{ flexShrink: 0 }}>
+          <Button
+            startIcon={<AddOutlined />}
+            onClick={() => setPaymentOpen(true)}
+            sx={{ flexShrink: 0 }}
+          >
             Registrar pagamento
           </Button>
         )}
@@ -148,9 +152,7 @@ export function InvoiceDetailPage() {
           </Typography>
         </Card>
         <Card sx={{ p: 2.5 }}>
-          <Typography sx={{ ...uppercaseLabelSx, color: brand.textTertiary }}>
-            Aprovado
-          </Typography>
+          <Typography sx={{ ...uppercaseLabelSx, color: brand.textTertiary }}>Aprovado</Typography>
           <Typography sx={{ ...heroValueSx, color: statusTones.success.fg }}>
             {formatCents(invoice.approvedAmountCents)}
           </Typography>
@@ -204,12 +206,20 @@ export function InvoiceDetailPage() {
             <Typography
               component={RouterLink}
               to={`/contracts/${invoice.contractId}`}
-              sx={{ fontSize: '0.85rem', fontWeight: 600, color: brand.accent, textDecoration: 'none' }}
+              sx={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: brand.accent,
+                textDecoration: 'none',
+              }}
             >
               Abrir
             </Typography>
           </Stack>
-          <Box component="details" sx={{ mt: 2, pt: 1.75, borderTop: `1px solid ${brand.borderRow}` }}>
+          <Box
+            component="details"
+            sx={{ mt: 2, pt: 1.75, borderTop: `1px solid ${brand.borderRow}` }}
+          >
             <Box
               component="summary"
               sx={{
@@ -295,7 +305,12 @@ export function InvoiceDetailPage() {
             <Typography
               component={RouterLink}
               to={`/tenants/${invoice.contract.tenantId}`}
-              sx={{ fontSize: '0.85rem', fontWeight: 600, color: brand.accent, textDecoration: 'none' }}
+              sx={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: brand.accent,
+                textDecoration: 'none',
+              }}
             >
               Abrir
             </Typography>
@@ -373,7 +388,11 @@ export function InvoiceDetailPage() {
                       </Typography>
                     )}
                   </Box>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                  >
                     {payment.hasProof && (
                       <PaymentProofButton invoiceId={invoice.id} paymentId={payment.id} />
                     )}

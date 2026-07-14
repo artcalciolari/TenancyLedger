@@ -46,10 +46,5 @@ export function BuildingOccupancyChip({
   }
   const tone: StatusTone =
     occupiedUnits >= totalUnits ? 'success' : occupiedUnits === 0 ? 'neutral' : 'info';
-  return (
-    <ToneChip
-      tone={tone}
-      label={`${occupiedUnits} inquilinos / ${totalUnits} quartos`}
-    />
-  );
+  return <ToneChip tone={tone} label={`${occupiedUnits} inquilinos / ${totalUnits} quartos`} />;
 }

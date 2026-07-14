@@ -131,7 +131,10 @@ export function PropertyDetailPage() {
                   )
                 }
               />
-              <DetailField label="Situação" value={<UnitOccupancyChip occupied={property.data.occupied} />} />
+              <DetailField
+                label="Situação"
+                value={<UnitOccupancyChip occupied={property.data.occupied} />}
+              />
               <DetailField label="Cadastrado em" value={formatDateTime(property.data.createdAt)} />
             </Box>
             <TechnicalDetails id={property.data.id} />

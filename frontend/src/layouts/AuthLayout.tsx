@@ -79,15 +79,28 @@ export function AuthLayout({ children }: PropsWithChildren) {
           >
             Suas locações, organizadas com calma.
           </Typography>
-          <Typography sx={{ fontSize: '1.05rem', lineHeight: 1.6, color: brand.sidebarItemInactiveFg, maxWidth: '38ch' }}>
-            Contratos, faturas e pagamentos em um só lugar — com uma tela clara para cada tarefa
-            do dia.
+          <Typography
+            sx={{
+              fontSize: '1.05rem',
+              lineHeight: 1.6,
+              color: brand.sidebarItemInactiveFg,
+              maxWidth: '38ch',
+            }}
+          >
+            Contratos, faturas e pagamentos em um só lugar — com uma tela clara para cada tarefa do
+            dia.
           </Typography>
         </Box>
         <Stack
           direction="row"
           spacing={1.25}
-          sx={{ alignItems: 'center', mt: 6, color: brand.sidebarFooterMuted, fontSize: '0.85rem', position: 'relative' }}
+          sx={{
+            alignItems: 'center',
+            mt: 6,
+            color: brand.sidebarFooterMuted,
+            fontSize: '0.85rem',
+            position: 'relative',
+          }}
         >
           <Box sx={{ width: 28, height: 2, bgcolor: brand.ocre, borderRadius: '2px' }} />
           <LockOutlinedIcon sx={{ fontSize: 18 }} />
@@ -123,7 +136,9 @@ export function AuthLayout({ children }: PropsWithChildren) {
             Use o e-mail e a senha da sua conta.
           </Typography>
           {children}
-          <Typography sx={{ mt: 3.5, fontSize: '0.82rem', color: brand.textTertiary, textAlign: 'center' }}>
+          <Typography
+            sx={{ mt: 3.5, fontSize: '0.82rem', color: brand.textTertiary, textAlign: 'center' }}
+          >
             Problemas para acessar? Fale com o administrador do sistema.
           </Typography>
         </Box>

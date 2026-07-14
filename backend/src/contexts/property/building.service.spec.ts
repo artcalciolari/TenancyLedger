@@ -115,13 +115,25 @@ describe('BuildingService', () => {
     it('combines occupancy and units for the detail view', async () => {
       occupancyFor.mockResolvedValue(occupancyView());
       listUnits.mockResolvedValue([
-        { id: 'unit-1', unitNumber: '101', type: 'APARTMENT' as never, neighborhood: 'Centro', occupied: true },
+        {
+          id: 'unit-1',
+          unitNumber: '101',
+          type: 'APARTMENT' as never,
+          neighborhood: 'Centro',
+          occupied: true,
+        },
       ]);
 
       await expect(service.getById(BUILDING_ID)).resolves.toEqual({
         ...occupancyView(),
         units: [
-          { id: 'unit-1', unitNumber: '101', type: 'APARTMENT', neighborhood: 'Centro', occupied: true },
+          {
+            id: 'unit-1',
+            unitNumber: '101',
+            type: 'APARTMENT',
+            neighborhood: 'Centro',
+            occupied: true,
+          },
         ],
       });
     });

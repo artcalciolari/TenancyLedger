@@ -17,7 +17,9 @@ export class AddTenantName1783920000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "tenants" DROP CONSTRAINT "CHK_tenants_full_name_not_blank"`);
+    await queryRunner.query(
+      `ALTER TABLE "tenants" DROP CONSTRAINT "CHK_tenants_full_name_not_blank"`,
+    );
     await queryRunner.query(`ALTER TABLE "tenants" DROP COLUMN "full_name"`);
   }
 }

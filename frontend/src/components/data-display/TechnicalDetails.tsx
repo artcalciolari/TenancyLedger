@@ -47,7 +47,11 @@ export function TechnicalDetails({ id }: { id: string }) {
         >
           {id}
         </Typography>
-        <IconButton size="small" aria-label="Copiar identificador" onClick={() => navigator.clipboard.writeText(id)}>
+        <IconButton
+          size="small"
+          aria-label="Copiar identificador"
+          onClick={() => navigator.clipboard.writeText(id)}
+        >
           <ContentCopyOutlined fontSize="small" />
         </IconButton>
       </Stack>

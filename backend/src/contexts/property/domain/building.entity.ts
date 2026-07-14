@@ -4,10 +4,7 @@ import { ValidationError } from '../../../core/domain/errors/validation.error';
 @Entity('buildings')
 @Index('UQ_buildings_name_ci', { synchronize: false })
 @Check('CHK_buildings_name_not_blank', 'char_length(trim(name)) BETWEEN 1 AND 120')
-@Check(
-  'CHK_buildings_neighborhood_not_blank',
-  'char_length(trim(neighborhood)) BETWEEN 1 AND 120',
-)
+@Check('CHK_buildings_neighborhood_not_blank', 'char_length(trim(neighborhood)) BETWEEN 1 AND 120')
 @Check(
   'CHK_buildings_address_not_blank',
   'address IS NULL OR char_length(trim(address)) BETWEEN 1 AND 200',

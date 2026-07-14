@@ -105,7 +105,8 @@ const pageMeta: Record<string, { title: string; crumb: string }> = {
 
 function metaForPath(pathname: string): { title: string; crumb: string } {
   if (pageMeta[pathname]) return pageMeta[pathname];
-  if (pathname.startsWith('/invoices/')) return { title: 'Detalhe da fatura', crumb: 'Operação · Faturas' };
+  if (pathname.startsWith('/invoices/'))
+    return { title: 'Detalhe da fatura', crumb: 'Operação · Faturas' };
   if (pathname.startsWith('/contracts/'))
     return { title: 'Detalhe do contrato', crumb: 'Cadastros · Contratos' };
   if (pathname.startsWith('/tenants/'))
@@ -182,7 +183,9 @@ export function AppShell() {
         >
           <ApartmentOutlinedIcon sx={{ color: '#fff', fontSize: 21 }} />
         </Box>
-        <Typography sx={{ fontSize: '1.02rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>
+        <Typography
+          sx={{ fontSize: '1.02rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}
+        >
           Tenancy Ledger
         </Typography>
         {!desktop && (
@@ -196,7 +199,11 @@ export function AppShell() {
           </IconButton>
         )}
       </Stack>
-      <Box component="nav" aria-label="Navegação principal" sx={{ flex: 1, overflowY: 'auto', px: 1.75, py: 1 }}>
+      <Box
+        component="nav"
+        aria-label="Navegação principal"
+        sx={{ flex: 1, overflowY: 'auto', px: 1.75, py: 1 }}
+      >
         {visibleGroups.map((group) => (
           <Box key={group.label} sx={{ mb: 2.25 }}>
             <Typography
@@ -233,7 +240,9 @@ export function AppShell() {
                     mb: 0.4,
                     textDecoration: 'none',
                     bgcolor: selected ? brand.sidebarItemActiveBg : 'transparent',
-                    '&:hover': { bgcolor: selected ? brand.sidebarItemActiveBg : 'rgba(255,255,255,0.04)' },
+                    '&:hover': {
+                      bgcolor: selected ? brand.sidebarItemActiveBg : 'rgba(255,255,255,0.04)',
+                    },
                     '&:focus-visible': { outline: '3px solid #79C2C7', outlineOffset: 2 },
                   }}
                 >
@@ -328,10 +337,7 @@ export function AppShell() {
             {session?.user.email.charAt(0).toUpperCase()}
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              noWrap
-              sx={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff' }}
-            >
+            <Typography noWrap sx={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff' }}>
               {session?.user.email}
             </Typography>
             {session && (
@@ -446,7 +452,12 @@ export function AppShell() {
           )}
           <Typography
             noWrap
-            sx={{ fontSize: '1.05rem', fontWeight: 700, color: brand.textPrimary, letterSpacing: '-0.01em' }}
+            sx={{
+              fontSize: '1.05rem',
+              fontWeight: 700,
+              color: brand.textPrimary,
+              letterSpacing: '-0.01em',
+            }}
           >
             {title}
           </Typography>

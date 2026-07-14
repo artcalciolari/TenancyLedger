@@ -255,7 +255,11 @@ export function ContractsPage() {
         />
       </PageHeader>
       <Card sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <TextField
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
@@ -342,7 +346,8 @@ export function ContractsPage() {
                       sx={{ alignItems: 'center', justifyContent: 'space-between' }}
                     >
                       <Typography sx={{ fontWeight: 700, color: brand.textPrimary }}>
-                        {contract.propertyUnit.neighborhood} · Unid. {contract.propertyUnit.unitNumber}
+                        {contract.propertyUnit.neighborhood} · Unid.{' '}
+                        {contract.propertyUnit.unitNumber}
                       </Typography>
                       <StatusChip status={contract.status} />
                     </Stack>
@@ -401,9 +406,12 @@ export function ContractsPage() {
                             textDecoration: 'none',
                           }}
                         >
-                          {contract.propertyUnit.neighborhood} · Unid. {contract.propertyUnit.unitNumber}
+                          {contract.propertyUnit.neighborhood} · Unid.{' '}
+                          {contract.propertyUnit.unitNumber}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}
+                        >
                           {contract.tenant.name} · CPF {contract.tenant.cpf}
                         </Typography>
                       </TableCell>

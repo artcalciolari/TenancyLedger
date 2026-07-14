@@ -1,11 +1,25 @@
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
-import { Box, Card, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import {
+  Box,
+  Card,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { Link as RouterLink, useParams } from 'react-router';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
-import { BuildingOccupancyChip, UnitOccupancyChip } from '../../components/data-display/OccupancyChip';
+import {
+  BuildingOccupancyChip,
+  UnitOccupancyChip,
+} from '../../components/data-display/OccupancyChip';
 import { TechnicalDetails } from '../../components/data-display/TechnicalDetails';
 import { EmptyState } from '../../components/feedback/QueryState';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
