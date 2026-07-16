@@ -16,8 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import type { FormEvent } from 'react';
 import {
   PAYMENT_METHODS,
   type PaymentMethod,
@@ -28,11 +27,15 @@ import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
+import {
+  type ListSearchConfig,
+  useListPageRange,
+  useListSearchParams,
+} from '../../components/data-display/useListSearchParams';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
 import { formatCompetence, formatDateTime } from '../../lib/dates/dates';
 import { formatCents } from '../../lib/money/money';
-import { clampPage } from '../../lib/pagination/pagination';
 import { useAuth } from '../auth/useAuth';
 import { invoicesApi } from './api';
 import { paymentMethodLabels } from './labels';
@@ -84,6 +87,15 @@ function parseFilters(search: URLSearchParams): PaymentReviewFilters {
   };
 }
 
+const paymentReviewSearchConfig: ListSearchConfig<PaymentReviewFilters> = {
+  filterKeys: ['q', 'competence', 'method', 'submittedFrom', 'submittedTo'],
+  parse: (searchParams, page, limit) => ({
+    ...parseFilters(searchParams),
+    page,
+    limit,
+  }),
+};
+
 function groupByInvoice(items: PaymentReviewItem[]): PaymentReviewItem[][] {
   const groups = new Map<string, PaymentReviewItem[]>();
   items.forEach((item) => {
@@ -95,8 +107,8 @@ function groupByInvoice(items: PaymentReviewItem[]): PaymentReviewItem[][] {
 }
 
 export function ReviewPaymentsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const filters = parseFilters(searchParams);
+  const listParams = useListSearchParams(paymentReviewSearchConfig);
+  const { applyFilters, clearFilters, filters, searchParamsKey, updateFilters } = listParams;
   const { session } = useAuth();
   const query = useQuery({
     queryKey: queryKeys.paymentReview(filters),
@@ -105,73 +117,14 @@ export function ReviewPaymentsPage() {
     staleTime: 15_000,
     refetchInterval: () => (document.visibilityState === 'visible' ? 30_000 : false),
   });
-  const normalizedPage = query.data
-    ? clampPage(filters.page, query.data.meta.totalPages)
-    : filters.page;
-  const pageOutOfRange = normalizedPage !== filters.page;
+  const pageOutOfRange = useListPageRange(listParams, query.data?.meta.totalPages, {
+    resetTo: 'last',
+    preserveLimitParam: true,
+  });
 
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams);
-    let changed = false;
-    const normalized: Record<string, string | undefined> = {
-      page: searchParams.has('page') || pageOutOfRange ? String(normalizedPage) : undefined,
-      limit: searchParams.has('limit') ? String(filters.limit) : undefined,
-      q: filters.q,
-      competence: filters.competence,
-      method: filters.method,
-      submittedFrom: filters.submittedFrom,
-      submittedTo: filters.submittedTo,
-    };
-    Object.entries(normalized).forEach(([key, value]) => {
-      const current = next.get(key);
-      if (current !== null && value === undefined) {
-        next.delete(key);
-        changed = true;
-      } else if (value !== undefined && current !== value) {
-        next.set(key, value);
-        changed = true;
-      }
-    });
-    if (changed) setSearchParams(next, { replace: true });
-  }, [
-    filters.competence,
-    filters.limit,
-    filters.method,
-    filters.page,
-    filters.q,
-    filters.submittedFrom,
-    filters.submittedTo,
-    normalizedPage,
-    pageOutOfRange,
-    searchParams,
-    setSearchParams,
-  ]);
-
-  const update = (values: Record<string, string | number | undefined>) => {
-    const next = new URLSearchParams(searchParams);
-    Object.entries(values).forEach(([key, value]) => {
-      if (value === undefined || value === '') next.delete(key);
-      else next.set(key, String(value));
-    });
-    if (!Object.hasOwn(values, 'page')) next.set('page', '1');
-    setSearchParams(next);
-  };
-
-  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+  const submitFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const value = (key: string) => {
-      const raw = data.get(key);
-      if (typeof raw !== 'string') return undefined;
-      return nonEmpty(raw);
-    };
-    update({
-      q: value('q'),
-      competence: value('competence'),
-      method: value('method'),
-      submittedFrom: value('submittedFrom'),
-      submittedTo: value('submittedTo'),
-    });
+    applyFilters(new FormData(event.currentTarget));
   };
 
   const groups = groupByInvoice(query.data?.data ?? []);
@@ -217,12 +170,7 @@ export function ReviewPaymentsPage() {
           estiver aberta.
         </Typography>
       </Stack>
-      <Card
-        component="form"
-        onSubmit={applyFilters}
-        key={searchParams.toString()}
-        sx={{ mb: 2, p: 2 }}
-      >
+      <Card component="form" onSubmit={submitFilters} key={searchParamsKey} sx={{ mb: 2, p: 2 }}>
         <Box
           sx={{
             display: 'grid',
@@ -281,7 +229,7 @@ export function ReviewPaymentsPage() {
             type="button"
             variant="text"
             startIcon={<ClearOutlinedIcon />}
-            onClick={() => setSearchParams({ page: '1', limit: String(filters.limit) })}
+            onClick={clearFilters}
           >
             Limpar
           </Button>
@@ -423,7 +371,7 @@ export function ReviewPaymentsPage() {
           <Card sx={{ p: 0 }}>
             <PaginationBar
               meta={query.data.meta}
-              onChange={(page, limit) => update({ page, limit })}
+              onChange={(page, limit) => updateFilters({ page, limit })}
             />
           </Card>
         </Stack>

@@ -20,19 +20,33 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { UpdateUserAccessInput, UserRole, UserView } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand, statusTones } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
-import { usePaginationParams } from '../../components/data-display/usePaginationParams';
+import {
+  type ListSearchConfig,
+  useListPageRange,
+  useListSearchParams,
+} from '../../components/data-display/useListSearchParams';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
 import { roleLabel } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
 import { usersApi } from './api';
 import { UserAccessDialog } from './UserAccessDialog';
+
+interface UserListSearch {
+  page: number;
+  limit: number;
+}
+
+const userSearchConfig: ListSearchConfig<UserListSearch> = {
+  filterKeys: [],
+  parse: (_searchParams, page, limit) => ({ page, limit }),
+};
 
 const roleIcons: Record<UserRole, ReactNode> = {
   ADMIN: <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 19, color: brand.textTertiary }} />,
@@ -65,7 +79,8 @@ function StatusPill({ active }: { active: boolean }) {
 }
 
 export function UsersPage() {
-  const { page, limit, setPagination } = usePaginationParams();
+  const listParams = useListSearchParams(userSearchConfig);
+  const { limit, page, setPagination } = listParams;
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
@@ -95,12 +110,7 @@ export function UsersPage() {
   };
 
   const rows = users.data?.data ?? [];
-
-  useEffect(() => {
-    if (users.data && page > Math.max(1, users.data.meta.totalPages)) {
-      setPagination(1, limit);
-    }
-  }, [limit, page, setPagination, users.data]);
+  useListPageRange(listParams, users.data?.meta.totalPages);
 
   return (
     <>

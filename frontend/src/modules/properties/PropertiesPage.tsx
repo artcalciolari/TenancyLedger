@@ -30,15 +30,19 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, type FormEvent, type ReactNode } from 'react';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
+import type { FormEvent, ReactNode } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import { UNIT_TYPES, type PropertyListFilters, type UnitType } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { UnitOccupancyChip } from '../../components/data-display/OccupancyChip';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
-import { usePaginationParams } from '../../components/data-display/usePaginationParams';
+import {
+  type ListSearchConfig,
+  useListPageRange,
+  useListSearchParams,
+} from '../../components/data-display/useListSearchParams';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
 import { formatCivilDate } from '../../lib/dates/dates';
@@ -46,6 +50,17 @@ import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
 import { propertiesApi } from './api';
 import { unitTypeLabel } from './labels';
+
+const propertySearchConfig: ListSearchConfig<PropertyListFilters> = {
+  filterKeys: ['q', 'type'],
+  parse: (searchParams, page, limit) => {
+    const rawType = searchParams.get('type');
+    const type = UNIT_TYPES.includes(rawType as UnitType) ? (rawType as UnitType) : undefined;
+    const rawQ = searchParams.get('q')?.trim();
+    const q = rawQ === undefined || rawQ === '' ? undefined : rawQ.slice(0, 120);
+    return { page, limit, q, type };
+  },
+};
 
 const typeIcons: Record<UnitType, ReactNode> = {
   APARTMENT: <ApartmentOutlinedIcon sx={{ fontSize: 20 }} />,
@@ -77,13 +92,10 @@ function TypeIcon({ type }: { type: UnitType }) {
 
 export function PropertiesPage() {
   const navigate = useNavigate();
-  const { page, limit, setPagination } = usePaginationParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const rawType = searchParams.get('type');
-  const type = UNIT_TYPES.includes(rawType as UnitType) ? (rawType as UnitType) : undefined;
-  const rawQ = searchParams.get('q')?.trim();
-  const q = rawQ === undefined || rawQ === '' ? undefined : rawQ.slice(0, 120);
-  const filters: PropertyListFilters = { page, limit, q, type };
+  const listParams = useListSearchParams(propertySearchConfig);
+  const { applyFilters, clearFilters, filters, hasFilters, searchParamsKey, setPagination } =
+    listParams;
+  const { q, type } = filters;
   const { session } = useAuth();
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -94,48 +106,12 @@ export function PropertiesPage() {
   });
   const mayCreate = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
   const rows = properties.data?.data ?? [];
-  const hasFilters = [q, type].some((value) => value !== undefined);
+  useListPageRange(listParams, properties.data?.meta.totalPages);
 
-  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+  const submitFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const next = new URLSearchParams(searchParams);
-    const rawNextQ = data.get('q');
-    const rawNextType = data.get('type');
-    const nextQ = typeof rawNextQ === 'string' ? rawNextQ.trim().slice(0, 120) : '';
-    const nextType = typeof rawNextType === 'string' ? rawNextType : '';
-    if (nextQ) next.set('q', nextQ);
-    else next.delete('q');
-    if (nextType) next.set('type', nextType);
-    else next.delete('type');
-    next.set('page', '1');
-    setSearchParams(next);
+    applyFilters(new FormData(event.currentTarget));
   };
-
-  const clearFilters = () => setSearchParams({ page: '1', limit: String(limit) });
-
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams);
-    let changed = false;
-    const normalized = { q, type };
-    Object.entries(normalized).forEach(([key, value]) => {
-      const current = next.get(key);
-      if (current !== null && value === undefined) {
-        next.delete(key);
-        changed = true;
-      } else if (value !== undefined && current !== value) {
-        next.set(key, value);
-        changed = true;
-      }
-    });
-    if (changed) setSearchParams(next, { replace: true });
-  }, [q, searchParams, setSearchParams, type]);
-
-  useEffect(() => {
-    if (properties.data && page > Math.max(1, properties.data.meta.totalPages)) {
-      setPagination(1, limit);
-    }
-  }, [limit, page, properties.data, setPagination]);
 
   return (
     <>
@@ -144,12 +120,7 @@ export function PropertiesPage() {
         description="Unidades imobiliárias disponíveis para locação."
         action={mayCreate ? { label: 'Novo imóvel', to: '/properties/new' } : undefined}
       />
-      <Card
-        component="form"
-        onSubmit={applyFilters}
-        key={searchParams.toString()}
-        sx={{ mb: 2, p: 2 }}
-      >
+      <Card component="form" onSubmit={submitFilters} key={searchParamsKey} sx={{ mb: 2, p: 2 }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}

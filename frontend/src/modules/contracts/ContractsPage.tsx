@@ -24,18 +24,22 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import type { ContractListFilters, ContractStatus } from '../../api/contract';
 import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
+import {
+  type ListSearchConfig,
+  useListPageRange,
+  useListSearchParams,
+} from '../../components/data-display/useListSearchParams';
 import { StatusChip } from '../../components/data-display/StatusChip';
 import { CsvExportButton } from '../../components/data-display/CsvExportButton';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
 import { formatCivilDate } from '../../lib/dates/dates';
 import { formatCents } from '../../lib/money/money';
-import { clampPage } from '../../lib/pagination/pagination';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
 import { contractsApi } from './api';
@@ -48,6 +52,24 @@ const statusChipOptions: { label: string; value: ContractStatus | undefined }[] 
   { label: 'Expirados', value: 'EXPIRED' },
   { label: 'Encerrados', value: 'TERMINATED' },
 ];
+
+const contractSearchConfig: ListSearchConfig<ContractListFilters> = {
+  filterKeys: [
+    'status',
+    'tenantId',
+    'propertyUnitId',
+    'q',
+    'moveInFrom',
+    'moveInTo',
+    'endFrom',
+    'endTo',
+  ],
+  parse: (searchParams, page, limit) => ({
+    ...parseContractFilters(searchParams),
+    page,
+    limit,
+  }),
+};
 
 interface AdvancedFiltersFormProps {
   filters: ContractListFilters;
@@ -149,8 +171,8 @@ function AdvancedFiltersForm({ filters, onApply }: AdvancedFiltersFormProps) {
 
 export function ContractsPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const filters = parseContractFilters(searchParams);
+  const listParams = useListSearchParams(contractSearchConfig);
+  const { filters, hasFilters, searchParamsKey, updateFilters } = listParams;
   const contracts = useContracts(filters);
   const { session } = useAuth();
   const theme = useTheme();
@@ -163,84 +185,20 @@ export function ContractsPage() {
     setLastSyncedQ(filters.q ?? '');
     setSearchDraft(filters.q ?? '');
   }
-  const hasFilters = [
-    filters.status,
-    filters.tenantId,
-    filters.propertyUnitId,
-    filters.q,
-    filters.moveInFrom,
-    filters.moveInTo,
-    filters.endFrom,
-    filters.endTo,
-  ].some(Boolean);
-  const normalizedPage = contracts.data
-    ? clampPage(filters.page, contracts.data.meta.totalPages)
-    : filters.page;
-  const pageOutOfRange = normalizedPage !== filters.page;
-
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams);
-    let changed = false;
-    const normalized: Record<string, string | undefined> = {
-      page: searchParams.has('page') || pageOutOfRange ? String(normalizedPage) : undefined,
-      limit: searchParams.has('limit') ? String(filters.limit) : undefined,
-      status: filters.status,
-      tenantId: filters.tenantId,
-      propertyUnitId: filters.propertyUnitId,
-      q: filters.q,
-      moveInFrom: filters.moveInFrom,
-      moveInTo: filters.moveInTo,
-      endFrom: filters.endFrom,
-      endTo: filters.endTo,
-    };
-    Object.entries(normalized).forEach(([key, value]) => {
-      const current = next.get(key);
-      if (current !== null && value === undefined) {
-        next.delete(key);
-        changed = true;
-      } else if (value !== undefined && current !== value) {
-        next.set(key, value);
-        changed = true;
-      }
-    });
-    if (changed) setSearchParams(next, { replace: true });
-  }, [
-    filters.limit,
-    filters.moveInFrom,
-    filters.moveInTo,
-    filters.endFrom,
-    filters.endTo,
-    filters.page,
-    filters.propertyUnitId,
-    filters.q,
-    filters.status,
-    filters.tenantId,
-    normalizedPage,
-    pageOutOfRange,
-    searchParams,
-    setSearchParams,
-  ]);
-
-  const update = (values: Record<string, string | number | undefined>) => {
-    const next = new URLSearchParams(searchParams);
-    Object.entries(values).forEach(([key, value]) => {
-      if (value === undefined || value === '') next.delete(key);
-      else next.set(key, String(value));
-    });
-    if (!Object.hasOwn(values, 'page')) next.set('page', '1');
-    setSearchParams(next);
-  };
+  const pageOutOfRange = useListPageRange(listParams, contracts.data?.meta.totalPages, {
+    resetTo: 'last',
+    preserveLimitParam: true,
+  });
 
   // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
   useEffect(() => {
     const trimmed = searchDraft.trim();
     if (trimmed === (filters.q ?? '')) return;
     const timeout = window.setTimeout(() => {
-      update({ q: trimmed || undefined });
+      updateFilters({ q: trimmed || undefined });
     }, 400);
     return () => window.clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchDraft]);
+  }, [filters.q, searchDraft, updateFilters]);
 
   return (
     <>
@@ -304,7 +262,7 @@ export function ContractsPage() {
                 key={option.label}
                 clickable
                 label={option.label}
-                onClick={() => update({ status: option.value })}
+                onClick={() => updateFilters({ status: option.value })}
                 variant={active ? 'filled' : 'outlined'}
                 sx={{
                   height: 34,
@@ -321,7 +279,11 @@ export function ContractsPage() {
         </Stack>
         {advancedOpen && (
           <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${brand.borderRow}` }}>
-            <AdvancedFiltersForm key={searchParams.toString()} filters={filters} onApply={update} />
+            <AdvancedFiltersForm
+              key={searchParamsKey}
+              filters={filters}
+              onApply={(values) => updateFilters(values)}
+            />
           </Box>
         )}
       </Card>
@@ -436,7 +398,7 @@ export function ContractsPage() {
           <Box sx={{ bgcolor: brand.surfaceSubtle, borderTop: `1px solid ${brand.borderCard}` }}>
             <PaginationBar
               meta={contracts.data.meta}
-              onChange={(page, limit) => update({ page, limit })}
+              onChange={(page, limit) => updateFilters({ page, limit })}
             />
           </Box>
         </Card>

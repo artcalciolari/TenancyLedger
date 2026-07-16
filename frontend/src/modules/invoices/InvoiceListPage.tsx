@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import {
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
@@ -38,6 +38,11 @@ import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
+import {
+  type ListSearchConfig,
+  useListPageRange,
+  useListSearchParams,
+} from '../../components/data-display/useListSearchParams';
 import { StatusChip } from '../../components/data-display/StatusChip';
 import { CsvExportButton } from '../../components/data-display/CsvExportButton';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
@@ -45,7 +50,6 @@ import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { formatCivilDate, formatCompetence } from '../../lib/dates/dates';
 import { isUuidV4 } from '../../lib/identifiers/uuid';
 import { formatCents } from '../../lib/money/money';
-import { clampPage } from '../../lib/pagination/pagination';
 import { invoicesApi } from './api';
 import { parseInvoiceFilters } from './filters';
 import { paymentMethodLabels, paymentStatusLabels } from './labels';
@@ -57,6 +61,26 @@ const statusChipOptions: { label: string; value: InvoiceStatus | undefined }[] =
   { label: 'Em análise', value: 'UNDER_REVIEW' },
   { label: 'Pagas', value: 'PAID' },
 ];
+
+const invoiceSearchConfig: ListSearchConfig<InvoiceListFilters> = {
+  filterKeys: [
+    'status',
+    'competence',
+    'contractId',
+    'q',
+    'dueFrom',
+    'dueTo',
+    'tenantId',
+    'propertyUnitId',
+    'paymentMethod',
+    'paymentStatus',
+  ],
+  parse: (searchParams, page, limit) => ({
+    ...parseInvoiceFilters(searchParams),
+    page,
+    limit,
+  }),
+};
 
 function AdvancedInvoiceFilters({
   filters,
@@ -209,18 +233,18 @@ function ContractIdFilter({
 
 export function InvoiceListPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const filters = parseInvoiceFilters(searchParams);
+  const listParams = useListSearchParams(invoiceSearchConfig);
+  const { clearFilters, filters, searchParamsKey, updateFilters } = listParams;
   const query = useQuery({
     queryKey: queryKeys.invoices(filters),
     queryFn: () => invoicesApi.list(filters),
     placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
-  const normalizedPage = query.data
-    ? clampPage(filters.page, query.data.meta.totalPages)
-    : filters.page;
-  const pageOutOfRange = normalizedPage !== filters.page;
+  const pageOutOfRange = useListPageRange(listParams, query.data?.meta.totalPages, {
+    resetTo: 'last',
+    preserveLimitParam: true,
+  });
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState(filters.q ?? '');
   const [lastSyncedQ, setLastSyncedQ] = useState(filters.q ?? '');
@@ -229,77 +253,15 @@ export function InvoiceListPage() {
     setSearchDraft(filters.q ?? '');
   }
 
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams);
-    let changed = false;
-    const normalized: Record<string, string | undefined> = {
-      page: searchParams.has('page') || pageOutOfRange ? String(normalizedPage) : undefined,
-      limit: searchParams.has('limit') ? String(filters.limit) : undefined,
-      status: filters.status,
-      competence: filters.competence,
-      contractId: filters.contractId,
-      q: filters.q,
-      dueFrom: filters.dueFrom,
-      dueTo: filters.dueTo,
-      tenantId: filters.tenantId,
-      propertyUnitId: filters.propertyUnitId,
-      paymentMethod: filters.paymentMethod,
-      paymentStatus: filters.paymentStatus,
-    };
-    Object.entries(normalized).forEach(([key, value]) => {
-      const current = next.get(key);
-      if (current !== null && value === undefined) {
-        next.delete(key);
-        changed = true;
-      } else if (value !== undefined && current !== value) {
-        next.set(key, value);
-        changed = true;
-      }
-    });
-    if (changed) setSearchParams(next, { replace: true });
-  }, [
-    filters.competence,
-    filters.contractId,
-    filters.dueFrom,
-    filters.dueTo,
-    filters.limit,
-    filters.page,
-    filters.paymentMethod,
-    filters.paymentStatus,
-    filters.propertyUnitId,
-    filters.q,
-    filters.status,
-    filters.tenantId,
-    normalizedPage,
-    pageOutOfRange,
-    searchParams,
-    setSearchParams,
-  ]);
-
-  const update = (values: Record<string, string | number | undefined>) => {
-    const next = new URLSearchParams(searchParams);
-    Object.entries(values).forEach(([key, value]) => {
-      if (value === undefined || value === '') next.delete(key);
-      else next.set(key, String(value));
-    });
-    if (!Object.hasOwn(values, 'page')) next.set('page', '1');
-    setSearchParams(next);
-  };
-
-  const clearFilters = () => {
-    setSearchParams({ page: '1', limit: String(filters.limit) });
-  };
-
   // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
   useEffect(() => {
     const trimmed = searchDraft.trim();
     if (trimmed === (filters.q ?? '')) return;
     const timeout = window.setTimeout(() => {
-      update({ q: trimmed || undefined });
+      updateFilters({ q: trimmed || undefined });
     }, 400);
     return () => window.clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchDraft]);
+  }, [filters.q, searchDraft, updateFilters]);
 
   return (
     <>
@@ -339,7 +301,7 @@ export function InvoiceListPage() {
             label="Mês de referência"
             type="month"
             value={filters.competence ?? ''}
-            onChange={(event) => update({ competence: event.target.value })}
+            onChange={(event) => updateFilters({ competence: event.target.value })}
             slotProps={{ inputLabel: { shrink: true } }}
             sx={{ maxWidth: { md: 220 } }}
           />
@@ -367,7 +329,7 @@ export function InvoiceListPage() {
                 key={option.label}
                 clickable
                 label={option.label}
-                onClick={() => update({ status: option.value })}
+                onClick={() => updateFilters({ status: option.value })}
                 variant={active ? 'filled' : 'outlined'}
                 sx={{
                   height: 34,
@@ -388,13 +350,13 @@ export function InvoiceListPage() {
               <ContractIdFilter
                 key={filters.contractId ?? ''}
                 initialValue={filters.contractId ?? ''}
-                onApply={(contractId) => update({ contractId })}
+                onApply={(contractId) => updateFilters({ contractId })}
                 onClear={clearFilters}
               />
               <AdvancedInvoiceFilters
-                key={`advanced-${searchParams.toString()}`}
+                key={`advanced-${searchParamsKey}`}
                 filters={filters}
-                onApply={update}
+                onApply={(values) => updateFilters(values)}
               />
             </Stack>
           </Box>
@@ -562,7 +524,7 @@ export function InvoiceListPage() {
             <Box sx={{ bgcolor: brand.surfaceSubtle, borderTop: `1px solid ${brand.borderCard}` }}>
               <PaginationBar
                 meta={query.data.meta}
-                onChange={(page, limit) => update({ page, limit })}
+                onChange={(page, limit) => updateFilters({ page, limit })}
               />
             </Box>
           </Card>

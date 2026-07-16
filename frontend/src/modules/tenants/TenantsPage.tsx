@@ -26,8 +26,8 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, type FormEvent } from 'react';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
+import type { FormEvent } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import {
   TENANT_CIVIL_STATUSES,
   type TenantCivilStatus,
@@ -37,7 +37,11 @@ import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
-import { usePaginationParams } from '../../components/data-display/usePaginationParams';
+import {
+  type ListSearchConfig,
+  useListPageRange,
+  useListSearchParams,
+} from '../../components/data-display/useListSearchParams';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
@@ -45,17 +49,25 @@ import { useAuth } from '../auth/useAuth';
 import { tenantsApi } from './api';
 import { civilStatusLabel } from './labels';
 
+const tenantSearchConfig: ListSearchConfig<TenantListFilters> = {
+  filterKeys: ['q', 'civilStatus'],
+  parse: (searchParams, page, limit) => {
+    const rawCivilStatus = searchParams.get('civilStatus');
+    const civilStatus = TENANT_CIVIL_STATUSES.includes(rawCivilStatus as TenantCivilStatus)
+      ? (rawCivilStatus as TenantCivilStatus)
+      : undefined;
+    const rawQ = searchParams.get('q')?.trim();
+    const q = rawQ === undefined || rawQ === '' ? undefined : rawQ.slice(0, 120);
+    return { page, limit, q, civilStatus };
+  },
+};
+
 export function TenantsPage() {
   const navigate = useNavigate();
-  const { page, limit, setPagination } = usePaginationParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const rawCivilStatus = searchParams.get('civilStatus');
-  const civilStatus = TENANT_CIVIL_STATUSES.includes(rawCivilStatus as TenantCivilStatus)
-    ? (rawCivilStatus as TenantCivilStatus)
-    : undefined;
-  const rawQ = searchParams.get('q')?.trim();
-  const q = rawQ === undefined || rawQ === '' ? undefined : rawQ.slice(0, 120);
-  const filters: TenantListFilters = { page, limit, q, civilStatus };
+  const listParams = useListSearchParams(tenantSearchConfig);
+  const { applyFilters, clearFilters, filters, hasFilters, searchParamsKey, setPagination } =
+    listParams;
+  const { civilStatus, q } = filters;
   const { session } = useAuth();
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -66,48 +78,12 @@ export function TenantsPage() {
   });
   const mayCreate = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
   const rows = tenants.data?.data ?? [];
-  const hasFilters = [q, civilStatus].some((value) => value !== undefined);
+  useListPageRange(listParams, tenants.data?.meta.totalPages);
 
-  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+  const submitFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const next = new URLSearchParams(searchParams);
-    const rawNextQ = data.get('q');
-    const rawNextCivilStatus = data.get('civilStatus');
-    const nextQ = typeof rawNextQ === 'string' ? rawNextQ.trim().slice(0, 120) : '';
-    const nextCivilStatus = typeof rawNextCivilStatus === 'string' ? rawNextCivilStatus : '';
-    if (nextQ) next.set('q', nextQ);
-    else next.delete('q');
-    if (nextCivilStatus) next.set('civilStatus', nextCivilStatus);
-    else next.delete('civilStatus');
-    next.set('page', '1');
-    setSearchParams(next);
+    applyFilters(new FormData(event.currentTarget));
   };
-
-  const clearFilters = () => setSearchParams({ page: '1', limit: String(limit) });
-
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams);
-    let changed = false;
-    const normalized = { q, civilStatus };
-    Object.entries(normalized).forEach(([key, value]) => {
-      const current = next.get(key);
-      if (current !== null && value === undefined) {
-        next.delete(key);
-        changed = true;
-      } else if (value !== undefined && current !== value) {
-        next.set(key, value);
-        changed = true;
-      }
-    });
-    if (changed) setSearchParams(next, { replace: true });
-  }, [civilStatus, q, searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (tenants.data && page > Math.max(1, tenants.data.meta.totalPages)) {
-      setPagination(1, limit);
-    }
-  }, [limit, page, setPagination, tenants.data]);
 
   return (
     <>
@@ -116,12 +92,7 @@ export function TenantsPage() {
         description="Dados cadastrais dos locatários vinculados aos contratos."
         action={mayCreate ? { label: 'Novo locatário', to: '/tenants/new' } : undefined}
       />
-      <Card
-        component="form"
-        onSubmit={applyFilters}
-        key={searchParams.toString()}
-        sx={{ mb: 2, p: 2 }}
-      >
+      <Card component="form" onSubmit={submitFilters} key={searchParamsKey} sx={{ mb: 2, p: 2 }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
