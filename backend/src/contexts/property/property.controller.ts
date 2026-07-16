@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -48,6 +49,11 @@ export class CreatePropertyDto {
   @IsNotEmpty()
   @MaxLength(40)
   unitNumber!: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  buildingId?: string;
 }
 
 export class PropertyPaginationDto {
@@ -80,6 +86,11 @@ export class PropertyPaginationDto {
   @IsOptional()
   @IsEnum(UnitType)
   type?: UnitType;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  buildingId?: string;
 }
 
 @ApiProtected()
@@ -95,7 +106,8 @@ export class PropertyController {
   @ApiConflictProblem('Já existe uma unidade com este bairro e número.')
   @ApiUnprocessableProblem()
   async create(@Body() dto: CreatePropertyDto): Promise<PropertyResponseDto> {
-    return PropertyService.toView(await this.service.create(dto));
+    const property = await this.service.create(dto);
+    return this.service.getById(property.id);
   }
 
   @Get()
@@ -115,6 +127,6 @@ export class PropertyController {
   async get(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ): Promise<PropertyResponseDto> {
-    return PropertyService.toView(await this.service.getById(id));
+    return this.service.getById(id);
   }
 }

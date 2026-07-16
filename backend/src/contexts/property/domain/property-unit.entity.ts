@@ -35,12 +35,20 @@ export class PropertyUnit {
   @Column({ name: 'unit_number', type: 'varchar', length: 40 })
   private _unitNumber!: string;
 
+  @Column({ name: 'building_id', type: 'uuid', nullable: true })
+  private _buildingId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   readonly createdAt!: Date;
 
   private constructor() {}
 
-  static create(neighborhood: string, type: UnitType, unitNumber: string): PropertyUnit {
+  static create(
+    neighborhood: string,
+    type: UnitType,
+    unitNumber: string,
+    buildingId?: string | null,
+  ): PropertyUnit {
     const normalizedNeighborhood = PropertyUnit.requiredText(neighborhood, 'bairro', 120);
     const normalizedUnitNumber = PropertyUnit.requiredText(unitNumber, 'número da unidade', 40);
     if (!Object.values(UnitType).includes(type)) {
@@ -51,6 +59,7 @@ export class PropertyUnit {
     unit._neighborhood = normalizedNeighborhood;
     unit._type = type;
     unit._unitNumber = normalizedUnitNumber;
+    unit._buildingId = buildingId ?? null;
     return unit;
   }
 
@@ -73,5 +82,8 @@ export class PropertyUnit {
   }
   get unitNumber(): string {
     return this._unitNumber;
+  }
+  get buildingId(): string | null {
+    return this._buildingId;
   }
 }

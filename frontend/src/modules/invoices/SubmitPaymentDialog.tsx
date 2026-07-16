@@ -1,11 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   FormHelperText,
   InputLabel,
@@ -22,6 +26,7 @@ import { z } from 'zod';
 import type { SubmitPaymentInput } from '../../api/contract';
 import { ApiError } from '../../api/problem';
 import { queryKeys } from '../../api/query-keys';
+import { brand } from '../../app/theme/theme';
 import { formatCents, parseBrlToCents } from '../../lib/money/money';
 import { invoicesApi } from './api';
 import { paymentMethodLabels, proofTypeLabels } from './labels';
@@ -197,7 +202,24 @@ export function SubmitPaymentDialog({
       fullWidth
       maxWidth="sm"
     >
-      <DialogTitle>Registrar pagamento</DialogTitle>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+        <Box
+          sx={{
+            width: 34,
+            height: 34,
+            borderRadius: '10px',
+            bgcolor: brand.accentTint,
+            color: brand.accentDark,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <PaymentsOutlinedIcon sx={{ fontSize: 19 }} />
+        </Box>
+        Registrar pagamento
+      </DialogTitle>
       <DialogContent>
         <Stack
           component="form"
@@ -267,6 +289,18 @@ export function SubmitPaymentDialog({
           />
           {method !== 'CASH' && (
             <>
+              <Divider />
+              <Typography
+                sx={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: 'primary.main',
+                }}
+              >
+                Comprovante
+              </Typography>
               <Controller
                 name="proofType"
                 control={control}
@@ -289,7 +323,13 @@ export function SubmitPaymentDialog({
                   </FormControl>
                 )}
               />
-              <Button component="label" variant="outlined" disabled={uncertain}>
+              <Button
+                component="label"
+                variant="outlined"
+                disabled={uncertain}
+                startIcon={<AttachFileOutlinedIcon />}
+                sx={{ alignSelf: 'flex-start' }}
+              >
                 Selecionar comprovante
                 <input
                   hidden
@@ -301,7 +341,9 @@ export function SubmitPaymentDialog({
                 />
               </Button>
               {watch('proof') && (
-                <Typography variant="body2">Arquivo: {watch('proof')?.name}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Arquivo: {watch('proof')?.name}
+                </Typography>
               )}
               {errors.proof?.message && (
                 <FormHelperText error>{errors.proof.message}</FormHelperText>

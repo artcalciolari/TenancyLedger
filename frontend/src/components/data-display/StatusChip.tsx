@@ -1,4 +1,5 @@
-import { Chip, type ChipProps } from '@mui/material';
+import { Box } from '@mui/material';
+import { statusTones, type StatusTone } from '../../app/theme/theme';
 
 const statusLabels: Record<string, string> = {
   ACTIVE: 'Ativo',
@@ -14,26 +15,45 @@ const statusLabels: Record<string, string> = {
   REJECTED: 'Rejeitado',
 };
 
-const statusColors: Record<string, ChipProps['color']> = {
+const statusTone: Record<string, StatusTone> = {
   ACTIVE: 'success',
   PAID: 'success',
   APPROVED: 'success',
   UNDER_REVIEW: 'warning',
   SUBMITTED: 'warning',
   PARTIALLY_PAID: 'info',
-  OPEN: 'default',
-  EXPIRED: 'default',
-  TERMINATED: 'default',
+  OPEN: 'neutral',
+  EXPIRED: 'neutral',
+  TERMINATED: 'neutral',
   OVERDUE: 'error',
   REJECTED: 'error',
 };
 
 export function StatusChip({ status }: { status: string }) {
+  const tone = statusTones[statusTone[status] ?? 'neutral'];
   return (
-    <Chip
-      label={statusLabels[status] ?? status}
-      color={statusColors[status] ?? 'default'}
-      size="small"
-    />
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.85,
+        height: 26,
+        px: 1.35,
+        borderRadius: '8px',
+        fontSize: '0.8rem',
+        fontWeight: 600,
+        bgcolor: tone.bg,
+        color: tone.fg,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Box
+        component="span"
+        aria-hidden
+        sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: tone.dot, flexShrink: 0 }}
+      />
+      {statusLabels[status] ?? status}
+    </Box>
   );
 }

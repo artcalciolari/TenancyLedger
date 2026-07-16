@@ -1,5 +1,7 @@
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import {
   Box,
   Button,
@@ -12,7 +14,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Paper,
+  Stack,
   TextField,
   Typography,
   useMediaQuery,
@@ -22,6 +24,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { Paginated, PropertyView, TenantView, UnitType } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
+import { brand } from '../../app/theme/theme';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
@@ -40,6 +43,7 @@ interface EntityPickerProps<T extends { id: string }> {
   primary: (item: T) => ReactNode;
   secondary: (item: T) => ReactNode;
   selectedSummary: (item: T) => string;
+  avatar: (item: T) => ReactNode;
 }
 
 interface SearchableListFilters {
@@ -50,6 +54,49 @@ interface SearchableListFilters {
 
 function shortId(value: string): string {
   return value.length > 12 ? `${value.slice(0, 8)}…` : value;
+}
+
+function InitialAvatar({ label }: { label: string }) {
+  return (
+    <Box
+      sx={{
+        width: 38,
+        height: 38,
+        borderRadius: '50%',
+        bgcolor: brand.accentTint,
+        color: brand.accentDark,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 700,
+        fontSize: '0.9rem',
+        flexShrink: 0,
+      }}
+    >
+      {label.charAt(0).toUpperCase() || '?'}
+    </Box>
+  );
+}
+
+function IconAvatar({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      sx={{
+        width: 38,
+        height: 38,
+        borderRadius: '10px',
+        bgcolor: brand.accentTint,
+        color: brand.accentDark,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        '& svg': { fontSize: 20 },
+      }}
+    >
+      {children}
+    </Box>
+  );
 }
 
 function EntityPicker<T extends { id: string }>({
@@ -64,6 +111,7 @@ function EntityPicker<T extends { id: string }>({
   primary,
   secondary,
   selectedSummary,
+  avatar,
 }: EntityPickerProps<T>) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -105,21 +153,39 @@ function EntityPicker<T extends { id: string }>({
 
   return (
     <>
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography component="div" variant="caption" color="text.secondary">
+      <Box
+        sx={{
+          border: `1.5px solid ${brand.borderInput}`,
+          borderRadius: '11px',
+          p: 2,
+          bgcolor: brand.surface,
+        }}
+      >
+        <Typography
+          component="div"
+          sx={{
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            color: brand.textSecondary,
+            mb: 1,
+          }}
+        >
           {label}
         </Typography>
-        <Typography sx={{ mb: 1, minHeight: 24, overflowWrap: 'anywhere' }}>
-          {value
-            ? selected.data
-              ? selectedSummary(selected.data)
-              : `Identificador ${shortId(value)}`
-            : 'Nenhum selecionado'}
-        </Typography>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mb: 1.5 }}>
+          {value && selected.data ? avatar(selected.data) : null}
+          <Typography sx={{ minHeight: 24, overflowWrap: 'anywhere', fontWeight: 600 }}>
+            {value
+              ? selected.data
+                ? selectedSummary(selected.data)
+                : `Identificador ${shortId(value)}`
+              : 'Nenhum selecionado'}
+          </Typography>
+        </Stack>
         <Button variant="outlined" onClick={openDialog}>
           {value ? 'Alterar seleção' : 'Selecionar'}
         </Button>
-      </Paper>
+      </Box>
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -139,7 +205,11 @@ function EntityPicker<T extends { id: string }>({
               fullWidth
               slotProps={{
                 input: {
-                  startAdornment: <InputAdornment position="start">⌕</InputAdornment>,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                    </InputAdornment>
+                  ),
                 },
               }}
             />
@@ -164,16 +234,25 @@ function EntityPicker<T extends { id: string }>({
                     key={item.id}
                     selected={draftId === item.id}
                     onClick={() => setDraftId(item.id)}
-                    sx={{ borderRadius: 1, minHeight: 64, mb: 0.5 }}
+                    sx={{
+                      borderRadius: '11px',
+                      minHeight: 64,
+                      mb: 0.5,
+                      gap: 1.5,
+                      '&:hover': { bgcolor: brand.surfaceSubtle },
+                      '&.Mui-selected': { bgcolor: brand.accentTint },
+                      '&.Mui-selected:hover': { bgcolor: brand.accentTint },
+                    }}
                   >
-                    <ListItemIcon sx={{ minWidth: 40 }}>
+                    {avatar(item)}
+                    <ListItemText primary={primary(item)} secondary={secondary(item)} />
+                    <ListItemIcon sx={{ minWidth: 32, justifyContent: 'flex-end' }}>
                       {draftId === item.id ? (
                         <CheckCircleIcon color="primary" />
                       ) : (
                         <RadioButtonUncheckedIcon color="disabled" />
                       )}
                     </ListItemIcon>
-                    <ListItemText primary={primary(item)} secondary={secondary(item)} />
                   </ListItemButton>
                 ))}
               </List>
@@ -217,9 +296,10 @@ export function TenantPicker({
       get={tenantsApi.get}
       listKey={queryKeys.tenants}
       detailKey={queryKeys.tenant}
-      primary={(tenant) => `${tenant.cpf} · ${tenant.profession}`}
+      primary={(tenant) => `${tenant.name} · ${tenant.profession}`}
       secondary={(tenant) => `${tenant.email} · ${tenant.mobilePhone}`}
-      selectedSummary={(tenant) => `${tenant.cpf} · ${tenant.profession}`}
+      selectedSummary={(tenant) => `${tenant.name} · ${tenant.cpf}`}
+      avatar={(tenant) => <InitialAvatar label={tenant.name} />}
     />
   );
 }
@@ -254,6 +334,11 @@ export function PropertyPicker({
       selectedSummary={(property) =>
         `Unidade ${property.unitNumber} · ${property.neighborhood} · ${unitTypeLabels[property.type]}`
       }
+      avatar={() => (
+        <IconAvatar>
+          <HomeWorkOutlinedIcon />
+        </IconAvatar>
+      )}
     />
   );
 }

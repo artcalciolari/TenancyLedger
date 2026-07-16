@@ -1,4 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
+
+async function openMobileMenuIfNeeded(page: Page, testInfo: TestInfo): Promise<void> {
+  if (!testInfo.project.name.startsWith('mobile-')) return;
+  await page.getByRole('button', { name: 'Abrir menu' }).click();
+}
 
 type Role = 'ADMIN' | 'MANAGER' | 'VIEWER';
 
@@ -98,15 +103,16 @@ async function login(page: Page, role: Role) {
   const state = await mockSession(page, role);
   await page.goto('/login');
   await page.getByLabel('E-mail').fill('operador@example.test');
-  await page.getByLabel('Senha').fill('Strong-test-password-123!');
+  await page.getByLabel('Senha', { exact: true }).fill('Strong-test-password-123!');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL('/dashboard');
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
   return state;
 }
 
-test('restaura a sessão administrativa durante a aba', async ({ page }) => {
+test('restaura a sessão administrativa durante a aba', async ({ page }, testInfo) => {
   await login(page, 'ADMIN');
+  await openMobileMenuIfNeeded(page, testInfo);
   await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
 
   await page.reload();
@@ -123,8 +129,9 @@ test('impede VIEWER de abrir a gestão de usuários', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Usuários' })).toHaveCount(0);
 });
 
-test('revoga o cookie e volta ao login ao sair', async ({ page }) => {
+test('revoga o cookie e volta ao login ao sair', async ({ page }, testInfo) => {
   const state = await login(page, 'ADMIN');
+  await openMobileMenuIfNeeded(page, testInfo);
 
   await page.getByRole('button', { name: 'Sair' }).click();
 

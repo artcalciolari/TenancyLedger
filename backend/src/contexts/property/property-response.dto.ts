@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/infrastructure/http/openapi.dto';
 import { UnitType } from './domain/property-unit.entity';
 
@@ -17,6 +17,15 @@ export class PropertyResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: Date;
+
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
+  buildingId!: string | null;
+
+  @ApiPropertyOptional({ type: String, example: 'Edifício Aurora', nullable: true })
+  buildingName!: string | null;
+
+  @ApiProperty({ example: false })
+  occupied!: boolean;
 }
 
 export class PaginatedPropertiesResponseDto {

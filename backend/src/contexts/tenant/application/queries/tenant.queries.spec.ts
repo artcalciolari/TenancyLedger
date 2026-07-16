@@ -9,6 +9,7 @@ describe('TenantQueries', () => {
 
   const tenantView: TenantView = {
     id: '9465500e-0a06-452a-b1a8-9a3b117f3af0',
+    name: 'Maria da Silva',
     cpf: '52998224725',
     profession: 'Engenheira',
     civilStatus: TenantCivilStatus.SINGLE,
@@ -50,6 +51,7 @@ describe('TenantQueries', () => {
     expect(repository.createQueryBuilder.mock.calls).toEqual([['tenant'], ['tenant']]);
     expect(queryBuilder.select.mock.calls).toEqual([['tenant.id', 'id']]);
     expect(queryBuilder.addSelect.mock.calls).toEqual([
+      ['tenant.name', 'name'],
       ['tenant.cpf', 'cpf'],
       ['tenant.profession', 'profession'],
       ['tenant.civilStatus', 'civilStatus'],

@@ -8,6 +8,7 @@ const contract: ContractView = {
   propertyUnitId: 'd0208cb2-3688-4778-a056-93cb82e31166',
   tenant: {
     id: '7d9cdddc-8661-44ee-af5d-b420099509ca',
+    name: 'Maria da Silva',
     cpf: '***.***.***-09',
     email: 'l***@example.com',
     mobilePhone: '(**) *****-9999',

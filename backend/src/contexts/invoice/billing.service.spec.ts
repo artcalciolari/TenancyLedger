@@ -358,6 +358,7 @@ describe('BillingService', () => {
         findBy: jest.fn().mockResolvedValue([
           {
             id: TENANT_ID,
+            name: 'Primeiro Tenant',
             cpf: '12345678909',
             profession: 'Engenheiro civil',
             civilStatus: TenantCivilStatus.SINGLE,
@@ -366,6 +367,7 @@ describe('BillingService', () => {
           } as Tenant,
           {
             id: SECOND_TENANT_ID,
+            name: 'Segunda Tenant',
             cpf: '52998224725',
             profession: 'Arquiteta',
             civilStatus: TenantCivilStatus.SINGLE,
@@ -439,6 +441,7 @@ describe('BillingService', () => {
             contractStatus: ContractStatus.ACTIVE,
             contractEndDate: '2027-06-30',
             tenantId: '48bb503a-4d2a-4f56-88eb-6f7a9436ec67',
+            tenantName: 'Maria da Silva',
             tenantCpf: '52998224725',
             tenantProfession: 'Engenheira',
             tenantCivilStatus: TenantCivilStatus.SINGLE,
@@ -458,7 +461,7 @@ describe('BillingService', () => {
       expect(result.data[0]).toMatchObject({
         payment: { id: PAYMENT_ID, submittedByUserId: SUBMITTER_ID },
         contract: {
-          tenant: { cpf: '***.***.***-25', email: 'm***@example.com' },
+          tenant: { name: 'Maria da Silva', cpf: '***.***.***-25', email: 'm***@example.com' },
           propertyUnit: { neighborhood: 'Centro', unitNumber: '101-A' },
         },
       });

@@ -1,0 +1,1093 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750;800&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+          rel="stylesheet"
+        />
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            margin: 0;
+            font-family: Inter, system-ui, sans-serif;
+            background: #f5f7fa;
+            color: rgba(0, 0, 0, 0.87);
+          }
+          a {
+            color: #15558f;
+          }
+          a:hover {
+            color: #0e3d6a;
+          }
+          .mi {
+            font-family: 'Material Icons Outlined';
+            font-weight: normal;
+            font-style: normal;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            -webkit-font-feature-settings: 'liga';
+            font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+          }
+        </style>
+      </helmet>
+      <div style="min-height: 100vh; background: #f5f7fa">
+        <!-- ============ LOGIN ============ -->
+        <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+          <div
+            style="
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: linear-gradient(135deg, #eef4fa 0%, #f8fafc 55%, #e8f0f8 100%);
+              padding: 32px;
+            "
+          >
+            <div style="width: 100%; max-width: 444px">
+              <div
+                style="
+                  background: #fff;
+                  border-radius: 10px;
+                  padding: 32px;
+                  box-shadow:
+                    0px 3px 3px -2px rgba(0, 0, 0, 0.2),
+                    0px 3px 4px 0px rgba(0, 0, 0, 0.14),
+                    0px 1px 8px 0px rgba(0, 0, 0, 0.12);
+                "
+              >
+                <div style="margin-bottom: 32px">
+                  <h1
+                    style="
+                      margin: 0;
+                      font-size: 2.25rem;
+                      font-weight: 700;
+                      line-height: 1.2;
+                      color: #0e3d6a;
+                    "
+                  >
+                    Tenancy Ledger
+                  </h1>
+                  <p style="margin: 4px 0 0; color: rgba(0, 0, 0, 0.6); font-size: 1rem">
+                    Gestão de locações
+                  </p>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px">
+                  <div style="position: relative">
+                    <div
+                      style="
+                        position: absolute;
+                        top: -8px;
+                        left: 10px;
+                        background: #fff;
+                        padding: 0 4px;
+                        font-size: 0.75rem;
+                        color: rgba(0, 0, 0, 0.6);
+                      "
+                    >
+                      E-mail
+                    </div>
+                    <div
+                      style="
+                        height: 44px;
+                        border: 1px solid rgba(0, 0, 0, 0.23);
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        padding: 0 14px;
+                        color: rgba(0, 0, 0, 0.5);
+                        font-size: 1rem;
+                      "
+                    >
+                      nome@empresa.com.br
+                    </div>
+                  </div>
+                  <div style="position: relative">
+                    <div
+                      style="
+                        position: absolute;
+                        top: -8px;
+                        left: 10px;
+                        background: #fff;
+                        padding: 0 4px;
+                        font-size: 0.75rem;
+                        color: rgba(0, 0, 0, 0.6);
+                      "
+                    >
+                      Senha
+                    </div>
+                    <div
+                      style="
+                        height: 44px;
+                        border: 1px solid rgba(0, 0, 0, 0.23);
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        padding: 0 14px;
+                        color: rgba(0, 0, 0, 0.5);
+                        font-size: 1rem;
+                        letter-spacing: 2px;
+                      "
+                    >
+                      ••••••••
+                    </div>
+                  </div>
+                  <button
+                    onClick="{{ goDashboard }}"
+                    style="
+                      height: 48px;
+                      border: none;
+                      border-radius: 10px;
+                      background: #15558f;
+                      color: #fff;
+                      font-family: inherit;
+                      font-size: 0.98rem;
+                      font-weight: 650;
+                      cursor: pointer;
+                      box-shadow:
+                        0px 3px 1px -2px rgba(0, 0, 0, 0.2),
+                        0px 2px 2px 0px rgba(0, 0, 0, 0.14),
+                        0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+                    "
+                  >
+                    Entrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ APP SHELL ============ -->
+        <sc-if value="{{ isApp }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <!-- Sidebar -->
+            <aside
+              style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 264px;
+                background: #fff;
+                border-right: 1px solid rgba(0, 0, 0, 0.12);
+                display: flex;
+                flex-direction: column;
+                z-index: 2;
+              "
+            >
+              <div
+                style="height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 16px"
+              >
+                <span class="mi" style="font-size: 24px; color: #15558f">apartment</span>
+                <span style="font-size: 1.25rem; font-weight: 750; color: #0e3d6a"
+                  >Tenancy Ledger</span
+                >
+              </div>
+              <div style="height: 1px; background: rgba(0, 0, 0, 0.12)"></div>
+              <nav style="padding: 16px 12px; display: flex; flex-direction: column; gap: 4px">
+                <a
+                  onClick="{{ goDashboard }}"
+                  style="display:flex;align-items:center;gap:0;min-height:48px;border-radius:10px;padding:8px 16px;cursor:pointer;text-decoration:none;background:{{ dashBg }};color:{{ dashFg }};"
+                >
+                  <span class="mi" style="font-size:22px;width:40px;color:{{ dashFg }};"
+                    >dashboard</span
+                  >
+                  <span style="font-size:1rem;font-weight:{{ dashWeight }};">Visão geral</span>
+                </a>
+                <a
+                  onClick="{{ goInvoices }}"
+                  style="display:flex;align-items:center;gap:0;min-height:48px;border-radius:10px;padding:8px 16px;cursor:pointer;text-decoration:none;background:{{ invBg }};color:{{ invFg }};"
+                >
+                  <span class="mi" style="font-size:22px;width:40px;color:{{ invFg }};"
+                    >receipt_long</span
+                  >
+                  <span style="font-size:1rem;font-weight:{{ invWeight }};">Faturas</span>
+                </a>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    min-height: 48px;
+                    border-radius: 10px;
+                    padding: 8px 16px;
+                    color: rgba(0, 0, 0, 0.87);
+                  "
+                >
+                  <span class="mi" style="font-size: 22px; width: 40px; color: rgba(0, 0, 0, 0.54)"
+                    >fact_check</span
+                  >
+                  <span style="font-size: 1rem">Revisão de pagamentos</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    min-height: 48px;
+                    border-radius: 10px;
+                    padding: 8px 16px;
+                    color: rgba(0, 0, 0, 0.87);
+                  "
+                >
+                  <span class="mi" style="font-size: 22px; width: 40px; color: rgba(0, 0, 0, 0.54)"
+                    >assignment</span
+                  >
+                  <span style="font-size: 1rem">Contratos</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    min-height: 48px;
+                    border-radius: 10px;
+                    padding: 8px 16px;
+                    color: rgba(0, 0, 0, 0.87);
+                  "
+                >
+                  <span class="mi" style="font-size: 22px; width: 40px; color: rgba(0, 0, 0, 0.54)"
+                    >people_alt</span
+                  >
+                  <span style="font-size: 1rem">Locatários</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    min-height: 48px;
+                    border-radius: 10px;
+                    padding: 8px 16px;
+                    color: rgba(0, 0, 0, 0.87);
+                  "
+                >
+                  <span class="mi" style="font-size: 22px; width: 40px; color: rgba(0, 0, 0, 0.54)"
+                    >home_work</span
+                  >
+                  <span style="font-size: 1rem">Imóveis</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    min-height: 48px;
+                    border-radius: 10px;
+                    padding: 8px 16px;
+                    color: rgba(0, 0, 0, 0.87);
+                  "
+                >
+                  <span class="mi" style="font-size: 22px; width: 40px; color: rgba(0, 0, 0, 0.54)"
+                    >person</span
+                  >
+                  <span style="font-size: 1rem">Usuários</span>
+                </div>
+              </nav>
+              <div style="margin-top: auto; padding: 16px">
+                <div
+                  style="height: 1px; background: rgba(0, 0, 0, 0.12); margin-bottom: 16px"
+                ></div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    min-height: 44px;
+                    padding: 6px 12px;
+                    color: #15558f;
+                    font-weight: 650;
+                    font-size: 0.95rem;
+                  "
+                >
+                  <span class="mi" style="font-size: 20px">person</span> Minha conta
+                </div>
+              </div>
+            </aside>
+
+            <!-- Topbar -->
+            <header
+              style="
+                position: fixed;
+                top: 0;
+                left: 264px;
+                right: 0;
+                height: 64px;
+                background: #fff;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+                display: flex;
+                align-items: center;
+                padding: 0 24px;
+                z-index: 1;
+              "
+            >
+              <span style="font-weight: 650; font-size: 1rem">{{ title }}</span>
+              <div style="margin-left: auto; display: flex; align-items: center; gap: 12px">
+                <div
+                  style="
+                    position: relative;
+                    width: 44px;
+                    height: 44px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: rgba(0, 0, 0, 0.54);
+                  "
+                >
+                  <span class="mi" style="font-size: 24px">notifications_none</span>
+                  <span
+                    style="
+                      position: absolute;
+                      top: 6px;
+                      right: 6px;
+                      min-width: 18px;
+                      height: 18px;
+                      background: #b42318;
+                      color: #fff;
+                      border-radius: 9px;
+                      font-size: 0.7rem;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      padding: 0 4px;
+                    "
+                    >3</span
+                  >
+                </div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: rgba(0, 0, 0, 0.54);
+                  "
+                >
+                  <span class="mi" style="font-size: 24px">light_mode</span>
+                </div>
+                <div
+                  style="
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    background: #15558f;
+                    color: #fff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 600;
+                    font-size: 0.9rem;
+                  "
+                >
+                  A
+                </div>
+                <div>
+                  <div style="font-weight: 650; font-size: 0.875rem; line-height: 1.3">
+                    admin@tenancyledger.com
+                  </div>
+                  <div style="font-size: 0.75rem; color: rgba(0, 0, 0, 0.6)">Administrador</div>
+                </div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: rgba(0, 0, 0, 0.54);
+                  "
+                >
+                  <span class="mi" style="font-size: 24px">logout</span>
+                </div>
+              </div>
+            </header>
+
+            <!-- Main -->
+            <main style="margin-left: 264px; padding: 96px 32px 32px">
+              <!-- Dashboard -->
+              <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="margin-bottom: 24px">
+                    <h1 style="margin: 0; font-size: 2.25rem; font-weight: 700; line-height: 1.2">
+                      Visão geral
+                    </h1>
+                    <p style="margin: 4px 0 0; color: rgba(0, 0, 0, 0.6)">
+                      Posição consolidada em 12/07/2026.
+                    </p>
+                  </div>
+                  <div
+                    style="
+                      display: grid;
+                      grid-template-columns: repeat(4, 1fr);
+                      gap: 16px;
+                      margin-bottom: 24px;
+                    "
+                  >
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                        padding: 16px;
+                      "
+                    >
+                      <div style="color: rgba(0, 0, 0, 0.6); font-size: 1rem">Contratos ativos</div>
+                      <div style="font-size: 1.5rem; font-weight: 700; margin: 6px 0">128</div>
+                      <div style="font-size: 0.875rem; color: rgba(0, 0, 0, 0.6)">
+                        12 vencem nos próximos 30 dias
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                        padding: 16px;
+                      "
+                    >
+                      <div style="color: rgba(0, 0, 0, 0.6); font-size: 1rem">Saldo em aberto</div>
+                      <div style="font-size: 1.5rem; font-weight: 700; margin: 6px 0">
+                        R$ 84.320,00
+                      </div>
+                      <div style="font-size: 0.875rem; color: rgba(0, 0, 0, 0.6)">
+                        342 faturas no total
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                        padding: 16px;
+                      "
+                    >
+                      <div style="color: rgba(0, 0, 0, 0.6); font-size: 1rem">Valor vencido</div>
+                      <div style="font-size: 1.5rem; font-weight: 700; margin: 6px 0">
+                        R$ 12.750,00
+                      </div>
+                      <div style="font-size: 0.875rem; color: rgba(0, 0, 0, 0.6)">
+                        R$ 71.570,00 já aprovados
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                        padding: 16px;
+                      "
+                    >
+                      <div style="color: rgba(0, 0, 0, 0.6); font-size: 1rem">
+                        Pagamentos em revisão
+                      </div>
+                      <div style="font-size: 1.5rem; font-weight: 700; margin: 6px 0">7</div>
+                      <div style="font-size: 0.875rem; color: rgba(0, 0, 0, 0.6)">
+                        5 faturas em análise
+                      </div>
+                    </div>
+                  </div>
+                  <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0 0 16px">
+                    Acessos rápidos
+                  </h2>
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px">
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                      "
+                    >
+                      <div style="padding: 16px; display: flex; align-items: center; gap: 12px">
+                        <span class="mi" style="font-size: 24px; color: #15558f">receipt_long</span>
+                        <h3 style="font-size: 1.5rem; font-weight: 700; margin: 0">Faturas</h3>
+                      </div>
+                      <div style="padding: 8px">
+                        <span
+                          style="
+                            display: inline-flex;
+                            align-items: center;
+                            min-height: 44px;
+                            padding: 6px 8px;
+                            color: #15558f;
+                            font-weight: 650;
+                            font-size: 0.95rem;
+                          "
+                          >Consultar faturas</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                      "
+                    >
+                      <div style="padding: 16px; display: flex; align-items: center; gap: 12px">
+                        <span class="mi" style="font-size: 24px; color: #15558f">assignment</span>
+                        <h3 style="font-size: 1.5rem; font-weight: 700; margin: 0">Contratos</h3>
+                      </div>
+                      <div style="padding: 8px">
+                        <span
+                          style="
+                            display: inline-flex;
+                            align-items: center;
+                            min-height: 44px;
+                            padding: 6px 8px;
+                            color: #15558f;
+                            font-weight: 650;
+                            font-size: 0.95rem;
+                          "
+                          >Consultar contratos</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        background: #fff;
+                        border: 1px solid rgba(0, 0, 0, 0.12);
+                        border-radius: 10px;
+                      "
+                    >
+                      <div style="padding: 16px; display: flex; align-items: center; gap: 12px">
+                        <span class="mi" style="font-size: 24px; color: #15558f">fact_check</span>
+                        <h3 style="font-size: 1.5rem; font-weight: 700; margin: 0">Revisões</h3>
+                      </div>
+                      <div style="padding: 8px">
+                        <span
+                          style="
+                            display: inline-flex;
+                            align-items: center;
+                            min-height: 44px;
+                            padding: 6px 8px;
+                            color: #15558f;
+                            font-weight: 650;
+                            font-size: 0.95rem;
+                          "
+                          >Abrir fila</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- Invoices -->
+              <sc-if value="{{ isInvoices }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: flex-start;
+                      margin-bottom: 24px;
+                      gap: 16px;
+                    "
+                  >
+                    <div>
+                      <h1 style="margin: 0; font-size: 2.25rem; font-weight: 700; line-height: 1.2">
+                        Faturas
+                      </h1>
+                      <p style="margin: 4px 0 0; color: rgba(0, 0, 0, 0.6)">
+                        Consulte as cobranças geradas automaticamente pelo sistema.
+                      </p>
+                    </div>
+                    <button
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        height: 44px;
+                        padding: 0 16px;
+                        border: 1px solid rgba(21, 85, 143, 0.5);
+                        background: #fff;
+                        color: #15558f;
+                        border-radius: 10px;
+                        font-family: inherit;
+                        font-weight: 650;
+                        font-size: 0.9rem;
+                        cursor: pointer;
+                      "
+                    >
+                      <span class="mi" style="font-size: 20px">download</span> Exportar CSV
+                    </button>
+                  </div>
+                  <!-- Filters -->
+                  <div
+                    style="
+                      background: #fff;
+                      border-radius: 10px;
+                      padding: 16px;
+                      margin-bottom: 16px;
+                      box-shadow:
+                        0px 2px 1px -1px rgba(0, 0, 0, 0.2),
+                        0px 1px 1px 0px rgba(0, 0, 0, 0.14),
+                        0px 1px 3px 0px rgba(0, 0, 0, 0.12);
+                    "
+                  >
+                    <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap">
+                      <div style="position: relative; width: 200px">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Competência
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            padding: 0 12px;
+                            font-size: 0.9rem;
+                            color: rgba(0, 0, 0, 0.5);
+                          "
+                        >
+                          mm/aaaa
+                        </div>
+                      </div>
+                      <div style="position: relative; width: 220px">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Status
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: 0 12px;
+                            font-size: 0.9rem;
+                            color: rgba(0, 0, 0, 0.5);
+                          "
+                        >
+                          Todos <span class="mi" style="font-size: 20px">arrow_drop_down</span>
+                        </div>
+                      </div>
+                      <div style="position: relative; flex: 1; min-width: 240px">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          ID do contrato
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            padding: 0 12px;
+                            font-size: 0.9rem;
+                            color: rgba(0, 0, 0, 0.5);
+                          "
+                        >
+                          UUID v4 completo
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: repeat(6, 1fr);
+                        gap: 16px;
+                        margin-top: 24px;
+                      "
+                    >
+                      <div style="grid-column: span 2; position: relative">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Buscar fatura
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            padding: 0 12px;
+                            font-size: 0.85rem;
+                            color: rgba(0, 0, 0, 0.5);
+                          "
+                        >
+                          CPF, profissão, bairro…
+                        </div>
+                      </div>
+                      <div style="position: relative">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Venc. de
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                          "
+                        ></div>
+                      </div>
+                      <div style="position: relative">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Venc. até
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                          "
+                        ></div>
+                      </div>
+                      <div style="position: relative">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Método
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: 0 12px;
+                            font-size: 0.85rem;
+                            color: rgba(0, 0, 0, 0.5);
+                          "
+                        >
+                          Todos<span class="mi" style="font-size: 18px">arrow_drop_down</span>
+                        </div>
+                      </div>
+                      <div style="position: relative">
+                        <div
+                          style="
+                            position: absolute;
+                            top: -8px;
+                            left: 10px;
+                            background: #fff;
+                            padding: 0 4px;
+                            font-size: 0.7rem;
+                            color: rgba(0, 0, 0, 0.6);
+                          "
+                        >
+                          Pagamento
+                        </div>
+                        <div
+                          style="
+                            height: 44px;
+                            border: 1px solid rgba(0, 0, 0, 0.23);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: 0 12px;
+                            font-size: 0.85rem;
+                            color: rgba(0, 0, 0, 0.5);
+                          "
+                        >
+                          Todos<span class="mi" style="font-size: 18px">arrow_drop_down</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="margin-top: 16px">
+                      <span
+                        style="
+                          display: inline-flex;
+                          align-items: center;
+                          height: 44px;
+                          padding: 0 16px;
+                          border: 1px solid rgba(21, 85, 143, 0.5);
+                          border-radius: 10px;
+                          color: #15558f;
+                          font-weight: 650;
+                          font-size: 0.9rem;
+                        "
+                        >Aplicar busca avançada</span
+                      >
+                    </div>
+                  </div>
+                  <!-- Table -->
+                  <div
+                    style="
+                      background: #fff;
+                      border-radius: 10px;
+                      overflow: hidden;
+                      box-shadow:
+                        0px 2px 1px -1px rgba(0, 0, 0, 0.2),
+                        0px 1px 1px 0px rgba(0, 0, 0, 0.14),
+                        0px 1px 3px 0px rgba(0, 0, 0, 0.12);
+                    "
+                  >
+                    <table style="width: 100%; border-collapse: collapse">
+                      <thead>
+                        <tr style="border-bottom: 1px solid rgba(0, 0, 0, 0.12)">
+                          <th
+                            style="
+                              text-align: left;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                              color: rgba(0, 0, 0, 0.87);
+                            "
+                          >
+                            Competência
+                          </th>
+                          <th
+                            style="
+                              text-align: left;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Vencimento
+                          </th>
+                          <th
+                            style="
+                              text-align: left;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Contrato e vínculo
+                          </th>
+                          <th
+                            style="
+                              text-align: right;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Total
+                          </th>
+                          <th
+                            style="
+                              text-align: right;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Aprovado
+                          </th>
+                          <th
+                            style="
+                              text-align: right;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Saldo
+                          </th>
+                          <th
+                            style="
+                              text-align: left;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Status
+                          </th>
+                          <th
+                            style="
+                              text-align: right;
+                              padding: 14px 16px;
+                              font-size: 0.875rem;
+                              font-weight: 600;
+                            "
+                          >
+                            Ação
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <sc-for list="{{ invoices }}" as="inv" hint-placeholder-count="5">
+                          <tr style="border-bottom: 1px solid rgba(0, 0, 0, 0.12)">
+                            <td style="padding: 14px 16px; font-size: 0.9rem">
+                              {{ inv.competence }}
+                            </td>
+                            <td style="padding: 14px 16px; font-size: 0.9rem">{{ inv.due }}</td>
+                            <td style="padding: 14px 16px">
+                              <div style="font-family: monospace; font-size: 0.85rem">
+                                {{ inv.cid }}
+                              </div>
+                              <div style="font-size: 0.75rem; color: rgba(0, 0, 0, 0.6)">
+                                {{ inv.sub }}
+                              </div>
+                            </td>
+                            <td style="padding: 14px 16px; font-size: 0.9rem; text-align: right">
+                              {{ inv.total }}
+                            </td>
+                            <td style="padding: 14px 16px; font-size: 0.9rem; text-align: right">
+                              {{ inv.approved }}
+                            </td>
+                            <td style="padding: 14px 16px; font-size: 0.9rem; text-align: right">
+                              {{ inv.balance }}
+                            </td>
+                            <td style="padding: 14px 16px">
+                              <span
+                                style="display:inline-block;height:24px;line-height:24px;padding:0 10px;border-radius:16px;font-size:0.8125rem;background:{{ inv.sBg }};color:{{ inv.sFg }};"
+                                >{{ inv.status }}</span
+                              >
+                            </td>
+                            <td style="padding: 14px 16px; text-align: right">
+                              <span style="color: #15558f; font-weight: 650; font-size: 0.9rem"
+                                >Abrir</span
+                              >
+                            </td>
+                          </tr>
+                        </sc-for>
+                      </tbody>
+                    </table>
+                    <div
+                      style="
+                        display: flex;
+                        justify-content: flex-end;
+                        align-items: center;
+                        gap: 24px;
+                        padding: 8px 16px;
+                        border-top: 1px solid rgba(0, 0, 0, 0.12);
+                        font-size: 0.875rem;
+                        color: rgba(0, 0, 0, 0.6);
+                      "
+                    >
+                      <span
+                        >Itens por página: 20
+                        <span class="mi" style="font-size: 18px; vertical-align: middle"
+                          >arrow_drop_down</span
+                        ></span
+                      >
+                      <span>1–5 de 342</span>
+                      <span style="display: flex; gap: 8px"
+                        ><span class="mi">chevron_left</span
+                        ><span class="mi">chevron_right</span></span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+            </main>
+          </div>
+        </sc-if>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script>
+      class Component extends DCLogic {
+        state = { screen: 'dashboard' };
+        renderVals() {
+          const go = (screen) => () => this.setState({ screen });
+          const s = this.state.screen;
+          const sel = { bg: 'rgba(21,85,143,0.08)', fg: '#0e3d6a', w: 650 };
+          const un = { bg: 'transparent', fg: 'rgba(0,0,0,0.87)', w: 400 };
+          const dash = s === 'dashboard' ? sel : un;
+          const inv = s === 'invoices' ? sel : un;
+          return {
+            isLogin: s === 'login',
+            isApp: s !== 'login',
+            isDashboard: s === 'dashboard',
+            isInvoices: s === 'invoices',
+            title: s === 'invoices' ? 'Faturas' : 'Visão geral',
+            goDashboard: go('dashboard'),
+            goInvoices: go('invoices'),
+            dashBg: dash.bg, dashFg: dash.fg, dashWeight: dash.w,
+            invBg: inv.bg, invFg: inv.fg, invWeight: inv.w,
+            invoices: [
+              { competence: '07/2026', due: '05/07/2026', cid: 'a1b2c3d4…', sub: '123.456.789-00 · Centro, unidade 12', total: 'R$ 1.850,00', approved: 'R$ 1.850,00', balance: 'R$ 0,00', status: 'Paga', sBg: '#20744a', sFg: '#fff' },
+              { competence: '07/2026', due: '05/07/2026', cid: 'b2c3d4e5…', sub: '987.654.321-00 · Savassi, unidade 4', total: 'R$ 2.400,00', approved: 'R$ 0,00', balance: 'R$ 2.400,00', status: 'Em aberto', sBg: 'rgba(0,0,0,0.08)', sFg: 'rgba(0,0,0,0.87)' },
+              { competence: '06/2026', due: '05/06/2026', cid: 'c3d4e5f6…', sub: '456.789.123-00 · Funcionários, unidade 8', total: 'R$ 1.500,00', approved: 'R$ 750,00', balance: 'R$ 750,00', status: 'Parcialmente paga', sBg: '#1769aa', sFg: '#fff' },
+              { competence: '06/2026', due: '05/06/2026', cid: 'd4e5f6a7…', sub: '321.654.987-00 · Lourdes, unidade 2', total: 'R$ 3.200,00', approved: 'R$ 0,00', balance: 'R$ 3.200,00', status: 'Vencida', sBg: '#b42318', sFg: '#fff' },
+              { competence: '07/2026', due: '10/07/2026', cid: 'e5f6a7b8…', sub: '111.222.333-44 · Serra, unidade 15', total: 'R$ 2.100,00', approved: 'R$ 0,00', balance: 'R$ 2.100,00', status: 'Em análise', sBg: '#a15c00', sFg: '#fff' },
+            ],
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

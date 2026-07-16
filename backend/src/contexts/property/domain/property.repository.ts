@@ -7,10 +7,18 @@ export interface PropertyListOptions {
   limit: number;
   q?: string;
   type?: PropertyUnit['type'];
+  buildingId?: string;
+  asOf: string;
+}
+
+export interface PropertyWithOccupancy {
+  property: PropertyUnit;
+  buildingName: string | null;
+  occupied: boolean;
 }
 
 export interface PropertyListResult {
-  items: PropertyUnit[];
+  items: PropertyWithOccupancy[];
   total: number;
 }
 
@@ -19,4 +27,5 @@ export interface IPropertyRepository {
   findById(id: string): Promise<PropertyUnit | null>;
   findByLocation(neighborhood: string, unitNumber: string): Promise<PropertyUnit | null>;
   list(options: PropertyListOptions): Promise<PropertyListResult>;
+  getView(id: string, asOf: string): Promise<PropertyWithOccupancy | null>;
 }

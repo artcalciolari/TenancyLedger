@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Alert, Button, Paper, Stack, TextField } from '@mui/material';
+import { Alert, Box, Button, Card, Stack, TextField } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
@@ -8,6 +8,12 @@ import { PageHeader } from '../../components/data-display/PageHeader';
 import { authApi } from './api';
 import { changePasswordSchema, type ChangePasswordForm } from './change-password.schema';
 import { useAuth } from './useAuth';
+
+const fieldGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fit, minmax(240px, 1fr))' },
+  gap: 2.25,
+} as const;
 
 export function ChangePasswordPage() {
   const navigate = useNavigate();
@@ -37,54 +43,56 @@ export function ChangePasswordPage() {
         title="Trocar senha"
         description="Ao concluir, será necessário entrar novamente."
       />
-      <Paper variant="outlined" sx={{ maxWidth: 640, p: { xs: 2, sm: 3 } }}>
-        <Stack component="form" spacing={2.5} onSubmit={onSubmit} noValidate>
+      <Card sx={{ maxWidth: 960, p: { xs: 2, sm: 3.5 } }}>
+        <Stack component="form" spacing={3} onSubmit={onSubmit} noValidate>
           {apiMessage && <Alert severity="error">{apiMessage}</Alert>}
-          <Controller
-            name="currentPassword"
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Senha atual"
-                type="password"
-                autoComplete="current-password"
-                error={fieldState.invalid}
-                helperText={fieldState.error?.message}
-              />
-            )}
-          />
-          <Controller
-            name="newPassword"
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Nova senha"
-                type="password"
-                autoComplete="new-password"
-                error={fieldState.invalid}
-                helperText={
-                  fieldState.error?.message ??
-                  'Mínimo de 12 caracteres, com maiúscula, minúscula, número e símbolo.'
-                }
-              />
-            )}
-          />
-          <Controller
-            name="confirmPassword"
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Confirmar nova senha"
-                type="password"
-                autoComplete="new-password"
-                error={fieldState.invalid}
-                helperText={fieldState.error?.message}
-              />
-            )}
-          />
+          <Box sx={fieldGridSx}>
+            <Controller
+              name="currentPassword"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Senha atual"
+                  type="password"
+                  autoComplete="current-password"
+                  error={fieldState.invalid}
+                  helperText={fieldState.error?.message}
+                />
+              )}
+            />
+            <Controller
+              name="newPassword"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Nova senha"
+                  type="password"
+                  autoComplete="new-password"
+                  error={fieldState.invalid}
+                  helperText={
+                    fieldState.error?.message ??
+                    'Mínimo de 12 caracteres, com maiúscula, minúscula, número e símbolo.'
+                  }
+                />
+              )}
+            />
+            <Controller
+              name="confirmPassword"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Confirmar nova senha"
+                  type="password"
+                  autoComplete="new-password"
+                  error={fieldState.invalid}
+                  helperText={fieldState.error?.message}
+                />
+              )}
+            />
+          </Box>
           <Stack
             direction={{ xs: 'column-reverse', sm: 'row' }}
             spacing={1}
@@ -106,7 +114,7 @@ export function ChangePasswordPage() {
             </Button>
           </Stack>
         </Stack>
-      </Paper>
+      </Card>
     </>
   );
 }

@@ -58,6 +58,7 @@ export interface PaymentReviewRecord {
   contractStatus: import('../../contract/domain/entities/contract.entity').ContractStatus;
   contractEndDate: string;
   tenantId: string;
+  tenantName: string;
   tenantCpf: string;
   tenantProfession: string;
   tenantCivilStatus: TenantCivilStatus;

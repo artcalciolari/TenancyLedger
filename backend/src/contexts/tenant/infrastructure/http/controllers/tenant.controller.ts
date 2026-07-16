@@ -19,6 +19,8 @@ import { CreateTenantUseCase } from '../../../application/use-cases/create-tenan
 import { TenantQueries } from '../../../application/queries/tenant.queries';
 import { UserRole } from '../../../../auth/domain/entities/user.entity';
 import { Roles } from '../../../../auth/infrastructure/security/roles.decorator';
+import { CurrentUser } from '../../../../auth/infrastructure/security/current-user.decorator';
+import type { AuthenticatedUser } from '../../../../auth/application/auth.service';
 import { CreateTenantDto } from '../dtos/create-tenant.dto';
 import { PaginationDto } from '../dtos/pagination.dto';
 import {
@@ -49,16 +51,22 @@ export class TenantController {
   @ApiCreatedResponse({ type: TenantResponseDto })
   @ApiConflictProblem('CPF ou e-mail já cadastrado.')
   @ApiUnprocessableProblem()
-  async create(@Body() dto: CreateTenantDto): Promise<TenantResponseDto> {
+  async create(
+    @Body() dto: CreateTenantDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TenantResponseDto> {
     const tenant = await this.createTenantUseCase.execute(dto);
-    return TenantResponseDto.from(tenant);
+    return TenantResponseDto.from(tenant, user.role);
   }
 
   @Get()
   @ApiOperation({ summary: 'Listar locatários' })
   @ApiOkResponse({ type: PaginatedTenantResponseDto })
-  async findAll(@Query() query: PaginationDto): Promise<PaginatedTenantResponseDto> {
-    return toPaginatedTenantResponse(await this.tenantQueries.findAll(query));
+  async findAll(
+    @Query() query: PaginationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PaginatedTenantResponseDto> {
+    return toPaginatedTenantResponse(await this.tenantQueries.findAll(query), user.role);
   }
 
   @Get(':id')
@@ -66,11 +74,14 @@ export class TenantController {
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: TenantResponseDto })
   @ApiNotFoundProblem('Locatário não encontrado.')
-  async findById(@Param('id', new ParseUUIDPipe()) id: string): Promise<TenantResponseDto> {
+  async findById(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TenantResponseDto> {
     const tenant = await this.tenantQueries.findById(id);
     if (!tenant) {
       throw new NotFoundException('Inquilino não encontrado.');
     }
-    return TenantResponseDto.from(tenant);
+    return TenantResponseDto.from(tenant, user.role);
   }
 }

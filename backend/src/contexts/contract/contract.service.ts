@@ -7,6 +7,7 @@ import { Contract, ContractStatus } from './domain/entities/contract.entity';
 import { CONTRACT_REPOSITORY_TOKEN } from './domain/repositories/contract.repository.interface';
 import type { IContractRepository } from './domain/repositories/contract.repository.interface';
 import { TenantResponseDto } from '../tenant/infrastructure/http/dtos/tenant-response.dto';
+import { UserRole } from '../auth/domain/entities/user.entity';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
 
 export interface CreateContractInput {
@@ -34,6 +35,7 @@ export interface ListContractsInput {
 
 export interface ContractTenantSummary {
   id: string;
+  name: string;
   cpf: string;
   profession: string;
   civilStatus: Tenant['civilStatus'];
@@ -124,11 +126,11 @@ export class ContractService {
     return contract;
   }
 
-  async list(input: ListContractsInput): Promise<PaginatedContractsView> {
+  async list(input: ListContractsInput, role?: UserRole): Promise<PaginatedContractsView> {
     const asOf = this.currentCivilDate();
     await this.repository.markExpired(asOf);
     const result = await this.repository.list({ ...input, asOf });
-    const relations = await this.loadRelations(result.items);
+    const relations = await this.loadRelations(result.items, role);
     return {
       data: result.items.map((contract) =>
         this.detailedView(
@@ -167,8 +169,8 @@ export class ContractService {
     });
   }
 
-  async toDetailedView(contract: Contract): Promise<DetailedContractView> {
-    const relations = await this.loadRelations([contract]);
+  async toDetailedView(contract: Contract, role?: UserRole): Promise<DetailedContractView> {
+    const relations = await this.loadRelations([contract], role);
     return this.detailedView(
       contract,
       relations.tenants.get(contract.tenantId),
@@ -176,11 +178,11 @@ export class ContractService {
     );
   }
 
-  async exportCsv(input: ListContractsInput): Promise<string> {
+  async exportCsv(input: ListContractsInput, role?: UserRole): Promise<string> {
     const asOf = this.currentCivilDate();
     await this.repository.markExpired(asOf);
     const contracts = await this.repository.listForExport({ ...input, asOf });
-    const relations = await this.loadRelations(contracts);
+    const relations = await this.loadRelations(contracts, role);
     const header = [
       'id',
       'status',
@@ -191,6 +193,7 @@ export class ContractService {
       'billingDay',
       'isRenewable',
       'tenantId',
+      'tenantName',
       'tenantCpf',
       'tenantProfession',
       'propertyUnitId',
@@ -211,6 +214,7 @@ export class ContractService {
         contract.billingDay,
         contract.isRenewable,
         contract.tenantId,
+        tenant?.name ?? '',
         tenant?.cpf ?? '',
         tenant?.profession ?? '',
         contract.propertyUnitId,
@@ -247,7 +251,10 @@ export class ContractService {
     };
   }
 
-  private async loadRelations(contracts: readonly Contract[]): Promise<{
+  private async loadRelations(
+    contracts: readonly Contract[],
+    role?: UserRole,
+  ): Promise<{
     tenants: Map<string, ContractTenantSummary>;
     properties: Map<string, ContractPropertySummary>;
   }> {
@@ -260,7 +267,7 @@ export class ContractService {
     return {
       tenants: new Map(
         tenants.map((tenant) => {
-          const view = TenantResponseDto.from(tenant);
+          const view = TenantResponseDto.from(tenant, role);
           return [tenant.id, view];
         }),
       ),

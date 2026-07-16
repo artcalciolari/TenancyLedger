@@ -1,12 +1,13 @@
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
+  Box,
   Button,
   Card,
   CardActions,
   CardContent,
-  Chip,
-  IconButton,
-  Paper,
   Stack,
   Table,
   TableBody,
@@ -14,15 +15,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import type { UpdateUserAccessInput, UserView } from '../../api/contract';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { UpdateUserAccessInput, UserRole, UserView } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
+import { brand, statusTones } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
 import { usePaginationParams } from '../../components/data-display/usePaginationParams';
@@ -32,6 +33,36 @@ import { roleLabel } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
 import { usersApi } from './api';
 import { UserAccessDialog } from './UserAccessDialog';
+
+const roleIcons: Record<UserRole, ReactNode> = {
+  ADMIN: <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 19, color: brand.textTertiary }} />,
+  MANAGER: <BadgeOutlinedIcon sx={{ fontSize: 19, color: brand.textTertiary }} />,
+  VIEWER: <VisibilityOutlinedIcon sx={{ fontSize: 19, color: brand.textTertiary }} />,
+};
+
+function StatusPill({ active }: { active: boolean }) {
+  const tone = active ? statusTones.success : statusTones.neutral;
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.85,
+        height: 26,
+        px: 1.35,
+        borderRadius: '8px',
+        fontSize: '0.8rem',
+        fontWeight: 600,
+        bgcolor: tone.bg,
+        color: tone.fg,
+      }}
+    >
+      <Box component="span" sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: tone.dot }} />
+      {active ? 'Ativo' : 'Inativo'}
+    </Box>
+  );
+}
 
 export function UsersPage() {
   const { page, limit, setPagination } = usePaginationParams();
@@ -75,7 +106,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Usuários"
-        description="Administre os papéis e o acesso ao sistema."
+        description="Quem acessa o sistema e o que cada pessoa pode fazer."
         action={{ label: 'Novo usuário', to: '/users/new' }}
       />
       {users.isPending ? (
@@ -85,28 +116,50 @@ export function UsersPage() {
       ) : rows.length === 0 ? (
         <EmptyState title="Nenhum usuário cadastrado" />
       ) : (
-        <Paper variant="outlined">
+        <Card sx={{ p: 0 }}>
           {mobile ? (
             <Stack spacing={1.5} sx={{ p: 1.5 }}>
               {rows.map((user) => (
-                <Card variant="outlined" key={user.id}>
+                <Card key={user.id}>
                   <CardContent>
-                    <Typography sx={{ fontWeight: 650, overflowWrap: 'anywhere' }}>
-                      {user.email}
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                      <Chip size="small" label={roleLabel(user.role)} />
-                      <Chip
-                        size="small"
-                        color={user.active ? 'success' : 'default'}
-                        label={user.active ? 'Ativo' : 'Inativo'}
-                      />
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                      <Box
+                        sx={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: '50%',
+                          bgcolor: brand.sidebarBg,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: '0.9rem',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {user.email.charAt(0).toUpperCase()}
+                      </Box>
+                      <Typography sx={{ fontWeight: 650, overflowWrap: 'anywhere' }}>
+                        {user.email}
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ mt: 1.5, flexWrap: 'wrap', alignItems: 'center' }}
+                    >
+                      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                        {roleIcons[user.role]}
+                        <Typography variant="body2">{roleLabel(user.role)}</Typography>
+                      </Stack>
+                      <StatusPill active={user.active} />
                     </Stack>
                   </CardContent>
                   <CardActions>
                     <Button
                       variant="text"
-                      startIcon={<EditOutlinedIcon />}
+                      startIcon={<TuneOutlinedIcon />}
                       onClick={() => setSelected(user)}
                     >
                       Alterar acesso
@@ -116,11 +169,11 @@ export function UsersPage() {
               ))}
             </Stack>
           ) : (
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 640 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>E-mail</TableCell>
+                    <TableCell>Usuário</TableCell>
                     <TableCell>Papel</TableCell>
                     <TableCell>Estado</TableCell>
                     <TableCell align="right">Ações</TableCell>
@@ -129,24 +182,51 @@ export function UsersPage() {
                 <TableBody>
                   {rows.map((user) => (
                     <TableRow key={user.id} hover>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{roleLabel(user.role)}</TableCell>
                       <TableCell>
-                        <Chip
-                          size="small"
-                          color={user.active ? 'success' : 'default'}
-                          label={user.active ? 'Ativo' : 'Inativo'}
-                        />
+                        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                          <Box
+                            sx={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: '50%',
+                              bgcolor: brand.sidebarBg,
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '0.9rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {user.email.charAt(0).toUpperCase()}
+                          </Box>
+                          <Typography
+                            sx={{ fontSize: '0.92rem', fontWeight: 600, color: brand.textPrimary }}
+                          >
+                            {user.email}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                          {roleIcons[user.role]}
+                          <Typography variant="body2">{roleLabel(user.role)}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill active={user.active} />
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip title="Alterar acesso">
-                          <IconButton
-                            aria-label={`Alterar acesso de ${user.email}`}
-                            onClick={() => setSelected(user)}
-                          >
-                            <EditOutlinedIcon />
-                          </IconButton>
-                        </Tooltip>
+                        <Button
+                          variant="text"
+                          size="small"
+                          startIcon={<TuneOutlinedIcon sx={{ fontSize: 18 }} />}
+                          aria-label={`Alterar acesso de ${user.email}`}
+                          onClick={() => setSelected(user)}
+                        >
+                          Alterar acesso
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -154,8 +234,10 @@ export function UsersPage() {
               </Table>
             </TableContainer>
           )}
-          <PaginationBar meta={users.data.meta} onChange={setPagination} />
-        </Paper>
+          <Box sx={{ bgcolor: brand.surfaceSubtle, borderTop: `1px solid ${brand.borderCard}` }}>
+            <PaginationBar meta={users.data.meta} onChange={setPagination} />
+          </Box>
+        </Card>
       )}
       <UserAccessDialog
         currentUserId={session?.user.id}

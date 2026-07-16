@@ -1,5 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
+
+async function openMobileMenuIfNeeded(page: Page, testInfo: TestInfo): Promise<void> {
+  if (!testInfo.project.name.startsWith('mobile-')) return;
+  await page.getByRole('button', { name: 'Abrir menu' }).click();
+}
 
 function accessToken(): string {
   const payload = Buffer.from(
@@ -89,24 +94,27 @@ async function wcagViolations(page: Page) {
 async function authenticate(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('E-mail').fill('admin@example.test');
-  await page.getByLabel('Senha').fill('Strong-test-password-123!');
+  await page.getByLabel('Senha', { exact: true }).fill('Strong-test-password-123!');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
 }
 
 test('login não possui violações WCAG AA', async ({ page }) => {
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Tenancy Ledger' })).toBeVisible();
+  await expect(page.getByText('Tenancy Ledger')).toBeVisible();
 
   expect(await wcagViolations(page)).toEqual([]);
 });
 
-test('shell autenticado e estado vazio não possuem violações WCAG AA', async ({ page }) => {
+test('shell autenticado e estado vazio não possuem violações WCAG AA', async ({
+  page,
+}, testInfo) => {
   await mockAuthenticatedApi(page);
   await page.goto('/login');
   await page.getByLabel('E-mail').fill('admin@example.test');
-  await page.getByLabel('Senha').fill('Strong-test-password-123!');
+  await page.getByLabel('Senha', { exact: true }).fill('Strong-test-password-123!');
   await page.getByRole('button', { name: 'Entrar' }).click();
+  await openMobileMenuIfNeeded(page, testInfo);
   await page.getByRole('link', { name: 'Faturas' }).click();
   await expect(page.getByRole('heading', { name: 'Faturas', exact: true })).toBeVisible();
 
@@ -116,7 +124,8 @@ test('shell autenticado e estado vazio não possuem violações WCAG AA', async 
 test('login mantém ordem de foco e direciona o primeiro erro', async ({ page }) => {
   await page.goto('/login');
   const email = page.getByLabel('E-mail');
-  const password = page.getByLabel('Senha');
+  const password = page.getByLabel('Senha', { exact: true });
+  const togglePassword = page.getByRole('button', { name: 'Mostrar senha' });
   const submit = page.getByRole('button', { name: 'Entrar' });
 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -124,6 +133,8 @@ test('login mantém ordem de foco e direciona o primeiro erro', async ({ page })
   await expect(email).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(password).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(togglePassword).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(submit).toBeFocused();
   await submit.click();
@@ -163,6 +174,27 @@ test('diálogo de pagamento mantém e restaura o foco', async ({ page }) => {
         payments: [],
         createdAt: '2026-07-01T12:00:00.000Z',
         updatedAt: '2026-07-01T12:00:00.000Z',
+        contract: {
+          id: '40000000-0000-4000-8000-000000000001',
+          tenantId: '20000000-0000-4000-8000-000000000001',
+          propertyUnitId: '30000000-0000-4000-8000-000000000001',
+          status: 'ACTIVE',
+          tenant: {
+            id: '20000000-0000-4000-8000-000000000001',
+            name: 'Larissa Andrade',
+            cpf: '***.***.***-09',
+            email: 'l***@example.test',
+            mobilePhone: '(**) *****-9001',
+            profession: 'Engenheira civil',
+            civilStatus: 'SINGLE',
+          },
+          propertyUnit: {
+            id: '30000000-0000-4000-8000-000000000001',
+            neighborhood: 'Jardins',
+            unitNumber: '101-A',
+            type: 'APARTMENT',
+          },
+        },
       }),
     }),
   );

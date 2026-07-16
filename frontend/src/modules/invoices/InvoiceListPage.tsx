@@ -1,13 +1,19 @@
-import { ClearOutlined } from '@mui/icons-material';
+import {
+  ChevronRightOutlined,
+  ClearOutlined,
+  SearchOutlined,
+  TuneOutlined,
+} from '@mui/icons-material';
 import {
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   FormControl,
+  InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
   Table,
@@ -21,14 +27,15 @@ import {
 } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
 import {
-  INVOICE_STATUSES,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   type InvoiceListFilters,
+  type InvoiceStatus,
 } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
+import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
 import { StatusChip } from '../../components/data-display/StatusChip';
@@ -41,7 +48,15 @@ import { formatCents } from '../../lib/money/money';
 import { clampPage } from '../../lib/pagination/pagination';
 import { invoicesApi } from './api';
 import { parseInvoiceFilters } from './filters';
-import { invoiceStatusLabels, paymentMethodLabels, paymentStatusLabels } from './labels';
+import { paymentMethodLabels, paymentStatusLabels } from './labels';
+
+const statusChipOptions: { label: string; value: InvoiceStatus | undefined }[] = [
+  { label: 'Todas', value: undefined },
+  { label: 'Em aberto', value: 'OPEN' },
+  { label: 'Vencidas', value: 'OVERDUE' },
+  { label: 'Em análise', value: 'UNDER_REVIEW' },
+  { label: 'Pagas', value: 'PAID' },
+];
 
 function AdvancedInvoiceFilters({
   filters,
@@ -60,7 +75,6 @@ function AdvancedInvoiceFilters({
       return normalized === '' ? undefined : normalized;
     };
     onApply({
-      q: value('q'),
       dueFrom: value('dueFrom'),
       dueTo: value('dueTo'),
       paymentMethod: value('paymentMethod'),
@@ -75,17 +89,9 @@ function AdvancedInvoiceFilters({
       sx={{
         display: 'grid',
         gap: 2,
-        gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)', xl: 'repeat(6, 1fr)' },
-        mt: 2,
+        gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' },
       }}
     >
-      <TextField
-        name="q"
-        label="Buscar fatura"
-        defaultValue={filters.q ?? ''}
-        helperText="CPF, profissão, bairro ou unidade"
-        sx={{ gridColumn: { xl: 'span 2' } }}
-      />
       <TextField
         name="dueFrom"
         label="Vencimento a partir de"
@@ -133,7 +139,7 @@ function AdvancedInvoiceFilters({
         </Select>
       </FormControl>
       <Button type="submit" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
-        Aplicar busca avançada
+        Aplicar filtros avançados
       </Button>
     </Box>
   );
@@ -169,7 +175,7 @@ function ContractIdFilter({
       spacing={1}
       onSubmit={submit}
       noValidate
-      sx={{ flex: 1 }}
+      sx={{ flex: 1, minWidth: { md: 280 } }}
     >
       <TextField
         label="ID do contrato"
@@ -182,7 +188,9 @@ function ContractIdFilter({
         helperText={error || 'UUID v4 completo'}
         sx={{ flex: 1 }}
       />
-      <Button type="submit">Aplicar</Button>
+      <Button type="submit" variant="outlined">
+        Aplicar
+      </Button>
       <Button
         type="button"
         variant="text"
@@ -200,6 +208,7 @@ function ContractIdFilter({
 }
 
 export function InvoiceListPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = parseInvoiceFilters(searchParams);
   const query = useQuery({
@@ -212,6 +221,13 @@ export function InvoiceListPage() {
     ? clampPage(filters.page, query.data.meta.totalPages)
     : filters.page;
   const pageOutOfRange = normalizedPage !== filters.page;
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(filters.q ?? '');
+  const [lastSyncedQ, setLastSyncedQ] = useState(filters.q ?? '');
+  if (lastSyncedQ !== (filters.q ?? '')) {
+    setLastSyncedQ(filters.q ?? '');
+    setSearchDraft(filters.q ?? '');
+  }
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -274,6 +290,17 @@ export function InvoiceListPage() {
     setSearchParams({ page: '1', limit: String(filters.limit) });
   };
 
+  // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
+  useEffect(() => {
+    const trimmed = searchDraft.trim();
+    if (trimmed === (filters.q ?? '')) return;
+    const timeout = window.setTimeout(() => {
+      update({ q: trimmed || undefined });
+    }, 400);
+    return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchDraft]);
+
   return (
     <>
       <PageHeader
@@ -282,49 +309,97 @@ export function InvoiceListPage() {
       >
         <CsvExportButton exportCsv={() => invoicesApi.exportCsv(filters)} filename="faturas.csv" />
       </PageHeader>
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Card sx={{ p: 2, mb: 2 }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          sx={{ alignItems: { md: 'flex-start' } }}
+          spacing={1.5}
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
         >
           <TextField
-            label="Competência"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            placeholder="Buscar por bairro, unidade, CPF ou profissão"
+            aria-label="Buscar fatura"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlined sx={{ color: brand.textTertiary, fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              flex: 1,
+              minWidth: 260,
+              '& .MuiOutlinedInput-root': { bgcolor: brand.surfaceSubtle, borderRadius: '12px' },
+            }}
+          />
+          <TextField
+            label="Mês de referência"
             type="month"
             value={filters.competence ?? ''}
             onChange={(event) => update({ competence: event.target.value })}
             slotProps={{ inputLabel: { shrink: true } }}
             sx={{ maxWidth: { md: 220 } }}
           />
-          <FormControl size="small" fullWidth sx={{ maxWidth: { md: 240 } }}>
-            <InputLabel id="invoice-status-filter">Status</InputLabel>
-            <Select
-              labelId="invoice-status-filter"
-              label="Status"
-              value={filters.status ?? ''}
-              onChange={(event) => update({ status: event.target.value })}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {INVOICE_STATUSES.map((status) => (
-                <MenuItem value={status} key={status}>
-                  {invoiceStatusLabels[status]}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <ContractIdFilter
-            key={filters.contractId ?? ''}
-            initialValue={filters.contractId ?? ''}
-            onApply={(contractId) => update({ contractId })}
-            onClear={clearFilters}
-          />
+          <Button
+            type="button"
+            variant="outlined"
+            startIcon={<TuneOutlined />}
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+            sx={{
+              bgcolor: 'background.paper',
+              borderColor: brand.borderInput,
+              color: brand.textPrimary,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Filtros avançados
+          </Button>
         </Stack>
-        <AdvancedInvoiceFilters
-          key={`advanced-${searchParams.toString()}`}
-          filters={filters}
-          onApply={update}
-        />
-      </Paper>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 1.75 }}>
+          {statusChipOptions.map((option) => {
+            const active = (filters.status ?? undefined) === option.value;
+            return (
+              <Chip
+                key={option.label}
+                clickable
+                label={option.label}
+                onClick={() => update({ status: option.value })}
+                variant={active ? 'filled' : 'outlined'}
+                sx={{
+                  height: 34,
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  bgcolor: active ? 'primary.main' : 'background.paper',
+                  color: active ? '#fff' : brand.textPrimary,
+                  borderColor: active ? 'primary.main' : brand.borderInput,
+                  '&:hover': { bgcolor: active ? 'primary.dark' : brand.surfaceSubtle },
+                }}
+              />
+            );
+          })}
+        </Stack>
+        {advancedOpen && (
+          <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${brand.borderRow}` }}>
+            <Stack spacing={2}>
+              <ContractIdFilter
+                key={filters.contractId ?? ''}
+                initialValue={filters.contractId ?? ''}
+                onApply={(contractId) => update({ contractId })}
+                onClear={clearFilters}
+              />
+              <AdvancedInvoiceFilters
+                key={`advanced-${searchParams.toString()}`}
+                filters={filters}
+                onApply={update}
+              />
+            </Stack>
+          </Box>
+        )}
+      </Card>
       {query.isPending || pageOutOfRange ? (
         <LoadingState label="Carregando faturas…" />
       ) : query.isError ? (
@@ -342,62 +417,61 @@ export function InvoiceListPage() {
         />
       ) : (
         <Stack spacing={2}>
+          {/* Mobile card list — mesma quebra responsiva (apenas xs) preservada */}
           <Stack spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
             {query.data.data.map((invoice) => (
-              <Card variant="outlined" key={invoice.id}>
+              <Card key={invoice.id}>
                 <CardContent>
-                  <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, mb: 2 }}>
+                  <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, mb: 1.5 }}>
                     <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Competência
+                      <Typography sx={{ fontSize: '0.78rem', color: brand.textTertiary }}>
+                        Mês ref. {formatCompetence(invoice.competence)}
                       </Typography>
-                      <Typography component="h2" variant="h2" sx={{ fontSize: '1.15rem' }}>
-                        {formatCompetence(invoice.competence)}
+                      <Typography
+                        sx={{ fontSize: '1rem', fontWeight: 700, color: brand.textPrimary }}
+                      >
+                        {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
+                        {invoice.contract.propertyUnit.unitNumber}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.79rem', color: brand.textTertiary }}>
+                        {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}
                       </Typography>
                     </Box>
                     <StatusChip status={invoice.status} />
                   </Stack>
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 1.5,
-                    }}
-                  >
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         Vencimento
                       </Typography>
-                      <Typography>{formatCivilDate(invoice.dueDate)}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Contrato
-                      </Typography>
-                      <Typography sx={{ fontFamily: 'monospace' }}>
-                        {invoice.contractId.slice(0, 8)}…
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {invoice.contract.tenant.cpf} · {invoice.contract.propertyUnit.neighborhood}
+                      <Typography sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {formatCivilDate(invoice.dueDate)}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         Total
                       </Typography>
-                      <Typography>{formatCents(invoice.totalValueCents)}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Aprovado
+                      <Typography sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {formatCents(invoice.totalValueCents)}
                       </Typography>
-                      <Typography>{formatCents(invoice.approvedAmountCents)}</Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         Saldo
                       </Typography>
-                      <Typography>{formatCents(invoice.outstandingAmountCents)}</Typography>
+                      <Typography
+                        sx={{
+                          fontVariantNumeric: 'tabular-nums',
+                          fontWeight: invoice.outstandingAmountCents > 0 ? 700 : 400,
+                          color:
+                            invoice.outstandingAmountCents > 0
+                              ? brand.textPrimary
+                              : brand.textTertiary,
+                        }}
+                      >
+                        {formatCents(invoice.outstandingAmountCents)}
+                      </Typography>
                     </Box>
                   </Box>
                   <Button
@@ -413,67 +487,85 @@ export function InvoiceListPage() {
               </Card>
             ))}
           </Stack>
-          <Paper sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <Card sx={{ display: { xs: 'none', sm: 'block' }, p: 0 }}>
             <TableContainer sx={{ overflowX: 'auto' }}>
               <Table sx={{ minWidth: 760 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Competência</TableCell>
+                    <TableCell>Fatura</TableCell>
+                    <TableCell>Mês ref.</TableCell>
                     <TableCell>Vencimento</TableCell>
-                    <TableCell>Contrato e vínculo</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                    <TableCell align="right">Aprovado</TableCell>
+                    <TableCell align="right">Valor</TableCell>
                     <TableCell align="right">Saldo</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Ação</TableCell>
+                    <TableCell>Situação</TableCell>
+                    <TableCell sx={{ width: 44 }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {query.data.data.map((invoice) => (
-                    <TableRow key={invoice.id} hover>
-                      <TableCell>{formatCompetence(invoice.competence)}</TableCell>
-                      <TableCell>{formatCivilDate(invoice.dueDate)}</TableCell>
+                    <TableRow
+                      key={invoice.id}
+                      hover
+                      onClick={() => void navigate(`/invoices/${invoice.id}`)}
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: brand.surfaceSubtle } }}
+                    >
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                          {invoice.contractId.slice(0, 8)}…
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {invoice.contract.tenant.cpf} ·{' '}
-                          {invoice.contract.propertyUnit.neighborhood}, unidade{' '}
+                        <Typography
+                          component={RouterLink}
+                          to={`/invoices/${invoice.id}`}
+                          sx={{
+                            display: 'block',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            color: brand.textPrimary,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
                           {invoice.contract.propertyUnit.unitNumber}
                         </Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}
+                        >
+                          {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}
+                        </Typography>
                       </TableCell>
-                      <TableCell align="right">{formatCents(invoice.totalValueCents)}</TableCell>
-                      <TableCell align="right">
-                        {formatCents(invoice.approvedAmountCents)}
+                      <TableCell>{formatCompetence(invoice.competence)}</TableCell>
+                      <TableCell>{formatCivilDate(invoice.dueDate)}</TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {formatCents(invoice.totalValueCents)}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell
+                        align="right"
+                        sx={{
+                          fontVariantNumeric: 'tabular-nums',
+                          fontWeight: invoice.outstandingAmountCents > 0 ? 700 : 400,
+                          color:
+                            invoice.outstandingAmountCents > 0
+                              ? brand.textPrimary
+                              : brand.textTertiary,
+                        }}
+                      >
                         {formatCents(invoice.outstandingAmountCents)}
                       </TableCell>
                       <TableCell>
                         <StatusChip status={invoice.status} />
                       </TableCell>
-                      <TableCell align="right">
-                        <Button
-                          component={RouterLink}
-                          to={`/invoices/${invoice.id}`}
-                          variant="text"
-                        >
-                          Abrir
-                        </Button>
+                      <TableCell align="right" sx={{ color: brand.borderInput }}>
+                        <ChevronRightOutlined />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TableContainer>
-          </Paper>
-          <Paper>
-            <PaginationBar
-              meta={query.data.meta}
-              onChange={(page, limit) => update({ page, limit })}
-            />
-          </Paper>
+            <Box sx={{ bgcolor: brand.surfaceSubtle, borderTop: `1px solid ${brand.borderCard}` }}>
+              <PaginationBar
+                meta={query.data.meta}
+                onChange={(page, limit) => update({ page, limit })}
+              />
+            </Box>
+          </Card>
         </Stack>
       )}
       {query.isFetching && !query.isPending && (

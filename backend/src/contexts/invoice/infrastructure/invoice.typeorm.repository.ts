@@ -89,6 +89,7 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
         `(
           CAST(invoice.id AS text) ILIKE :q ESCAPE '\\'
           OR CAST(contract.id AS text) ILIKE :q ESCAPE '\\'
+          OR tenant.full_name ILIKE :q ESCAPE '\\'
           OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'
@@ -128,6 +129,7 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
       .addSelect('contract.status', 'contractStatus')
       .addSelect('contract.end_date', 'contractEndDate')
       .addSelect('tenant.id', 'tenantId')
+      .addSelect('tenant.full_name', 'tenantName')
       .addSelect('tenant.cpf', 'tenantCpf')
       .addSelect('tenant.profession', 'tenantProfession')
       .addSelect('tenant.civil_status', 'tenantCivilStatus')
@@ -192,6 +194,7 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
         `(
           CAST(invoice.id AS text) ILIKE :q ESCAPE '\\'
           OR CAST(contract.id AS text) ILIKE :q ESCAPE '\\'
+          OR tenant.full_name ILIKE :q ESCAPE '\\'
           OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'

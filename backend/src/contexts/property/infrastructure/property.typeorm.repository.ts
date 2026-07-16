@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { PropertyUnit } from '../domain/property-unit.entity';
 import {
   IPropertyRepository,
   PropertyListOptions,
   PropertyListResult,
+  PropertyWithOccupancy,
 } from '../domain/property.repository';
+
+interface OccupancyRaw {
+  buildingName: string | null;
+  occupied: boolean;
+}
 
 @Injectable()
 export class PropertyTypeOrmRepository implements IPropertyRepository {
@@ -31,9 +37,15 @@ export class PropertyTypeOrmRepository implements IPropertyRepository {
       .getOne();
   }
 
-  async list({ page, limit, q, type }: PropertyListOptions): Promise<PropertyListResult> {
-    const query = this.repository
-      .createQueryBuilder('property')
+  async list({
+    page,
+    limit,
+    q,
+    type,
+    buildingId,
+    asOf,
+  }: PropertyListOptions): Promise<PropertyListResult> {
+    const query = this.occupancyQuery(asOf)
       .orderBy('property.createdAt', 'DESC')
       .addOrderBy('property.id', 'ASC')
       .skip((page - 1) * limit)
@@ -47,7 +59,52 @@ export class PropertyTypeOrmRepository implements IPropertyRepository {
       );
     }
     if (type) query.andWhere('property.type = :type', { type });
-    const [items, total] = await query.getManyAndCount();
-    return { items, total };
+    if (buildingId) query.andWhere('property.building_id = :buildingId', { buildingId });
+
+    const total = await query.clone().getCount();
+    const { entities, raw } = await query.getRawAndEntities<OccupancyRaw>();
+    return {
+      items: entities.map((property, index) =>
+        PropertyTypeOrmRepository.toView(property, raw[index]),
+      ),
+      total,
+    };
+  }
+
+  async getView(id: string, asOf: string): Promise<PropertyWithOccupancy | null> {
+    const { entities, raw } = await this.occupancyQuery(asOf)
+      .andWhere('property.id = :id', { id })
+      .getRawAndEntities<OccupancyRaw>();
+    const [entity] = entities;
+    if (!entity) return null;
+    return PropertyTypeOrmRepository.toView(entity, raw[0]);
+  }
+
+  private occupancyQuery(asOf: string): SelectQueryBuilder<PropertyUnit> {
+    return this.repository
+      .createQueryBuilder('property')
+      .leftJoin('buildings', 'building', 'building.id = property.building_id')
+      .leftJoin(
+        'contracts',
+        'contract',
+        `contract.property_unit_id = property.id
+          AND contract.status = :activeStatus
+          AND contract.move_in_date <= :asOf
+          AND contract.end_date >= :asOf`,
+        { activeStatus: 'ACTIVE', asOf },
+      )
+      .addSelect('building.name', 'buildingName')
+      .addSelect('(contract.id IS NOT NULL)', 'occupied');
+  }
+
+  private static toView(
+    property: PropertyUnit,
+    raw: OccupancyRaw | undefined,
+  ): PropertyWithOccupancy {
+    return {
+      property,
+      buildingName: raw?.buildingName ?? null,
+      occupied: Boolean(raw?.occupied),
+    };
   }
 }

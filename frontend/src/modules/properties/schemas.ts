@@ -13,6 +13,7 @@ export const createPropertySchema = z.object({
     .trim()
     .min(1, 'Informe o número da unidade.')
     .max(40, 'O número deve ter no máximo 40 caracteres.'),
+  buildingId: z.string().uuid().optional().or(z.literal('')),
 });
 
 export type CreatePropertyForm = z.infer<typeof createPropertySchema>;

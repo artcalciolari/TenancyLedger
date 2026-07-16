@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -60,7 +61,28 @@ export function UserAccessDialog({
           sx={{ pt: 1 }}
           onSubmit={submit}
         >
-          <Typography>{user?.email}</Typography>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                bgcolor: 'primary.main',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                flexShrink: 0,
+              }}
+            >
+              {user?.email.charAt(0).toUpperCase()}
+            </Box>
+            <Typography sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+              {user?.email}
+            </Typography>
+          </Stack>
           {user?.id === currentUserId && (
             <Alert severity="info">
               O backend impede que você desative ou remova o próprio acesso administrativo.

@@ -2,17 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { createAppTheme } from './theme';
 
 describe('createAppTheme', () => {
-  it('cria paletas distintas para os modos claro e escuro', () => {
-    const light = createAppTheme('light');
-    const dark = createAppTheme('dark');
+  it('cria um tema claro fixo com a paleta da marca', () => {
+    const theme = createAppTheme();
 
-    expect(light.palette.mode).toBe('light');
-    expect(dark.palette.mode).toBe('dark');
-    expect(light.palette.background.default).not.toBe(dark.palette.background.default);
+    expect(theme.palette.mode).toBe('light');
+    expect(theme.palette.background.default).toBe('#F3F1EA');
+    expect(theme.palette.primary.main).toBe('#0E6E78');
   });
 
   it('mantém alvos interativos e campos com ao menos 44 px', () => {
-    const theme = createAppTheme('light');
+    const theme = createAppTheme();
     expect(theme.components?.MuiButtonBase?.styleOverrides?.root).toMatchObject({
       minWidth: 44,
       minHeight: 44,

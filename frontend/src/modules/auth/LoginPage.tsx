@@ -1,6 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Alert, Button, Stack, TextField } from '@mui/material';
-import { useEffect } from 'react';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import MailOutlineIcon from '@mui/icons-material/MailOutlineOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { Alert, Button, IconButton, InputAdornment, Stack, TextField } from '@mui/material';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { z } from 'zod';
@@ -25,6 +30,7 @@ function safeReturnTo(value: string | null): string {
 }
 
 export function LoginPage() {
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { session, reason, startSession } = useAuth();
@@ -99,7 +105,17 @@ export function LoginPage() {
             error={Boolean(errors.email)}
             helperText={errors.email?.message}
             label="E-mail"
+            placeholder="nome@empresa.com.br"
             type="email"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MailOutlineIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
         )}
       />
@@ -113,11 +129,43 @@ export function LoginPage() {
             error={Boolean(errors.password)}
             helperText={errors.password?.message}
             label="Senha"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      onClick={() => setShowPassword((value) => !value)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? (
+                        <VisibilityOffOutlinedIcon fontSize="small" />
+                      ) : (
+                        <VisibilityOutlinedIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
         )}
       />
-      <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} size="large">
+      <Button
+        type="submit"
+        disabled={isSubmitting}
+        aria-busy={isSubmitting}
+        size="large"
+        endIcon={!isSubmitting && <ArrowForwardIcon />}
+        sx={{ height: 52 }}
+      >
         {isSubmitting ? 'Entrando…' : 'Entrar'}
       </Button>
     </Stack>

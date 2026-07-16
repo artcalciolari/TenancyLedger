@@ -7,6 +7,8 @@ import { UnitType } from '../property/domain/property-unit.entity';
 export class ContractTenantSummaryDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+  @ApiProperty({ example: 'Maria da Silva' })
+  name!: string;
   @ApiProperty({ example: '***.***.***-09' })
   cpf!: string;
   @ApiProperty({ example: 'Engenheiro civil' })

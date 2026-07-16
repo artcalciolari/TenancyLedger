@@ -2,29 +2,36 @@ import { Tenant, TenantCivilStatus } from '../../../domain/entities/tenant.entit
 import { PaginatedTenantView, TenantView } from '../../../application/queries/tenant.queries';
 import { ApiProperty } from '@nestjs/swagger';
 import { PageMetaDto } from '../../../../../core/infrastructure/http/openapi.dto';
+import { UserRole } from '../../../../auth/domain/entities/user.entity';
+
+const UNMASKED_ROLES = new Set<UserRole>([UserRole.ADMIN, UserRole.MANAGER]);
 
 export class TenantResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
-  @ApiProperty({ example: '***.***.***-09', description: 'CPF mascarado.' })
+  @ApiProperty({ minLength: 3, maxLength: 120, example: 'Maria da Silva' })
+  name!: string;
+  @ApiProperty({ example: '***.***.***-09', description: 'CPF mascarado para VIEWER.' })
   cpf!: string;
   @ApiProperty({ example: 'Engenheiro civil' })
   profession!: string;
   @ApiProperty({ enum: TenantCivilStatus, enumName: 'TenantCivilStatus' })
   civilStatus!: TenantCivilStatus;
-  @ApiProperty({ example: 'l***@example.com', description: 'E-mail mascarado.' })
+  @ApiProperty({ example: 'l***@example.com', description: 'E-mail mascarado para VIEWER.' })
   email!: string;
-  @ApiProperty({ example: '(**) *****-9999', description: 'Telefone mascarado.' })
+  @ApiProperty({ example: '(**) *****-9999', description: 'Telefone mascarado para VIEWER.' })
   mobilePhone!: string;
 
-  static from(tenant: Tenant | TenantView): TenantResponseDto {
+  static from(tenant: Tenant | TenantView, role?: UserRole): TenantResponseDto {
+    const unmask = role !== undefined && UNMASKED_ROLES.has(role);
     return {
       id: tenant.id,
-      cpf: this.maskCpf(tenant.cpf),
+      name: tenant.name,
+      cpf: unmask ? tenant.cpf : this.maskCpf(tenant.cpf),
       profession: tenant.profession,
       civilStatus: tenant.civilStatus,
-      email: this.maskEmail(tenant.email),
-      mobilePhone: this.maskPhone(tenant.mobilePhone),
+      email: unmask ? tenant.email : this.maskEmail(tenant.email),
+      mobilePhone: unmask ? tenant.mobilePhone : this.maskPhone(tenant.mobilePhone),
     };
   }
 
@@ -50,9 +57,12 @@ export class PaginatedTenantResponseDto {
   meta!: PageMetaDto;
 }
 
-export function toPaginatedTenantResponse(result: PaginatedTenantView): PaginatedTenantResponseDto {
+export function toPaginatedTenantResponse(
+  result: PaginatedTenantView,
+  role?: UserRole,
+): PaginatedTenantResponseDto {
   return {
-    data: result.data.map((tenant) => TenantResponseDto.from(tenant)),
+    data: result.data.map((tenant) => TenantResponseDto.from(tenant, role)),
     meta: {
       total: result.total,
       page: result.page,

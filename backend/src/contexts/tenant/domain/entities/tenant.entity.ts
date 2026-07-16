@@ -23,9 +23,13 @@ export enum TenantCivilStatus {
 @Check('CHK_tenants_email_normalized', 'email = lower(trim(email))')
 @Check('CHK_tenants_rg_not_blank', 'char_length(trim(rg)) BETWEEN 5 AND 20')
 @Check('CHK_tenants_profession_not_blank', 'char_length(trim(profession)) BETWEEN 2 AND 100')
+@Check('CHK_tenants_full_name_not_blank', 'char_length(trim(full_name)) BETWEEN 3 AND 120')
 export class Tenant {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'full_name', length: 120 })
+  name!: string;
 
   @Column({ length: 11, unique: true })
   cpf!: string;
@@ -57,6 +61,7 @@ export class Tenant {
   updatedAt!: Date;
 
   static create(
+    name: string,
     cpf: string,
     rg: string,
     profession: string,
@@ -64,9 +69,13 @@ export class Tenant {
     email: string,
     mobilePhone: string,
   ): Tenant {
+    const normalizedName = name.trim().replace(/\s+/g, ' ');
     const normalizedRg = rg.trim().toUpperCase();
     const normalizedProfession = profession.trim().replace(/\s+/g, ' ');
     const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedName.length < 3 || normalizedName.length > 120) {
+      throw new ValidationError('Nome deve conter entre 3 e 120 caracteres.');
+    }
     if (
       normalizedRg.length < 5 ||
       normalizedRg.length > 20 ||
@@ -85,6 +94,7 @@ export class Tenant {
     }
 
     const tenant = new Tenant();
+    tenant.name = normalizedName;
     tenant.cpf = CpfVO.create(cpf).value;
     tenant.rg = normalizedRg;
     tenant.profession = normalizedProfession;

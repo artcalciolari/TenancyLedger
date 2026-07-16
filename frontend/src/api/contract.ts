@@ -70,6 +70,10 @@ export type CreateTenantInput = Schemas['CreateTenantDto'];
 export type TenantView = Schemas['TenantResponseDto'];
 export type CreatePropertyInput = Schemas['CreatePropertyDto'];
 export type PropertyView = Schemas['PropertyResponseDto'];
+export type CreateBuildingInput = Schemas['CreateBuildingDto'];
+export type BuildingView = Schemas['BuildingResponseDto'];
+export type BuildingDetailView = Schemas['BuildingDetailResponseDto'];
+export type BuildingUnitView = Schemas['BuildingUnitResponseDto'];
 export type CreateContractInput = Schemas['CreateContractDto'];
 export type ContractView = Schemas['ContractResponseDto'];
 export type RenewContractInput = Schemas['RenewContractDto'];
@@ -95,6 +99,13 @@ export interface PropertyListFilters {
   limit: number;
   q?: string;
   type?: UnitType;
+  buildingId?: string;
+}
+
+export interface BuildingListFilters {
+  page: number;
+  limit: number;
+  q?: string;
 }
 
 export interface ContractListFilters {

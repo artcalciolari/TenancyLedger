@@ -14,6 +14,7 @@ describe('TenantTypeOrmRepository', () => {
     } as unknown as jest.Mocked<Repository<Tenant>>;
     repository = new TenantTypeOrmRepository(typeOrmRepository);
     tenant = Tenant.create(
+      'Maria da Silva',
       '52998224725',
       '123456789',
       'Engenheira',

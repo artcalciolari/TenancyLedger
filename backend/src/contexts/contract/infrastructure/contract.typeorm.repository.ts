@@ -94,6 +94,7 @@ export class ContractTypeOrmRepository implements IContractRepository {
       query.andWhere(
         `(
           CAST(contract.id AS text) ILIKE :q ESCAPE '\\'
+          OR tenant.full_name ILIKE :q ESCAPE '\\'
           OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'

@@ -1,18 +1,16 @@
-import ClearOutlinedIcon from '@mui/icons-material/ClearOutlined';
+import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined';
 import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import {
   Box,
   Button,
   Card,
   CardActions,
   CardContent,
-  FormControl,
+  Chip,
   FormHelperText,
-  InputLabel,
-  Link,
-  MenuItem,
-  Paper,
-  Select,
+  InputAdornment,
   Stack,
   Table,
   TableBody,
@@ -26,8 +24,9 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router';
-import { CONTRACT_STATUSES, type ContractListFilters } from '../../api/contract';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
+import type { ContractListFilters, ContractStatus } from '../../api/contract';
+import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
 import { StatusChip } from '../../components/data-display/StatusChip';
@@ -42,16 +41,17 @@ import { useAuth } from '../auth/useAuth';
 import { contractsApi } from './api';
 import { isUuid, parseContractFilters } from './filters';
 import { useContracts } from './hooks';
-import { contractStatusLabels } from './labels';
 
-function shortId(id: string): string {
-  return `${id.slice(0, 8)}…`;
-}
+const statusChipOptions: { label: string; value: ContractStatus | undefined }[] = [
+  { label: 'Todos', value: undefined },
+  { label: 'Ativos', value: 'ACTIVE' },
+  { label: 'Expirados', value: 'EXPIRED' },
+  { label: 'Encerrados', value: 'TERMINATED' },
+];
 
-interface FiltersFormProps {
+interface AdvancedFiltersFormProps {
   filters: ContractListFilters;
   onApply: (values: Record<string, string | undefined>) => void;
-  onClear: () => void;
 }
 
 function formString(data: FormData, key: string): string {
@@ -59,7 +59,7 @@ function formString(data: FormData, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function FiltersForm({ filters, onApply, onClear }: FiltersFormProps) {
+function AdvancedFiltersForm({ filters, onApply }: AdvancedFiltersFormProps) {
   const [tenantError, setTenantError] = useState('');
   const [propertyError, setPropertyError] = useState('');
 
@@ -74,10 +74,8 @@ function FiltersForm({ filters, onApply, onClear }: FiltersFormProps) {
     setPropertyError(propertyIsValid ? '' : 'Informe um UUID v4 válido.');
     if (!tenantIsValid || !propertyIsValid) return;
     onApply({
-      status: formString(data, 'status') || undefined,
       tenantId: tenantId || undefined,
       propertyUnitId: propertyUnitId || undefined,
-      q: formString(data, 'q').trim() || undefined,
       moveInFrom: formString(data, 'moveInFrom') || undefined,
       moveInTo: formString(data, 'moveInTo') || undefined,
       endFrom: formString(data, 'endFrom') || undefined,
@@ -86,7 +84,7 @@ function FiltersForm({ filters, onApply, onClear }: FiltersFormProps) {
   };
 
   return (
-    <Paper component="form" variant="outlined" onSubmit={submit} sx={{ mb: 2, p: 2 }}>
+    <Box component="form" onSubmit={submit} noValidate>
       <Box
         sx={{
           display: 'grid',
@@ -95,34 +93,11 @@ function FiltersForm({ filters, onApply, onClear }: FiltersFormProps) {
         }}
       >
         <TextField
-          name="q"
-          label="Buscar contrato"
-          defaultValue={filters.q ?? ''}
-          helperText="CPF, profissão, bairro ou unidade"
-        />
-        <FormControl size="small" fullWidth sx={{ maxWidth: { lg: 220 } }}>
-          <InputLabel id="contract-status-filter-label">Status</InputLabel>
-          <Select
-            labelId="contract-status-filter-label"
-            name="status"
-            label="Status"
-            defaultValue={filters.status ?? ''}
-          >
-            <MenuItem value="">Todos</MenuItem>
-            {CONTRACT_STATUSES.map((status) => (
-              <MenuItem value={status} key={status}>
-                {contractStatusLabels[status]}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
           name="tenantId"
           label="ID do locatário"
           defaultValue={filters.tenantId ?? ''}
           error={Boolean(tenantError)}
           helperText={tenantError || 'UUID completo'}
-          sx={{ flex: 1 }}
         />
         <TextField
           name="propertyUnitId"
@@ -130,7 +105,6 @@ function FiltersForm({ filters, onApply, onClear }: FiltersFormProps) {
           defaultValue={filters.propertyUnitId ?? ''}
           error={Boolean(propertyError)}
           helperText={propertyError || 'UUID completo'}
-          sx={{ flex: 1 }}
         />
         <TextField
           name="moveInFrom"
@@ -160,23 +134,21 @@ function FiltersForm({ filters, onApply, onClear }: FiltersFormProps) {
           defaultValue={filters.endTo ?? ''}
           slotProps={{ inputLabel: { shrink: true } }}
         />
-        <Stack direction="row" spacing={1}>
-          <Button type="submit">Aplicar</Button>
-          <Button type="button" variant="text" startIcon={<ClearOutlinedIcon />} onClick={onClear}>
-            Limpar
-          </Button>
-        </Stack>
+        <Button type="submit" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+          Aplicar filtros avançados
+        </Button>
       </Box>
       {(tenantError || propertyError) && (
-        <FormHelperText error>
+        <FormHelperText error sx={{ mt: 1 }}>
           Corrija os identificadores antes de aplicar os filtros.
         </FormHelperText>
       )}
-    </Paper>
+    </Box>
   );
 }
 
 export function ContractsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = parseContractFilters(searchParams);
   const contracts = useContracts(filters);
@@ -184,6 +156,13 @@ export function ContractsPage() {
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('sm'));
   const mayCreate = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(filters.q ?? '');
+  const [lastSyncedQ, setLastSyncedQ] = useState(filters.q ?? '');
+  if (lastSyncedQ !== (filters.q ?? '')) {
+    setLastSyncedQ(filters.q ?? '');
+    setSearchDraft(filters.q ?? '');
+  }
   const hasFilters = [
     filters.status,
     filters.tenantId,
@@ -252,6 +231,17 @@ export function ContractsPage() {
     setSearchParams(next);
   };
 
+  // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
+  useEffect(() => {
+    const trimmed = searchDraft.trim();
+    if (trimmed === (filters.q ?? '')) return;
+    const timeout = window.setTimeout(() => {
+      update({ q: trimmed || undefined });
+    }, 400);
+    return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchDraft]);
+
   return (
     <>
       <PageHeader
@@ -264,12 +254,77 @@ export function ContractsPage() {
           filename="contratos.csv"
         />
       </PageHeader>
-      <FiltersForm
-        key={searchParams.toString()}
-        filters={filters}
-        onApply={update}
-        onClear={() => setSearchParams({ page: '1', limit: String(filters.limit) })}
-      />
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
+          <TextField
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            placeholder="Buscar por bairro, unidade, CPF ou profissão"
+            aria-label="Buscar contrato"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlinedIcon sx={{ color: brand.textTertiary, fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              flex: 1,
+              minWidth: 260,
+              '& .MuiOutlinedInput-root': { bgcolor: brand.surfaceSubtle, borderRadius: '12px' },
+            }}
+          />
+          <Button
+            type="button"
+            variant="outlined"
+            startIcon={<TuneOutlinedIcon />}
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+            sx={{
+              bgcolor: 'background.paper',
+              borderColor: brand.borderInput,
+              color: brand.textPrimary,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Filtros avançados
+          </Button>
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 1.75 }}>
+          {statusChipOptions.map((option) => {
+            const active = (filters.status ?? undefined) === option.value;
+            return (
+              <Chip
+                key={option.label}
+                clickable
+                label={option.label}
+                onClick={() => update({ status: option.value })}
+                variant={active ? 'filled' : 'outlined'}
+                sx={{
+                  height: 34,
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  bgcolor: active ? 'primary.main' : 'background.paper',
+                  color: active ? '#fff' : brand.textPrimary,
+                  borderColor: active ? 'primary.main' : brand.borderInput,
+                  '&:hover': { bgcolor: active ? 'primary.dark' : brand.surfaceSubtle },
+                }}
+              />
+            );
+          })}
+        </Stack>
+        {advancedOpen && (
+          <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${brand.borderRow}` }}>
+            <AdvancedFiltersForm key={searchParams.toString()} filters={filters} onApply={update} />
+          </Box>
+        )}
+      </Card>
       {contracts.isPending || pageOutOfRange ? (
         <LoadingState label="Carregando contratos…" />
       ) : contracts.isError ? (
@@ -280,36 +335,30 @@ export function ContractsPage() {
           description={hasFilters ? 'Ajuste ou limpe os filtros para tentar novamente.' : undefined}
         />
       ) : (
-        <Paper variant="outlined">
+        <Card sx={{ p: 0 }}>
           {mobile ? (
             <Stack spacing={1.5} sx={{ p: 1.5 }}>
               {contracts.data.data.map((contract) => (
-                <Card variant="outlined" key={contract.id}>
+                <Card key={contract.id}>
                   <CardContent>
                     <Stack
                       direction="row"
                       sx={{ alignItems: 'center', justifyContent: 'space-between' }}
                     >
-                      <Typography sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                        {shortId(contract.id)}
+                      <Typography sx={{ fontWeight: 700, color: brand.textPrimary }}>
+                        {contract.propertyUnit.neighborhood} · Unid.{' '}
+                        {contract.propertyUnit.unitNumber}
                       </Typography>
                       <StatusChip status={contract.status} />
                     </Stack>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
+                    <Typography sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}>
+                      {contract.tenant.name} · CPF {contract.tenant.cpf}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1.25 }}>
                       {formatCivilDate(contract.moveInDate)} a {formatCivilDate(contract.endDate)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {formatCents(contract.monthlyBaseValueCents)} por mês
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      component="div"
-                      sx={{ mt: 1, overflowWrap: 'anywhere' }}
-                    >
-                      Locatário: {contract.tenant.cpf} · {contract.tenant.profession}
-                      <br />
-                      Imóvel: {contract.propertyUnit.neighborhood} · unidade{' '}
-                      {contract.propertyUnit.unitNumber}
                     </Typography>
                   </CardContent>
                   <CardActions>
@@ -326,52 +375,57 @@ export function ContractsPage() {
               ))}
             </Stack>
           ) : (
-            <TableContainer>
-              <Table sx={{ minWidth: 900 }}>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 700 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Contrato</TableCell>
-                    <TableCell>Locatário</TableCell>
-                    <TableCell>Imóvel</TableCell>
                     <TableCell>Vigência</TableCell>
                     <TableCell align="right">Aluguel mensal</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell>Situação</TableCell>
+                    <TableCell sx={{ width: 44 }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {contracts.data.data.map((contract) => (
-                    <TableRow hover key={contract.id}>
+                    <TableRow
+                      hover
+                      key={contract.id}
+                      onClick={() => void navigate(`/contracts/${contract.id}`)}
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: brand.surfaceSubtle } }}
+                    >
                       <TableCell>
-                        <Link
+                        <Typography
                           component={RouterLink}
                           to={`/contracts/${contract.id}`}
-                          sx={{ fontFamily: 'monospace' }}
+                          sx={{
+                            display: 'block',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            color: brand.textPrimary,
+                            textDecoration: 'none',
+                          }}
                         >
-                          {shortId(contract.id)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{contract.tenant.cpf}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {contract.tenant.profession}
+                          {contract.propertyUnit.neighborhood} · Unid.{' '}
+                          {contract.propertyUnit.unitNumber}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {contract.propertyUnit.neighborhood}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Unidade {contract.propertyUnit.unitNumber}
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}
+                        >
+                          {contract.tenant.name} · CPF {contract.tenant.cpf}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         {formatCivilDate(contract.moveInDate)} – {formatCivilDate(contract.endDate)}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                         {formatCents(contract.monthlyBaseValueCents)}
                       </TableCell>
                       <TableCell>
                         <StatusChip status={contract.status} />
+                      </TableCell>
+                      <TableCell align="right" sx={{ color: brand.borderInput }}>
+                        <ChevronRightOutlinedIcon />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -379,11 +433,13 @@ export function ContractsPage() {
               </Table>
             </TableContainer>
           )}
-          <PaginationBar
-            meta={contracts.data.meta}
-            onChange={(page, limit) => update({ page, limit })}
-          />
-        </Paper>
+          <Box sx={{ bgcolor: brand.surfaceSubtle, borderTop: `1px solid ${brand.borderCard}` }}>
+            <PaginationBar
+              meta={contracts.data.meta}
+              onChange={(page, limit) => update({ page, limit })}
+            />
+          </Box>
+        </Card>
       )}
       {contracts.isFetching && !contracts.isPending && (
         <Box role="status" aria-live="polite" sx={{ mt: 1 }}>

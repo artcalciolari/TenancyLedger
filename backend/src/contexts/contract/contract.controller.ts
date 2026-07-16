@@ -27,6 +27,8 @@ import { ContractService } from './contract.service';
 import type { PaginatedContractsView } from './contract.service';
 import { UserRole } from '../auth/domain/entities/user.entity';
 import { Roles } from '../auth/infrastructure/security/roles.decorator';
+import { CurrentUser } from '../auth/infrastructure/security/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/application/auth.service';
 import {
   ApiCreatedResponse,
   ApiOkResponse,
@@ -164,16 +166,22 @@ export class ContractController {
   @ApiNotFoundProblem('Locatário ou imóvel não encontrado.')
   @ApiConflictProblem('A unidade possui contrato com vigência sobreposta.')
   @ApiUnprocessableProblem()
-  async create(@Body() dto: CreateContractDto): Promise<ContractResponseDto> {
-    return this.contractService.toDetailedView(await this.contractService.create(dto));
+  async create(
+    @Body() dto: CreateContractDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ContractResponseDto> {
+    return this.contractService.toDetailedView(await this.contractService.create(dto), user.role);
   }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
   @ApiOperation({ summary: 'Listar contratos' })
   @ApiOkResponse({ type: PaginatedContractsResponseDto })
-  list(@Query() query: ContractPaginationDto): Promise<PaginatedContractsView> {
-    return this.contractService.list(query);
+  list(
+    @Query() query: ContractPaginationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PaginatedContractsView> {
+    return this.contractService.list(query, user.role);
   }
 
   @Get('export.csv')
@@ -184,8 +192,11 @@ export class ContractController {
     description: 'Arquivo CSV UTF-8 com os contratos que atendem aos filtros.',
     schema: { type: 'string', format: 'binary' },
   })
-  async exportCsv(@Query() query: ContractPaginationDto): Promise<StreamableFile> {
-    const csv = await this.contractService.exportCsv(query);
+  async exportCsv(
+    @Query() query: ContractPaginationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const csv = await this.contractService.exportCsv(query, user.role);
     return new StreamableFile(Buffer.from(`\uFEFF${csv}`, 'utf8'), {
       type: 'text/csv; charset=utf-8',
       disposition: 'attachment; filename="contracts.csv"',
@@ -200,8 +211,9 @@ export class ContractController {
   @ApiNotFoundProblem('Contrato não encontrado.')
   async get(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ContractResponseDto> {
-    return this.contractService.toDetailedView(await this.contractService.getById(id));
+    return this.contractService.toDetailedView(await this.contractService.getById(id), user.role);
   }
 
   @Patch(':id/renew')
@@ -215,9 +227,11 @@ export class ContractController {
   async renew(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: RenewContractDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ContractResponseDto> {
     return this.contractService.toDetailedView(
       await this.contractService.renew(id, dto.extraMonths),
+      user.role,
     );
   }
 }
