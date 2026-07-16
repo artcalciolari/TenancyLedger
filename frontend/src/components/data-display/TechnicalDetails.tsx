@@ -3,6 +3,13 @@ import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { brand } from '../../app/theme/theme';
 
+function copyToClipboard(id: string) {
+  if (!navigator.clipboard) return;
+  void navigator.clipboard.writeText(id).catch(() => {
+    // Clipboard write is best-effort; ignore failures (permissions, insecure context, etc.)
+  });
+}
+
 export function TechnicalDetails({ id }: { id: string }) {
   return (
     <Box component="details" sx={{ mt: 2, pt: 1.75, borderTop: `1px solid ${brand.borderRow}` }}>
@@ -50,7 +57,7 @@ export function TechnicalDetails({ id }: { id: string }) {
         <IconButton
           size="small"
           aria-label="Copiar identificador"
-          onClick={() => navigator.clipboard.writeText(id)}
+          onClick={() => copyToClipboard(id)}
         >
           <ContentCopyOutlined fontSize="small" />
         </IconButton>

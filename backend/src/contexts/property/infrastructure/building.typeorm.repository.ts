@@ -43,6 +43,7 @@ export class BuildingTypeOrmRepository implements IBuildingRepository {
   }
 
   async list({ page, limit, q, asOf }: BuildingListOptions): Promise<BuildingListResult> {
+    const countQuery = this.repository.createQueryBuilder('building');
     const baseQuery = this.repository
       .createQueryBuilder('building')
       .leftJoin('property_units', 'unit', 'unit.building_id = building.id')
@@ -58,17 +59,16 @@ export class BuildingTypeOrmRepository implements IBuildingRepository {
     const term = q?.trim();
     if (term) {
       const escaped = term.replace(/[\\%_]/g, (character) => `\\${character}`);
-      baseQuery.andWhere(
-        `(
+      const filter = `(
           building.name ILIKE :q ESCAPE '\\'
           OR building.neighborhood ILIKE :q ESCAPE '\\'
           OR building.address ILIKE :q ESCAPE '\\'
-        )`,
-        { q: `%${escaped}%` },
-      );
+        )`;
+      countQuery.andWhere(filter, { q: `%${escaped}%` });
+      baseQuery.andWhere(filter, { q: `%${escaped}%` });
     }
 
-    const total = await baseQuery.clone().getCount();
+    const total = await countQuery.getCount();
     const rows = await baseQuery
       .select('building.id', 'id')
       .addSelect('building.name', 'name')
