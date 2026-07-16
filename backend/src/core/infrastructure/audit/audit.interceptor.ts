@@ -9,6 +9,19 @@ interface AuthenticatedRequest extends Request {
   user?: { id?: string; sub?: string; role?: string };
 }
 
+const PII_UNMASKED_ROLES = new Set(['ADMIN', 'MANAGER']);
+
+const PII_ROUTE_PATTERNS: ReadonlyArray<{
+  method: string;
+  path: RegExp;
+}> = [
+  { method: 'GET', path: /^\/tenants(?:\/[^/]+)?$/ },
+  { method: 'GET', path: /^\/contracts(?:\/[^/]+)?$/ },
+  { method: 'POST', path: /^\/tenants$/ },
+  { method: 'POST', path: /^\/contracts$/ },
+  { method: 'PATCH', path: /^\/contracts\/[^/]+\/renew$/ },
+];
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
@@ -59,6 +72,15 @@ export class AuditInterceptor implements NestInterceptor {
         request.user?.sub ??
         (request.path.endsWith('/auth/login') ? resourceId : null);
       const requestId = request.header('x-request-id') ?? null;
+      const metadata: AuditLog['metadata'] = {
+        method: request.method,
+        path: request.path,
+        statusCode,
+        role: request.user?.role ?? null,
+      };
+
+      if (this.servesUnmaskedPii(request)) metadata.piiUnmasked = true;
+      if (request.path.endsWith('/export.csv')) metadata.export = true;
 
       await this.auditLogs.insert({
         actorId,
@@ -66,12 +88,7 @@ export class AuditInterceptor implements NestInterceptor {
         resourceType,
         resourceId,
         requestId,
-        metadata: {
-          method: request.method,
-          path: request.path,
-          statusCode,
-          role: request.user?.role ?? null,
-        },
+        metadata,
       });
     } catch (error: unknown) {
       this.logger.error(
@@ -79,6 +96,15 @@ export class AuditInterceptor implements NestInterceptor {
         error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  private servesUnmaskedPii(request: AuthenticatedRequest): boolean {
+    const role = request.user?.role;
+    if (!role || !PII_UNMASKED_ROLES.has(role)) return false;
+
+    return PII_ROUTE_PATTERNS.some(
+      ({ method, path }) => method === request.method && path.test(request.path),
+    );
   }
 
   private resourceTypeFrom(path: string): string {

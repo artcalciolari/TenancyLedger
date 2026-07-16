@@ -36,6 +36,11 @@ function contextOf(request: Request, statusCode = 200): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
+function metadataOf(insert: jest.Mock): AuditLog['metadata'] {
+  const call = insert.mock.calls.at(0) as [Partial<AuditLog>] | undefined;
+  return call?.[0].metadata ?? {};
+}
+
 describe('AuditInterceptor', () => {
   let insert: jest.Mock;
   let interceptor: AuditInterceptor;
@@ -109,6 +114,67 @@ describe('AuditInterceptor', () => {
         role: 'manager',
       },
     });
+  });
+
+  it('does not mark tenant PII as unmasked for a viewer', async () => {
+    const request = requestOf({
+      path: '/tenants',
+      user: { id: 'viewer-1', role: 'VIEWER' },
+    });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request), {
+        handle: () => of({ data: [] }),
+      } as CallHandler),
+    );
+
+    expect(metadataOf(insert)).not.toHaveProperty('piiUnmasked');
+  });
+
+  it('marks tenant PII as unmasked for a manager', async () => {
+    const request = requestOf({
+      path: '/tenants',
+      user: { id: 'manager-1', role: 'MANAGER' },
+    });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request), {
+        handle: () => of({ data: [] }),
+      } as CallHandler),
+    );
+
+    expect(metadataOf(insert)).toMatchObject({ piiUnmasked: true });
+  });
+
+  it('marks an unmasked contracts CSV export for a manager', async () => {
+    const request = requestOf({
+      path: '/contracts/export.csv',
+      user: { id: 'manager-1', role: 'MANAGER' },
+    });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request), {
+        handle: () => of({}),
+      } as CallHandler),
+    );
+
+    expect(metadataOf(insert)).toMatchObject({ piiUnmasked: true, export: true });
+  });
+
+  it('does not mark an audited route without tenant PII as unmasked', async () => {
+    const request = requestOf({
+      method: 'POST',
+      path: '/buildings',
+      user: { id: 'manager-1', role: 'MANAGER' },
+    });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request), {
+        handle: () => of({ id: 'building-1' }),
+      } as CallHandler),
+    );
+
+    expect(metadataOf(insert)).not.toHaveProperty('piiUnmasked');
   });
 
   it('uses the authenticated user returned by login as the login audit actor', async () => {
