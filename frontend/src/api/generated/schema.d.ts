@@ -4355,7 +4355,7 @@ export interface operations {
                 civilStatus?: components["schemas"]["TenantCivilStatus"];
                 limit?: number;
                 page?: number;
-                /** @description Busca parcial por CPF, profissão, e-mail ou telefone. */
+                /** @description Busca parcial por nome, CPF, profissão, e-mail ou telefone. */
                 q?: string;
             };
             header?: never;

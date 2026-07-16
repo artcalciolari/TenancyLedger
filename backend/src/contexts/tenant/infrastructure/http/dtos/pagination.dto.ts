@@ -19,7 +19,7 @@ export class PaginationDto {
 
   @ApiPropertyOptional({
     maxLength: 120,
-    description: 'Busca parcial por CPF, profissão, e-mail ou telefone.',
+    description: 'Busca parcial por nome, CPF, profissão, e-mail ou telefone.',
     example: 'engenheiro',
   })
   @IsOptional()

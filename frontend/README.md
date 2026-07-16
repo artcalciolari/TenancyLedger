@@ -4,10 +4,10 @@ SPA administrativa em React e TypeScript. A API local deve estar em
 `http://127.0.0.1:3000`; o Vite encaminha chamadas de `/api` removendo esse prefixo.
 
 A interface cobre autenticação, visão geral agregada, usuários, locatários, imóveis,
-contratos, faturas, revisão manual de pagamentos, exportações CSV e notificações. As
-listas usam busca e filtros remotos documentados pela API, sem requisições por tecla. O
-tema pode seguir o sistema ou ser fixado como claro ou escuro; essa preferência fica
-somente no `localStorage` do navegador.
+prédios, contratos, faturas, revisão manual de pagamentos, exportações CSV e notificações.
+As listas usam busca e filtros remotos documentados pela API, sem requisições por tecla.
+O tema é claro e fixo, definido pelos tokens de marca em `src/app/theme/theme.ts`,
+conforme o redesign documentado em `docs/design/design-handoff-tenancy-ledger-redesign/`.
 
 ```powershell
 npm ci

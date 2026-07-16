@@ -4,7 +4,7 @@ const focusColor = '#3178b8';
 
 /**
  * Brand tokens outside the MUI palette (sidebar ink, tints, hairlines) — see
- * design_handoff_tenancy_ledger_redesign/README.md "Sistema de Design".
+ * docs/design/design-handoff-tenancy-ledger-redesign/README.md "Sistema de Design".
  */
 export const brand = {
   pageBg: '#F3F1EA',

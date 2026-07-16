@@ -251,8 +251,8 @@ Recomendação: centralizar no `theme.ts` (paleta + tipografia + `components` ov
 
 Neste pacote:
 
-- `Tenancy Ledger.dc.html` — **protótipo hi-fi da proposta** (todas as telas, navegável).
-- `Atual — Tenancy Ledger.dc.html` — recriação do estado **atual** (referência "antes").
+- `tenancy-ledger.dc.html` — **protótipo hi-fi da proposta** (todas as telas, navegável).
+- `atual-tenancy-ledger.dc.html` — recriação do estado **atual** (referência "antes").
 
 No codebase (arquivos a atualizar, camada de apresentação):
 

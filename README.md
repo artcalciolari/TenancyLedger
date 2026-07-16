@@ -5,9 +5,8 @@ Sistema de gestão de locações organizado como um monorepo npm:
 - `backend/`: API NestJS, PostgreSQL e armazenamento S3 compatível;
 - `frontend/`: aplicação administrativa React e TypeScript.
 
-O frontend cobre visão geral agregada, usuários, locatários, imóveis, contratos, faturas,
-revisão de pagamentos, exportações e notificações, com autorização por papel e preferência
-local de tema.
+O frontend cobre visão geral agregada, usuários, locatários, imóveis, prédios, contratos,
+faturas, revisão de pagamentos, exportações e notificações, com autorização por papel.
 Consulte o [README do frontend](frontend/README.md) para detalhes e comandos específicos.
 
 ## Requisitos
