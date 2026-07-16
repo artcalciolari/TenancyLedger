@@ -3,9 +3,10 @@ import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
 import BedOutlinedIcon from '@mui/icons-material/BedOutlined';
 import HouseOutlinedIcon from '@mui/icons-material/HouseOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import { Box, Card, Stack, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Box, Button, Card, Stack, Typography } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, type ReactNode } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
 import type { UnitType } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
@@ -17,6 +18,10 @@ import { LoadingState } from '../../components/feedback/QueryState';
 import { formatDateTime } from '../../lib/dates/dates';
 import { propertiesApi } from './api';
 import { unitTypeLabel } from './labels';
+import { useAuth } from '../auth/useAuth';
+import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
+import { EditPropertyDialog } from './EditPropertyDialog';
+import type { UpdatePropertyInput } from '../../api/contract';
 
 const typeIcons: Record<UnitType, ReactNode> = {
   APARTMENT: <ApartmentOutlinedIcon sx={{ fontSize: 26 }} />,
@@ -47,11 +52,36 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
 
 export function PropertyDetailPage() {
   const { propertyId = '' } = useParams();
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
   const property = useQuery({
     queryKey: queryKeys.property(propertyId),
     queryFn: () => propertiesApi.get(propertyId),
     enabled: Boolean(propertyId),
   });
+  const updateProperty = useMutation({
+    mutationFn: (input: UpdatePropertyInput) => propertiesApi.update(propertyId, input),
+  });
+  const mayEdit = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
+
+  const submitEdit = async (input: UpdatePropertyInput) => {
+    const updated = await updateProperty.mutateAsync(input);
+    queryClient.setQueryData(queryKeys.property(propertyId), updated);
+    const invalidations = [queryClient.invalidateQueries({ queryKey: ['properties'] })];
+    if (updated.buildingId) {
+      invalidations.push(
+        queryClient.invalidateQueries({ queryKey: queryKeys.building(updated.buildingId) }),
+        queryClient.invalidateQueries({ queryKey: ['buildings'] }),
+      );
+    }
+    await Promise.all(invalidations);
+  };
+
+  const closeEdit = () => {
+    updateProperty.reset();
+    setEditOpen(false);
+  };
   return (
     <>
       <Stack
@@ -103,6 +133,19 @@ export function PropertyDetailPage() {
                 {unitTypeLabel(property.data.type)}
               </Typography>
             </Box>
+            {mayEdit ? (
+              <Button
+                variant="outlined"
+                startIcon={<EditOutlinedIcon />}
+                sx={{ ml: 'auto' }}
+                onClick={() => {
+                  updateProperty.reset();
+                  setEditOpen(true);
+                }}
+              >
+                Editar
+              </Button>
+            ) : null}
           </Stack>
           <Card sx={{ p: { xs: 2.25, sm: 2.75 } }}>
             <Box
@@ -139,6 +182,14 @@ export function PropertyDetailPage() {
             </Box>
             <TechnicalDetails id={property.data.id} />
           </Card>
+          <EditPropertyDialog
+            property={property.data}
+            open={editOpen}
+            isPending={updateProperty.isPending}
+            error={updateProperty.error}
+            onClose={closeEdit}
+            onSubmit={submitEdit}
+          />
         </>
       )}
     </>

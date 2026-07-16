@@ -151,7 +151,8 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Editar prédio */
+        patch: operations["BuildingController_update"];
         trace?: never;
     };
     "/client-errors": {
@@ -557,7 +558,8 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Editar imóvel */
+        patch: operations["PropertyController_update"];
         trace?: never;
     };
     "/tenants": {
@@ -592,7 +594,8 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Editar locatário */
+        patch: operations["TenantController_update"];
         trace?: never;
     };
 };
@@ -1091,6 +1094,47 @@ export type components = {
         };
         /** @enum {string} */
         UnitType: "KITNET" | "ROOM" | "APARTMENT" | "HOUSE" | "COMMERCIAL";
+        UpdateBuildingDto: {
+            /** @example Rua das Flores, 123 */
+            address?: string;
+            /** @example Edifício Aurora */
+            name?: string;
+            /** @example Centro */
+            neighborhood?: string;
+        };
+        UpdatePropertyDto: {
+            /**
+             * Format: uuid
+             * @description Campo imutável; presente apenas para explicitar a rejeição de alterações.
+             */
+            buildingId?: string;
+            /**
+             * @description Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.
+             * @example Centro
+             */
+            neighborhood?: string;
+            type?: components["schemas"]["UnitType"];
+            /** @example 101-A */
+            unitNumber?: string;
+        };
+        UpdateTenantDto: {
+            civilStatus?: components["schemas"]["TenantCivilStatus"];
+            /** @description Campo imutável; presente apenas para explicitar a rejeição de alterações. */
+            cpf?: string;
+            /**
+             * Format: email
+             * @example locatario@example.com
+             */
+            email?: string;
+            /** @example +55 11 99999-9999 */
+            mobilePhone?: string;
+            /** @example Maria da Silva */
+            name?: string;
+            /** @example Engenheiro civil */
+            profession?: string;
+            /** @description Campo imutável; presente apenas para explicitar a rejeição de alterações. */
+            rg?: string;
+        };
         UpdateUserAccessDto: {
             /** @description Define se o usuário pode autenticar e usar tokens existentes. */
             active: boolean;
@@ -1969,6 +2013,121 @@ export interface operations {
             };
             /** @description Prédio não encontrado. */
             404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    BuildingController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBuildingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildingDetailResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Prédio não encontrado. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Já existe um prédio com este nome. */
+            409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Regra de negócio ou valor de domínio inválido. */
+            422: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
                     "X-Request-ID"?: string;
@@ -4352,6 +4511,121 @@ export interface operations {
             };
         };
     };
+    PropertyController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePropertyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Unidade imobiliária não encontrada. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Já existe uma unidade com este número no mesmo prédio ou bairro. */
+            409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Regra de negócio ou valor de domínio inválido. */
+            422: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
     TenantController_findAll: {
         parameters: {
             query?: {
@@ -4592,6 +4866,121 @@ export interface operations {
             };
             /** @description Locatário não encontrado. */
             404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    TenantController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTenantDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Locatário não encontrado. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Já existe um locatário com este e-mail ou telefone. */
+            409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Regra de negócio ou valor de domínio inválido. */
+            422: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
                     "X-Request-ID"?: string;

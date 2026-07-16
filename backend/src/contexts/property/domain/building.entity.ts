@@ -1,6 +1,12 @@
 import { Check, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { ValidationError } from '../../../core/domain/errors/validation.error';
 
+export interface UpdateBuildingFields {
+  name?: string;
+  neighborhood?: string;
+  address?: string | null;
+}
+
 @Entity('buildings')
 @Index('UQ_buildings_name_ci', { synchronize: false })
 @Check('CHK_buildings_name_not_blank', 'char_length(trim(name)) BETWEEN 1 AND 120')
@@ -37,6 +43,18 @@ export class Building {
     building._neighborhood = normalizedNeighborhood;
     building._address = normalizedAddress;
     return building;
+  }
+
+  update(fields: UpdateBuildingFields): void {
+    if (fields.name !== undefined) {
+      this._name = Building.requiredText(fields.name, 'nome do prédio', 120);
+    }
+    if (fields.neighborhood !== undefined) {
+      this._neighborhood = Building.requiredText(fields.neighborhood, 'bairro', 120);
+    }
+    if (fields.address !== undefined) {
+      this._address = Building.optionalText(fields.address, 'endereço', 200);
+    }
   }
 
   private static requiredText(value: string, field: string, maxLength: number): string {

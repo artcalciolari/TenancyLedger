@@ -35,6 +35,10 @@ export interface BuildingListResult {
 
 export interface IBuildingRepository {
   save(building: Building): Promise<Building>;
+  saveWithUnitNeighborhoodPropagation(
+    building: Building,
+    propagateNeighborhood: boolean,
+  ): Promise<Building>;
   findById(id: string): Promise<Building | null>;
   findByName(name: string): Promise<Building | null>;
   list(options: BuildingListOptions): Promise<BuildingListResult>;

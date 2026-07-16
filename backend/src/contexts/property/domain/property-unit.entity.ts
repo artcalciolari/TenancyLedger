@@ -1,6 +1,12 @@
 import { Check, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { ValidationError } from '../../../core/domain/errors/validation.error';
 
+export interface UpdatePropertyUnitFields {
+  neighborhood?: string;
+  type?: UnitType;
+  unitNumber?: string;
+}
+
 export enum UnitType {
   KITNET = 'KITNET',
   ROOM = 'ROOM',
@@ -53,6 +59,21 @@ export class PropertyUnit {
     unit._unitNumber = normalizedUnitNumber;
     unit._buildingId = buildingId ?? null;
     return unit;
+  }
+
+  update(fields: UpdatePropertyUnitFields): void {
+    if (fields.neighborhood !== undefined) {
+      this._neighborhood = PropertyUnit.requiredText(fields.neighborhood, 'bairro', 120);
+    }
+    if (fields.unitNumber !== undefined) {
+      this._unitNumber = PropertyUnit.requiredText(fields.unitNumber, 'número da unidade', 40);
+    }
+    if (fields.type !== undefined) {
+      if (!Object.values(UnitType).includes(fields.type)) {
+        throw new ValidationError('O tipo da unidade é inválido.');
+      }
+      this._type = fields.type;
+    }
   }
 
   private static requiredText(value: string, field: string, maxLength: number): string {

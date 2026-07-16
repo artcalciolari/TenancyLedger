@@ -3,6 +3,7 @@ import type {
   Paginated,
   PropertyListFilters,
   PropertyView,
+  UpdatePropertyInput,
 } from '../../api/contract';
 import { executeOpenApi, openApiClient } from '../../api/openapi-client';
 
@@ -19,4 +20,8 @@ export const propertiesApi = {
     executeOpenApi(openApiClient.GET('/properties/{id}', { params: { path: { id } } })),
   create: (input: CreatePropertyInput): Promise<PropertyView> =>
     executeOpenApi(openApiClient.POST('/properties', { body: input })),
+  update: (id: string, input: UpdatePropertyInput): Promise<PropertyView> =>
+    executeOpenApi(
+      openApiClient.PATCH('/properties/{id}', { params: { path: { id } }, body: input }),
+    ),
 };

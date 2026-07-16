@@ -4,8 +4,10 @@ import { PropertyUnit, UnitType } from './domain/property-unit.entity';
 import { Building } from './domain/building.entity';
 import type { IPropertyRepository, PropertyWithOccupancy } from './domain/property.repository';
 import { PropertyService } from './property.service';
+import { ValidationError } from '../../core/domain/errors/validation.error';
 
 const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const OTHER_PROPERTY_ID = 'f14f0701-daad-478c-a7ac-5ccb6b96a6af';
 const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
 const OTHER_BUILDING_ID = '5a6d9d30-f66f-48fb-bd0a-e02afc972b65';
 const CREATED_AT = new Date('2026-07-12T12:00:00.000Z');
@@ -16,7 +18,7 @@ function persistedBuilding(id = BUILDING_ID, neighborhood = 'Jardim América'): 
   return building;
 }
 
-function persistedProperty(buildingId: string | null = null): PropertyUnit {
+function persistedProperty(buildingId: string | null = null, id = PROPERTY_ID): PropertyUnit {
   const property = PropertyUnit.create(
     'Jardim América',
     UnitType.APARTMENT,
@@ -24,7 +26,7 @@ function persistedProperty(buildingId: string | null = null): PropertyUnit {
     buildingId,
   );
   Object.defineProperties(property, {
-    id: { value: PROPERTY_ID, configurable: true },
+    id: { value: id, configurable: true },
     createdAt: { value: CREATED_AT, configurable: true },
   });
   return property;
@@ -214,6 +216,93 @@ describe('PropertyService', () => {
           unitNumber: '101',
         }),
       ).rejects.toBe(error);
+    });
+  });
+
+  describe('update', () => {
+    it('updates the editable fields of a standalone property', async () => {
+      const property = persistedProperty();
+      findById.mockResolvedValue(property);
+
+      await expect(
+        service.update(PROPERTY_ID, {
+          neighborhood: ' Bela   Vista ',
+          unitNumber: ' 202 B ',
+          type: UnitType.HOUSE,
+        }),
+      ).resolves.toBe(property);
+
+      expect(property).toMatchObject({
+        neighborhood: 'Bela Vista',
+        unitNumber: '202 B',
+        type: UnitType.HOUSE,
+      });
+      expect(findByLocation).toHaveBeenCalledWith('Bela Vista', '202 B');
+      expect(save).toHaveBeenCalledWith(property);
+    });
+
+    it('updates a linked property without changing its building or neighborhood', async () => {
+      const property = persistedProperty(BUILDING_ID);
+      findById.mockResolvedValue(property);
+
+      await service.update(PROPERTY_ID, {
+        buildingId: undefined,
+        neighborhood: undefined,
+        unitNumber: '202',
+        type: UnitType.ROOM,
+      });
+
+      expect(findByBuildingUnit).toHaveBeenCalledWith(BUILDING_ID, '202');
+      expect(property).toMatchObject({
+        buildingId: BUILDING_ID,
+        neighborhood: 'Jardim América',
+        unitNumber: '202',
+        type: UnitType.ROOM,
+      });
+    });
+
+    it('rejects an unknown property', async () => {
+      await expect(service.update(PROPERTY_ID, { unitNumber: '202' })).rejects.toThrow(
+        new NotFoundException('Unidade imobiliária não encontrada.'),
+      );
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('rejects an attempt to change the building link', async () => {
+      findById.mockResolvedValue(persistedProperty());
+
+      await expect(service.update(PROPERTY_ID, { buildingId: BUILDING_ID })).rejects.toThrow(
+        new ValidationError('O vínculo da unidade com o prédio é imutável.'),
+      );
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('rejects a neighborhood change for a linked property', async () => {
+      findById.mockResolvedValue(persistedProperty(BUILDING_ID));
+
+      await expect(service.update(PROPERTY_ID, { neighborhood: 'Outro bairro' })).rejects.toThrow(
+        new ValidationError('O bairro de uma unidade vinculada é definido pelo prédio.'),
+      );
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate location during update', async () => {
+      findById.mockResolvedValue(persistedProperty());
+      findByLocation.mockResolvedValue(persistedProperty(null, OTHER_PROPERTY_ID));
+
+      await expect(service.update(PROPERTY_ID, { unitNumber: '202' })).rejects.toThrow(
+        new ConflictException('Já existe uma unidade com este bairro e número.'),
+      );
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('maps a concurrent unique violation during update to a conflict', async () => {
+      findById.mockResolvedValue(persistedProperty(BUILDING_ID));
+      save.mockRejectedValue(queryFailure('23505'));
+
+      await expect(service.update(PROPERTY_ID, { unitNumber: '202' })).rejects.toThrow(
+        new ConflictException('Já existe uma unidade com este número neste prédio.'),
+      );
     });
   });
 

@@ -6,11 +6,19 @@ import { PROPERTY_REPOSITORY_TOKEN } from './domain/property.repository';
 import type { IPropertyRepository, PropertyWithOccupancy } from './domain/property.repository';
 import { Building } from './domain/building.entity';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
+import { ValidationError } from '../../core/domain/errors/validation.error';
 
 export interface CreatePropertyInput {
   neighborhood?: string;
   type: UnitType;
   unitNumber: string;
+  buildingId?: string | null;
+}
+
+export interface UpdatePropertyInput {
+  neighborhood?: string;
+  type?: UnitType;
+  unitNumber?: string;
   buildingId?: string | null;
 }
 
@@ -68,6 +76,36 @@ export class PropertyService {
     if (duplicate) {
       throw this.duplicateConflict(property);
     }
+    try {
+      return await this.repository.save(property);
+    } catch (error: unknown) {
+      if (this.databaseErrorCode(error) === '23505') {
+        throw this.duplicateConflict(property);
+      }
+      throw error;
+    }
+  }
+
+  async update(id: string, input: UpdatePropertyInput): Promise<PropertyUnit> {
+    const property = await this.repository.findById(id);
+    if (!property) {
+      throw new NotFoundException('Unidade imobiliária não encontrada.');
+    }
+    if (input.buildingId !== undefined) {
+      throw new ValidationError('O vínculo da unidade com o prédio é imutável.');
+    }
+    if (property.buildingId && input.neighborhood !== undefined) {
+      throw new ValidationError('O bairro de uma unidade vinculada é definido pelo prédio.');
+    }
+
+    property.update(input);
+    const duplicate = property.buildingId
+      ? await this.repository.findByBuildingUnit(property.buildingId, property.unitNumber)
+      : await this.repository.findByLocation(property.neighborhood, property.unitNumber);
+    if (duplicate && duplicate.id !== property.id) {
+      throw this.duplicateConflict(property);
+    }
+
     try {
       return await this.repository.save(property);
     } catch (error: unknown) {

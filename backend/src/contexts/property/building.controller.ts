@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsNotEmpty, Max, MaxLength, Min } from 'class-validator';
 import { BuildingService } from './building.service';
@@ -13,6 +13,7 @@ import {
   ApiProperty,
   ApiPropertyOptional,
   ApiTags,
+  PartialType,
 } from '@nestjs/swagger';
 import {
   BuildingDetailResponseDto,
@@ -45,6 +46,8 @@ export class CreateBuildingDto {
   @MaxLength(200)
   address?: string;
 }
+
+export class UpdateBuildingDto extends PartialType(CreateBuildingDto) {}
 
 export class BuildingPaginationDto {
   @ApiPropertyOptional({ type: Number, minimum: 1, default: 1 })
@@ -96,6 +99,21 @@ export class BuildingController {
       totalUnits: 0,
       occupiedUnits: 0,
     });
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Editar prédio' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: BuildingDetailResponseDto })
+  @ApiNotFoundProblem('Prédio não encontrado.')
+  @ApiConflictProblem('Já existe um prédio com este nome.')
+  @ApiUnprocessableProblem()
+  async update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateBuildingDto,
+  ): Promise<BuildingDetailResponseDto> {
+    return BuildingDetailResponseDto.fromDetail(await this.service.update(id, dto));
   }
 
   @Get()

@@ -1,7 +1,9 @@
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import {
   Box,
+  Button,
   Card,
   Stack,
   Table,
@@ -12,7 +14,8 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
@@ -25,7 +28,11 @@ import { EmptyState } from '../../components/feedback/QueryState';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { LoadingState } from '../../components/feedback/QueryState';
 import { unitTypeLabel } from '../properties/labels';
+import { useAuth } from '../auth/useAuth';
+import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { buildingsApi } from './api';
+import { EditBuildingDialog } from './EditBuildingDialog';
+import type { UpdateBuildingInput } from '../../api/contract';
 
 const uppercaseLabelSx = {
   fontSize: '0.78rem',
@@ -48,11 +55,33 @@ function DetailField({ label, value }: { label: string; value: string }) {
 
 export function BuildingDetailPage() {
   const { buildingId = '' } = useParams();
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
   const building = useQuery({
     queryKey: queryKeys.building(buildingId),
     queryFn: () => buildingsApi.get(buildingId),
     enabled: Boolean(buildingId),
   });
+  const updateBuilding = useMutation({
+    mutationFn: (input: UpdateBuildingInput) => buildingsApi.update(buildingId, input),
+  });
+  const mayEdit = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
+
+  const submitEdit = async (input: UpdateBuildingInput) => {
+    const updated = await updateBuilding.mutateAsync(input);
+    queryClient.setQueryData(queryKeys.building(buildingId), updated);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['buildings'] }),
+      queryClient.invalidateQueries({ queryKey: ['properties'] }),
+      queryClient.invalidateQueries({ queryKey: ['property'] }),
+    ]);
+  };
+
+  const closeEdit = () => {
+    updateBuilding.reset();
+    setEditOpen(false);
+  };
 
   return (
     <>
@@ -112,12 +141,24 @@ export function BuildingDetailPage() {
                 </Typography>
               </Box>
             </Stack>
-            <Box sx={{ ml: { sm: 'auto' } }}>
+            <Stack direction="row" spacing={1} sx={{ ml: { sm: 'auto' }, alignItems: 'center' }}>
+              {mayEdit ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditOutlinedIcon />}
+                  onClick={() => {
+                    updateBuilding.reset();
+                    setEditOpen(true);
+                  }}
+                >
+                  Editar
+                </Button>
+              ) : null}
               <BuildingOccupancyChip
                 occupiedUnits={building.data.occupiedUnits}
                 totalUnits={building.data.totalUnits}
               />
-            </Box>
+            </Stack>
           </Stack>
           <Card sx={{ p: { xs: 2.25, sm: 2.75 }, mb: 2.5 }}>
             <Box
@@ -176,6 +217,14 @@ export function BuildingDetailPage() {
               </TableContainer>
             </Card>
           )}
+          <EditBuildingDialog
+            building={building.data}
+            open={editOpen}
+            isPending={updateBuilding.isPending}
+            error={updateBuilding.error}
+            onClose={closeEdit}
+            onSubmit={submitEdit}
+          />
         </>
       )}
     </>

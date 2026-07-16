@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Query,
   NotFoundException,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -22,6 +23,7 @@ import { Roles } from '../../../../auth/infrastructure/security/roles.decorator'
 import { CurrentUser } from '../../../../auth/infrastructure/security/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../auth/application/auth.service';
 import { CreateTenantDto } from '../dtos/create-tenant.dto';
+import { UpdateTenantDto } from '../dtos/update-tenant.dto';
 import { PaginationDto } from '../dtos/pagination.dto';
 import {
   PaginatedTenantResponseDto,
@@ -34,6 +36,7 @@ import {
   ApiProtected,
   ApiUnprocessableProblem,
 } from '../../../../../core/infrastructure/http/openapi.decorators';
+import { UpdateTenantUseCase } from '../../../application/use-cases/update-tenant.use-case';
 
 @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
 @ApiProtected()
@@ -42,6 +45,7 @@ import {
 export class TenantController {
   constructor(
     private readonly createTenantUseCase: CreateTenantUseCase,
+    private readonly updateTenantUseCase: UpdateTenantUseCase,
     private readonly tenantQueries: TenantQueries,
   ) {}
 
@@ -57,6 +61,22 @@ export class TenantController {
   ): Promise<TenantResponseDto> {
     const tenant = await this.createTenantUseCase.execute(dto);
     return TenantResponseDto.from(tenant, user.role);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Patch(':id')
+  @ApiOperation({ summary: 'Editar locatário' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: TenantResponseDto })
+  @ApiNotFoundProblem('Locatário não encontrado.')
+  @ApiConflictProblem('Já existe um locatário com este e-mail ou telefone.')
+  @ApiUnprocessableProblem()
+  async update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateTenantDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TenantResponseDto> {
+    return TenantResponseDto.from(await this.updateTenantUseCase.execute(id, dto), user.role);
   }
 
   @Get()

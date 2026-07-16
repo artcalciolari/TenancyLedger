@@ -6,6 +6,7 @@ import { TenantTypeOrmRepository } from './infrastructure/database/tenant.typeor
 import { CreateTenantUseCase } from './application/use-cases/create-tenant.use-case';
 import { TenantQueries } from './application/queries/tenant.queries';
 import { TenantController } from './infrastructure/http/controllers/tenant.controller';
+import { UpdateTenantUseCase } from './application/use-cases/update-tenant.use-case';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Tenant])],
@@ -16,8 +17,9 @@ import { TenantController } from './infrastructure/http/controllers/tenant.contr
       useClass: TenantTypeOrmRepository,
     },
     CreateTenantUseCase,
+    UpdateTenantUseCase,
     TenantQueries,
   ],
-  exports: [CreateTenantUseCase, TenantQueries],
+  exports: [CreateTenantUseCase, UpdateTenantUseCase, TenantQueries],
 })
 export class TenantModule {}

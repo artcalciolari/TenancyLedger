@@ -4,6 +4,7 @@ import type {
   BuildingView,
   CreateBuildingInput,
   Paginated,
+  UpdateBuildingInput,
 } from '../../api/contract';
 import { executeOpenApi, openApiClient } from '../../api/openapi-client';
 
@@ -18,4 +19,8 @@ export const buildingsApi = {
     executeOpenApi(openApiClient.GET('/buildings/{id}', { params: { path: { id } } })),
   create: (input: CreateBuildingInput): Promise<BuildingView> =>
     executeOpenApi(openApiClient.POST('/buildings', { body: input })),
+  update: (id: string, input: UpdateBuildingInput): Promise<BuildingDetailView> =>
+    executeOpenApi(
+      openApiClient.PATCH('/buildings/{id}', { params: { path: { id } }, body: input }),
+    ),
 };

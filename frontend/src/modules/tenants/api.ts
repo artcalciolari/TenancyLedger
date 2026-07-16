@@ -3,6 +3,7 @@ import type {
   Paginated,
   TenantListFilters,
   TenantView,
+  UpdateTenantInput,
 } from '../../api/contract';
 import { executeOpenApi, openApiClient } from '../../api/openapi-client';
 
@@ -24,4 +25,6 @@ export const tenantsApi = {
     executeOpenApi(openApiClient.GET('/tenants/{id}', { params: { path: { id } } })),
   create: (input: CreateTenantInput): Promise<TenantView> =>
     executeOpenApi(openApiClient.POST('/tenants', { body: input })),
+  update: (id: string, input: UpdateTenantInput): Promise<TenantView> =>
+    executeOpenApi(openApiClient.PATCH('/tenants/{id}', { params: { path: { id } }, body: input })),
 };

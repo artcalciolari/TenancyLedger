@@ -11,6 +11,12 @@ export interface CreateBuildingInput {
   address?: string | null;
 }
 
+export interface UpdateBuildingInput {
+  name?: string;
+  neighborhood?: string;
+  address?: string | null;
+}
+
 export interface BuildingView {
   id: string;
   name: string;
@@ -57,6 +63,33 @@ export class BuildingService {
       }
       throw error;
     }
+  }
+
+  async update(id: string, input: UpdateBuildingInput): Promise<BuildingDetailView> {
+    const building = await this.repository.findById(id);
+    if (!building) {
+      throw new NotFoundException('Prédio não encontrado.');
+    }
+    const previousNeighborhood = building.neighborhood;
+    building.update(input);
+
+    const duplicate = await this.repository.findByName(building.name);
+    if (duplicate && duplicate.id !== building.id) {
+      throw new ConflictException('Já existe um prédio com este nome.');
+    }
+
+    try {
+      await this.repository.saveWithUnitNeighborhoodPropagation(
+        building,
+        building.neighborhood !== previousNeighborhood,
+      );
+    } catch (error: unknown) {
+      if (this.databaseErrorCode(error) === '23505') {
+        throw new ConflictException('Já existe um prédio com este nome.');
+      }
+      throw error;
+    }
+    return this.getById(id);
   }
 
   async list(input: ListBuildingsInput): Promise<PaginatedBuildingsView> {

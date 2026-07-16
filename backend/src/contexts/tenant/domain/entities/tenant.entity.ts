@@ -17,6 +17,14 @@ export enum TenantCivilStatus {
   STABLE_UNION = 'STABLE_UNION',
 }
 
+export interface UpdateTenantProfileFields {
+  name?: string;
+  profession?: string;
+  civilStatus?: TenantCivilStatus;
+  email?: string;
+  mobilePhone?: string;
+}
+
 @Entity('tenants')
 @Check('CHK_tenants_cpf_digits', "cpf ~ '^[0-9]{11}$'")
 @Check('CHK_tenants_mobile_digits', "mobile_phone ~ '^[1-9]{2}9[0-9]{8}$'")
@@ -102,6 +110,23 @@ export class Tenant {
     tenant.email = normalizedEmail;
     tenant.mobilePhone = Tenant.normalizeMobilePhone(mobilePhone);
     return tenant;
+  }
+
+  updateProfile(fields: UpdateTenantProfileFields): void {
+    const updated = Tenant.create(
+      fields.name ?? this.name,
+      this.cpf,
+      this.rg,
+      fields.profession ?? this.profession,
+      fields.civilStatus ?? this.civilStatus,
+      fields.email ?? this.email,
+      fields.mobilePhone ?? this.mobilePhone,
+    );
+    this.name = updated.name;
+    this.profession = updated.profession;
+    this.civilStatus = updated.civilStatus;
+    this.email = updated.email;
+    this.mobilePhone = updated.mobilePhone;
   }
 
   static normalizeMobilePhone(value: string): string {

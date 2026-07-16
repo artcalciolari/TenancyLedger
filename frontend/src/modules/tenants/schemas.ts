@@ -33,3 +33,6 @@ export const createTenantSchema = z.object({
 });
 
 export type CreateTenantForm = z.infer<typeof createTenantSchema>;
+
+export const updateTenantSchema = createTenantSchema.omit({ cpf: true, rg: true }).partial();
+export type UpdateTenantForm = z.infer<typeof updateTenantSchema>;

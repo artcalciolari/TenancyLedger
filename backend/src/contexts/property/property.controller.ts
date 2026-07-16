@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import {
   IsEnum,
@@ -25,6 +25,8 @@ import {
   ApiProperty,
   ApiPropertyOptional,
   ApiTags,
+  OmitType,
+  PartialType,
 } from '@nestjs/swagger';
 import { PaginatedPropertiesResponseDto, PropertyResponseDto } from './property-response.dto';
 import {
@@ -59,6 +61,18 @@ export class CreatePropertyDto {
   unitNumber!: string;
 
   @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  buildingId?: string;
+}
+
+export class UpdatePropertyDto extends PartialType(
+  OmitType(CreatePropertyDto, ['buildingId'] as const),
+) {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Campo imutável; presente apenas para explicitar a rejeição de alterações.',
+  })
   @IsOptional()
   @IsUUID('4')
   buildingId?: string;
@@ -116,6 +130,22 @@ export class PropertyController {
   async create(@Body() dto: CreatePropertyDto): Promise<PropertyResponseDto> {
     const property = await this.service.create(dto);
     return this.service.getById(property.id);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Editar imóvel' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: PropertyResponseDto })
+  @ApiNotFoundProblem('Unidade imobiliária não encontrada.')
+  @ApiConflictProblem('Já existe uma unidade com este número no mesmo prédio ou bairro.')
+  @ApiUnprocessableProblem()
+  async update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdatePropertyDto,
+  ): Promise<PropertyResponseDto> {
+    await this.service.update(id, dto);
+    return this.service.getById(id);
   }
 
   @Get()

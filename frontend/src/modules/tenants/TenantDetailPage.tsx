@@ -1,6 +1,8 @@
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
-import { Alert, Box, Card, Stack, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Alert, Box, Button, Card, Stack, Typography } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
@@ -9,6 +11,10 @@ import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { LoadingState } from '../../components/feedback/QueryState';
 import { tenantsApi } from './api';
 import { civilStatusLabel } from './labels';
+import { useAuth } from '../auth/useAuth';
+import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
+import { EditTenantDialog } from './EditTenantDialog';
+import type { UpdateTenantInput } from '../../api/contract';
 
 const uppercaseLabelSx = {
   fontSize: '0.78rem',
@@ -31,11 +37,29 @@ function DetailField({ label, value }: { label: string; value: string }) {
 
 export function TenantDetailPage() {
   const { tenantId = '' } = useParams();
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
   const tenant = useQuery({
     queryKey: queryKeys.tenant(tenantId),
     queryFn: () => tenantsApi.get(tenantId),
     enabled: Boolean(tenantId),
   });
+  const updateTenant = useMutation({
+    mutationFn: (input: UpdateTenantInput) => tenantsApi.update(tenantId, input),
+  });
+  const mayEdit = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
+
+  const submitEdit = async (input: UpdateTenantInput) => {
+    const updated = await updateTenant.mutateAsync(input);
+    queryClient.setQueryData(queryKeys.tenant(tenantId), updated);
+    await queryClient.invalidateQueries({ queryKey: ['tenants'] });
+  };
+
+  const closeEdit = () => {
+    updateTenant.reset();
+    setEditOpen(false);
+  };
 
   return (
     <>
@@ -94,6 +118,19 @@ export function TenantDetailPage() {
                 {civilStatusLabel(tenant.data.civilStatus)}
               </Typography>
             </Box>
+            {mayEdit ? (
+              <Button
+                variant="outlined"
+                startIcon={<EditOutlinedIcon />}
+                sx={{ ml: 'auto' }}
+                onClick={() => {
+                  updateTenant.reset();
+                  setEditOpen(true);
+                }}
+              >
+                Editar
+              </Button>
+            ) : null}
           </Stack>
           <Card sx={{ p: { xs: 2.25, sm: 2.75 } }}>
             <Box
@@ -112,6 +149,14 @@ export function TenantDetailPage() {
             </Box>
             <TechnicalDetails id={tenant.data.id} />
           </Card>
+          <EditTenantDialog
+            tenant={tenant.data}
+            open={editOpen}
+            isPending={updateTenant.isPending}
+            error={updateTenant.error}
+            onClose={closeEdit}
+            onSubmit={submitEdit}
+          />
         </>
       )}
     </>

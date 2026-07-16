@@ -31,6 +31,22 @@ export class BuildingTypeOrmRepository implements IBuildingRepository {
     return this.repository.save(building);
   }
 
+  saveWithUnitNeighborhoodPropagation(
+    building: Building,
+    propagateNeighborhood: boolean,
+  ): Promise<Building> {
+    return this.repository.manager.transaction(async (manager) => {
+      const saved = await manager.getRepository(Building).save(building);
+      if (propagateNeighborhood) {
+        await manager.query(
+          `UPDATE "property_units" SET "neighborhood" = $1 WHERE "building_id" = $2`,
+          [building.neighborhood, building.id],
+        );
+      }
+      return saved;
+    });
+  }
+
   findById(id: string): Promise<Building | null> {
     return this.repository.findOne({ where: { id } });
   }
