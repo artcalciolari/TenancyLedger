@@ -7,7 +7,14 @@ import { PropertyService } from './property.service';
 
 const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
 const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
+const OTHER_BUILDING_ID = '5a6d9d30-f66f-48fb-bd0a-e02afc972b65';
 const CREATED_AT = new Date('2026-07-12T12:00:00.000Z');
+
+function persistedBuilding(id = BUILDING_ID, neighborhood = 'Jardim América'): Building {
+  const building = Building.create(`Prédio ${id}`, neighborhood);
+  Object.defineProperty(building, 'id', { value: id, configurable: true });
+  return building;
+}
 
 function persistedProperty(buildingId: string | null = null): PropertyUnit {
   const property = PropertyUnit.create(
@@ -38,11 +45,12 @@ function queryFailure(code: string): QueryFailedError {
 
 describe('PropertyService', () => {
   let repository: jest.Mocked<IPropertyRepository>;
-  let buildingRepository: jest.Mocked<Pick<Repository<Building>, 'existsBy'>>;
+  let buildingRepository: jest.Mocked<Pick<Repository<Building>, 'findOneBy'>>;
   let service: PropertyService;
   let save: jest.MockedFunction<IPropertyRepository['save']>;
   let findById: jest.MockedFunction<IPropertyRepository['findById']>;
   let findByLocation: jest.MockedFunction<IPropertyRepository['findByLocation']>;
+  let findByBuildingUnit: jest.MockedFunction<IPropertyRepository['findByBuildingUnit']>;
   let list: jest.MockedFunction<IPropertyRepository['list']>;
   let getView: jest.MockedFunction<IPropertyRepository['getView']>;
 
@@ -50,17 +58,19 @@ describe('PropertyService', () => {
     save = jest.fn().mockImplementation((property: PropertyUnit) => Promise.resolve(property));
     findById = jest.fn().mockResolvedValue(null);
     findByLocation = jest.fn().mockResolvedValue(null);
+    findByBuildingUnit = jest.fn().mockResolvedValue(null);
     list = jest.fn().mockResolvedValue({ items: [], total: 0 });
     getView = jest.fn().mockResolvedValue(null);
     repository = {
       save,
       findById,
       findByLocation,
+      findByBuildingUnit,
       list,
       getView,
     };
     buildingRepository = {
-      existsBy: jest.fn().mockResolvedValue(true),
+      findOneBy: jest.fn().mockResolvedValue(persistedBuilding()),
     };
     service = new PropertyService(
       repository,
@@ -82,16 +92,16 @@ describe('PropertyService', () => {
         unitNumber: 'Bloco A 101',
       });
       expect(findByLocation).toHaveBeenCalledWith('Jardim América', 'Bloco A 101');
+      expect(findByBuildingUnit).not.toHaveBeenCalled();
       expect(save).toHaveBeenCalledWith(result);
-      expect(buildingRepository.existsBy).not.toHaveBeenCalled();
+      expect(buildingRepository.findOneBy).not.toHaveBeenCalled();
     });
 
     it('validates the building exists when buildingId is informed', async () => {
-      buildingRepository.existsBy.mockResolvedValue(false);
+      buildingRepository.findOneBy.mockResolvedValue(null);
 
       await expect(
         service.create({
-          neighborhood: 'Jardim América',
           type: UnitType.APARTMENT,
           unitNumber: '101',
           buildingId: BUILDING_ID,
@@ -101,16 +111,56 @@ describe('PropertyService', () => {
       expect(save).not.toHaveBeenCalled();
     });
 
-    it('persists a property linked to an existing building', async () => {
+    it('derives the neighborhood when persisting a property linked to a building', async () => {
       const result = await service.create({
-        neighborhood: 'Jardim América',
+        neighborhood: 'Este valor deve ser ignorado',
         type: UnitType.APARTMENT,
         unitNumber: '101',
         buildingId: BUILDING_ID,
       });
 
-      expect(buildingRepository.existsBy).toHaveBeenCalledWith({ id: BUILDING_ID });
+      expect(buildingRepository.findOneBy).toHaveBeenCalledWith({ id: BUILDING_ID });
+      expect(findByBuildingUnit).toHaveBeenCalledWith(BUILDING_ID, '101');
+      expect(findByLocation).not.toHaveBeenCalled();
       expect(result.buildingId).toBe(BUILDING_ID);
+      expect(result.neighborhood).toBe('Jardim América');
+    });
+
+    it('rejects a duplicate unit number inside the same building', async () => {
+      findByBuildingUnit.mockResolvedValue(persistedProperty(BUILDING_ID));
+
+      await expect(
+        service.create({
+          type: UnitType.APARTMENT,
+          unitNumber: '101',
+          buildingId: BUILDING_ID,
+        }),
+      ).rejects.toThrow(
+        new ConflictException('Já existe uma unidade com este número neste prédio.'),
+      );
+
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('allows the same unit number in different buildings from the same neighborhood', async () => {
+      buildingRepository.findOneBy
+        .mockResolvedValueOnce(persistedBuilding(BUILDING_ID, 'Jardim América'))
+        .mockResolvedValueOnce(persistedBuilding(OTHER_BUILDING_ID, 'Jardim América'));
+
+      await service.create({
+        type: UnitType.APARTMENT,
+        unitNumber: '101',
+        buildingId: BUILDING_ID,
+      });
+      await service.create({
+        type: UnitType.APARTMENT,
+        unitNumber: '101',
+        buildingId: OTHER_BUILDING_ID,
+      });
+
+      expect(findByBuildingUnit).toHaveBeenNthCalledWith(1, BUILDING_ID, '101');
+      expect(findByBuildingUnit).toHaveBeenNthCalledWith(2, OTHER_BUILDING_ID, '101');
+      expect(save).toHaveBeenCalledTimes(2);
     });
 
     it('rejects a location found by the duplicate pre-check', async () => {
@@ -137,6 +187,20 @@ describe('PropertyService', () => {
           unitNumber: '101',
         }),
       ).rejects.toThrow(new ConflictException('Já existe uma unidade com este bairro e número.'));
+    });
+
+    it('uses the building-specific conflict for a concurrent unique violation', async () => {
+      save.mockRejectedValue(queryFailure('23505'));
+
+      await expect(
+        service.create({
+          type: UnitType.APARTMENT,
+          unitNumber: '101',
+          buildingId: BUILDING_ID,
+        }),
+      ).rejects.toThrow(
+        new ConflictException('Já existe uma unidade com este número neste prédio.'),
+      );
     });
 
     it('preserves an unexpected persistence error', async () => {

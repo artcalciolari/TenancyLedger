@@ -479,6 +479,7 @@
             "type": "string"
           },
           "neighborhood": {
+            "description": "Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.",
             "example": "Centro",
             "maxLength": 120,
             "minLength": 1,
@@ -499,7 +500,6 @@
           }
         },
         "required": [
-          "neighborhood",
           "type",
           "unitNumber"
         ],
@@ -7734,7 +7734,7 @@
                 }
               }
             },
-            "description": "Já existe uma unidade com este bairro e número.",
+            "description": "Já existe uma unidade com este número no mesmo prédio ou bairro.",
             "headers": {
               "X-Request-ID": {
                 "description": "Identificador de correlação da requisição.",

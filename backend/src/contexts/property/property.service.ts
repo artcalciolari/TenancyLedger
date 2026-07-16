@@ -8,7 +8,7 @@ import { Building } from './domain/building.entity';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
 
 export interface CreatePropertyInput {
-  neighborhood: string;
+  neighborhood?: string;
   type: UnitType;
   unitNumber: string;
   buildingId?: string | null;
@@ -48,30 +48,31 @@ export class PropertyService {
   ) {}
 
   async create(input: CreatePropertyInput): Promise<PropertyUnit> {
+    let neighborhood = input.neighborhood;
     if (input.buildingId) {
-      const buildingExists = await this.buildingRepository.existsBy({ id: input.buildingId });
-      if (!buildingExists) {
+      const building = await this.buildingRepository.findOneBy({ id: input.buildingId });
+      if (!building) {
         throw new NotFoundException('Prédio não encontrado.');
       }
+      neighborhood = building.neighborhood;
     }
     const property = PropertyUnit.create(
-      input.neighborhood,
+      neighborhood ?? '',
       input.type,
       input.unitNumber,
       input.buildingId,
     );
-    const duplicate = await this.repository.findByLocation(
-      property.neighborhood,
-      property.unitNumber,
-    );
+    const duplicate = property.buildingId
+      ? await this.repository.findByBuildingUnit(property.buildingId, property.unitNumber)
+      : await this.repository.findByLocation(property.neighborhood, property.unitNumber);
     if (duplicate) {
-      throw new ConflictException('Já existe uma unidade com este bairro e número.');
+      throw this.duplicateConflict(property);
     }
     try {
       return await this.repository.save(property);
     } catch (error: unknown) {
       if (this.databaseErrorCode(error) === '23505') {
-        throw new ConflictException('Já existe uma unidade com este bairro e número.');
+        throw this.duplicateConflict(property);
       }
       throw error;
     }
@@ -111,6 +112,12 @@ export class PropertyService {
 
   private currentCivilDate(): string {
     return civilDateInTimeZone(new Date());
+  }
+
+  private duplicateConflict(property: PropertyUnit): ConflictException {
+    return property.buildingId
+      ? new ConflictException('Já existe uma unidade com este número neste prédio.')
+      : new ConflictException('Já existe uma unidade com este bairro e número.');
   }
 
   private databaseErrorCode(error: unknown): string | undefined {

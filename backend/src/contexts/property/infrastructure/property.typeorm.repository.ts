@@ -34,6 +34,15 @@ export class PropertyTypeOrmRepository implements IPropertyRepository {
       .createQueryBuilder('property')
       .where('lower(property.neighborhood) = lower(:neighborhood)', { neighborhood })
       .andWhere('lower(property.unit_number) = lower(:unitNumber)', { unitNumber })
+      .andWhere('property.building_id IS NULL')
+      .getOne();
+  }
+
+  findByBuildingUnit(buildingId: string, unitNumber: string): Promise<PropertyUnit | null> {
+    return this.repository
+      .createQueryBuilder('property')
+      .where('property.building_id = :buildingId', { buildingId })
+      .andWhere('lower(property.unit_number) = lower(:unitNumber)', { unitNumber })
       .getOne();
   }
 

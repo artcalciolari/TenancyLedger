@@ -43,15 +43,19 @@ export function NewPropertyPage() {
     queryKey: queryKeys.buildings({ page: 1, limit: 100 }),
     queryFn: () => buildingsApi.list({ page: 1, limit: 100 }),
   });
-  const { control, handleSubmit, setValue } = useForm<CreatePropertyForm>({
+  const { control, handleSubmit, watch } = useForm<CreatePropertyForm>({
     resolver: zodResolver(createPropertySchema),
     defaultValues: { neighborhood: '', type: 'APARTMENT', unitNumber: '', buildingId: '' },
   });
+  const selectedBuildingId = watch('buildingId');
+  const selectedBuilding = buildings.data?.data.find((item) => item.id === selectedBuildingId);
   const onSubmit = handleSubmit(async (values) => {
     try {
+      const { buildingId, neighborhood, ...property } = values;
       const created = await createProperty.mutateAsync({
-        ...values,
-        buildingId: values.buildingId === '' ? undefined : values.buildingId,
+        ...property,
+        buildingId: buildingId === '' ? undefined : buildingId,
+        neighborhood: buildingId ? undefined : neighborhood,
       });
       queryClient.setQueryData(['property', created.id], created);
       await queryClient.invalidateQueries({ queryKey: ['properties'] });
@@ -82,12 +86,6 @@ export function NewPropertyPage() {
                     label="Prédio"
                     error={fieldState.invalid}
                     helperText={fieldState.error?.message}
-                    onChange={(event) => {
-                      const buildingId = event.target.value;
-                      field.onChange(buildingId);
-                      const building = buildings.data?.data.find((item) => item.id === buildingId);
-                      if (building) setValue('neighborhood', building.neighborhood);
-                    }}
                   >
                     <MenuItem value="">Sem prédio</MenuItem>
                     {(buildings.data?.data ?? []).map((building) => (
@@ -104,9 +102,15 @@ export function NewPropertyPage() {
                 render={({ field, fieldState }) => (
                   <TextField
                     {...field}
+                    value={selectedBuilding?.neighborhood ?? field.value ?? ''}
                     label="Bairro"
+                    disabled={Boolean(selectedBuilding)}
                     error={fieldState.invalid}
-                    helperText={fieldState.error?.message}
+                    helperText={
+                      selectedBuilding
+                        ? 'Bairro definido pelo prédio selecionado.'
+                        : fieldState.error?.message
+                    }
                   />
                 )}
               />

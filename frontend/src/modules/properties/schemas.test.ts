@@ -18,14 +18,19 @@ describe('createPropertySchema', () => {
     ).toBe(false);
   });
 
-  it('aceita buildingId ausente ou UUID válido', () => {
+  it('exige bairro para uma unidade sem prédio', () => {
+    expect(
+      createPropertySchema.safeParse({ type: 'HOUSE', unitNumber: '1', buildingId: '' }).success,
+    ).toBe(false);
+  });
+
+  it('aceita buildingId ausente ou UUID válido sem bairro informado', () => {
     expect(
       createPropertySchema.safeParse({ neighborhood: 'Centro', type: 'HOUSE', unitNumber: '1' })
         .success,
     ).toBe(true);
     expect(
       createPropertySchema.safeParse({
-        neighborhood: 'Centro',
         type: 'HOUSE',
         unitNumber: '1',
         buildingId: '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c',

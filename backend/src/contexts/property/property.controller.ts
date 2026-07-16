@@ -10,6 +10,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { UnitType } from './domain/property-unit.entity';
 import { PropertyService } from './property.service';
@@ -34,11 +35,18 @@ import {
 } from '../../core/infrastructure/http/openapi.decorators';
 
 export class CreatePropertyDto {
-  @ApiProperty({ minLength: 1, maxLength: 120, example: 'Centro' })
+  @ApiPropertyOptional({
+    minLength: 1,
+    maxLength: 120,
+    example: 'Centro',
+    description:
+      'Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.',
+  })
+  @ValidateIf((dto: CreatePropertyDto) => !dto.buildingId)
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
-  neighborhood!: string;
+  neighborhood?: string;
 
   @ApiProperty({ enum: UnitType, enumName: 'UnitType' })
   @IsEnum(UnitType)
@@ -103,7 +111,7 @@ export class PropertyController {
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Cadastrar imóvel' })
   @ApiCreatedResponse({ type: PropertyResponseDto })
-  @ApiConflictProblem('Já existe uma unidade com este bairro e número.')
+  @ApiConflictProblem('Já existe uma unidade com este número no mesmo prédio ou bairro.')
   @ApiUnprocessableProblem()
   async create(@Body() dto: CreatePropertyDto): Promise<PropertyResponseDto> {
     const property = await this.service.create(dto);

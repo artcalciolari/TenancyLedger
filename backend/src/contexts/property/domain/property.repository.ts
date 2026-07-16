@@ -26,6 +26,7 @@ export interface IPropertyRepository {
   save(property: PropertyUnit): Promise<PropertyUnit>;
   findById(id: string): Promise<PropertyUnit | null>;
   findByLocation(neighborhood: string, unitNumber: string): Promise<PropertyUnit | null>;
+  findByBuildingUnit(buildingId: string, unitNumber: string): Promise<PropertyUnit | null>;
   list(options: PropertyListOptions): Promise<PropertyListResult>;
   getView(id: string, asOf: string): Promise<PropertyWithOccupancy | null>;
 }

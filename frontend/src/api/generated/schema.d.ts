@@ -764,8 +764,11 @@ export type components = {
         CreatePropertyDto: {
             /** Format: uuid */
             buildingId?: string;
-            /** @example Centro */
-            neighborhood: string;
+            /**
+             * @description Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.
+             * @example Centro
+             */
+            neighborhood?: string;
             type: components["schemas"]["UnitType"];
             /** @example 101-A */
             unitNumber: string;
@@ -4214,7 +4217,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
-            /** @description Já existe uma unidade com este bairro e número. */
+            /** @description Já existe uma unidade com este número no mesmo prédio ou bairro. */
             409: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */

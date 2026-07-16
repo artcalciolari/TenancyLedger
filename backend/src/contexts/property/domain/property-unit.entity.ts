@@ -1,12 +1,4 @@
-import {
-  Check,
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-  Unique,
-} from 'typeorm';
+import { Check, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { ValidationError } from '../../../core/domain/errors/validation.error';
 
 export enum UnitType {
@@ -18,7 +10,7 @@ export enum UnitType {
 }
 
 @Entity('property_units')
-@Unique('UQ_property_units_neighborhood_unit', ['_neighborhood', '_unitNumber'])
+@Index('UQ_property_units_building_unit_ci', { synchronize: false })
 @Index('UQ_property_units_location_ci', { synchronize: false })
 @Check('CHK_property_units_neighborhood_not_blank', 'char_length(trim(neighborhood)) > 0')
 @Check('CHK_property_units_unit_number_not_blank', 'char_length(trim(unit_number)) > 0')
