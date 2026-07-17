@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPropertySchema } from './schemas';
+import { createPropertySchema, updateStandalonePropertySchema } from './schemas';
 
 describe('createPropertySchema', () => {
   it('normaliza espaços dos campos textuais', () => {
@@ -47,5 +47,25 @@ describe('createPropertySchema', () => {
         buildingId: 'not-a-uuid',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('updateStandalonePropertySchema', () => {
+  it.each([
+    ['vazio', ''],
+    ['somente com espaços', '   '],
+  ])('rejeita bairro %s em unidade avulsa', (_label, neighborhood) => {
+    const result = updateStandalonePropertySchema.safeParse({
+      neighborhood,
+      type: 'HOUSE',
+      unitNumber: '1',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({ path: ['neighborhood'], message: 'Informe o bairro.' }),
+      );
+    }
   });
 });

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
 import { queryKeys } from '../../api/query-keys';
+import { invalidateTenantEditCaches } from '../../api/edit-cache-invalidation';
 import { brand } from '../../app/theme/theme';
 import { TechnicalDetails } from '../../components/data-display/TechnicalDetails';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
@@ -53,7 +54,7 @@ export function TenantDetailPage() {
   const submitEdit = async (input: UpdateTenantInput) => {
     const updated = await updateTenant.mutateAsync(input);
     queryClient.setQueryData(queryKeys.tenant(tenantId), updated);
-    await queryClient.invalidateQueries({ queryKey: ['tenants'] });
+    await invalidateTenantEditCaches(queryClient);
   };
 
   const closeEdit = () => {

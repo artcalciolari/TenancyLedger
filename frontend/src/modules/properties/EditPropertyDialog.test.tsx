@@ -42,6 +42,21 @@ describe('EditPropertyDialog', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['vazio', ''],
+    ['somente com espaços', '   '],
+  ])('bloqueia bairro %s inline antes de atualizar uma unidade avulsa', async (_label, value) => {
+    const { onSubmit } = renderDialog();
+    const user = userEvent.setup();
+    const neighborhood = screen.getByRole('textbox', { name: 'Bairro' });
+    await user.clear(neighborhood);
+    if (value) await user.type(neighborhood, value);
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    expect(await screen.findByText('Informe o bairro.')).toBeVisible();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('omite bairro e vínculo ao editar uma unidade ligada a prédio', async () => {
     const linkedProperty: PropertyView = {
       ...standaloneProperty,

@@ -29,4 +29,13 @@ export const createPropertySchema = propertySchema.superRefine((value, context) 
 export type CreatePropertyForm = z.infer<typeof createPropertySchema>;
 
 export const updatePropertySchema = propertySchema.omit({ buildingId: true }).partial();
+export const updateStandalonePropertySchema = updatePropertySchema.superRefine((value, context) => {
+  if (!value.neighborhood) {
+    context.addIssue({
+      code: 'custom',
+      message: 'Informe o bairro.',
+      path: ['neighborhood'],
+    });
+  }
+});
 export type UpdatePropertyForm = z.infer<typeof updatePropertySchema>;

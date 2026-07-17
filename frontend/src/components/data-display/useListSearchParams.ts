@@ -10,6 +10,9 @@ type FilterKey<T extends ListFilters> = Exclude<keyof T, 'page' | 'limit'> & str
 type FilterUpdate<T extends ListFilters> = Partial<
   Record<keyof T & string, string | number | undefined>
 >;
+interface FilterUpdateOptions {
+  replace?: boolean;
+}
 
 export interface ListSearchConfig<T extends ListFilters> {
   filterKeys: readonly FilterKey<T>[];
@@ -52,14 +55,14 @@ export function useListSearchParams<T extends ListFilters>(config: ListSearchCon
   }, [normalizedEntries, searchParamsKey, setSearchParams]);
 
   const updateFilters = useCallback(
-    (values: FilterUpdate<T>) => {
+    (values: FilterUpdate<T>, options: FilterUpdateOptions = {}) => {
       const next = new URLSearchParams(searchParamsKey);
       Object.entries(values).forEach(([key, value]) => {
         if (value === undefined || value === '') next.delete(key);
         else next.set(key, String(value));
       });
       if (!Object.hasOwn(values, 'page')) next.set('page', '1');
-      setSearchParams(next);
+      setSearchParams(next, { replace: options.replace });
     },
     [searchParamsKey, setSearchParams],
   );
@@ -95,7 +98,7 @@ export function useListSearchParams<T extends ListFilters>(config: ListSearchCon
 
 export function useListPageRange(
   pagination: Pick<ReturnType<typeof usePaginationParams>, 'page' | 'limit' | 'setPagination'> & {
-    updateFilters?: (values: { page: number }) => void;
+    updateFilters?: (values: { page: number }, options?: FilterUpdateOptions) => void;
   },
   totalPages: number | undefined,
   options: { resetTo?: 'first' | 'last'; preserveLimitParam?: boolean } = {},
@@ -109,7 +112,7 @@ export function useListPageRange(
     if (!pageOutOfRange) return;
     const nextPage = resetTo === 'last' ? lastPage : 1;
     if (preserveLimitParam && updateFilters) {
-      updateFilters({ page: nextPage });
+      updateFilters({ page: nextPage }, { replace: true });
     } else {
       setPagination(nextPage, limit);
     }

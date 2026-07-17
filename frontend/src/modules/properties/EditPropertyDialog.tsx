@@ -15,7 +15,11 @@ import { Controller, useForm } from 'react-hook-form';
 import { UNIT_TYPES, type PropertyView, type UpdatePropertyInput } from '../../api/contract';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { unitTypeLabel } from './labels';
-import { updatePropertySchema, type UpdatePropertyForm } from './schemas';
+import {
+  updatePropertySchema,
+  updateStandalonePropertySchema,
+  type UpdatePropertyForm,
+} from './schemas';
 
 interface EditPropertyDialogProps {
   property: PropertyView;
@@ -42,7 +46,7 @@ export function EditPropertyDialog({
     reset,
     formState: { errors },
   } = useForm<UpdatePropertyForm>({
-    resolver: zodResolver(updatePropertySchema),
+    resolver: zodResolver(linkedToBuilding ? updatePropertySchema : updateStandalonePropertySchema),
     defaultValues: {
       neighborhood: linkedToBuilding ? undefined : property.neighborhood,
       unitNumber: property.unitNumber,

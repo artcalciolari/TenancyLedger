@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, useNavigationType } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import {
   type ListSearchConfig,
@@ -87,6 +87,27 @@ describe('useListSearchParams', () => {
     });
   });
 
+  it('usa PUSH em uma atualização comum de filtros', async () => {
+    const { result } = renderHook(
+      () => {
+        const list = useListSearchParams(config);
+        return { list, navigationType: useNavigationType(), search: useLocation().search };
+      },
+      { wrapper: wrapperAt('/?page=3&limit=50&kind=a') },
+    );
+
+    act(() => result.current.list.updateFilters({ q: 'hello' }));
+
+    await waitFor(() => {
+      const params = currentParams(result.current.search);
+      expect(params.get('page')).toBe('1');
+      expect(params.get('limit')).toBe('50');
+      expect(params.get('q')).toBe('hello');
+      expect(params.get('kind')).toBe('a');
+      expect(result.current.navigationType).toBe('PUSH');
+    });
+  });
+
   it('limpa filtros e mantém o limite atual', async () => {
     const { result } = renderHook(
       () => {
@@ -109,7 +130,12 @@ describe('useListSearchParams', () => {
       () => {
         const list = useListSearchParams(config);
         const pageOutOfRange = useListPageRange(list, 2);
-        return { list, pageOutOfRange, search: useLocation().search };
+        return {
+          list,
+          navigationType: useNavigationType(),
+          pageOutOfRange,
+          search: useLocation().search,
+        };
       },
       { wrapper: wrapperAt('/?page=5&limit=20') },
     );
@@ -117,6 +143,7 @@ describe('useListSearchParams', () => {
     await waitFor(() => {
       expect(currentParams(result.current.search).get('page')).toBe('1');
       expect(result.current.pageOutOfRange).toBe(false);
+      expect(result.current.navigationType).toBe('PUSH');
     });
   });
 
@@ -125,15 +152,18 @@ describe('useListSearchParams', () => {
       () => {
         const list = useListSearchParams(config);
         useListPageRange(list, 2, { resetTo: 'last', preserveLimitParam: true });
-        return { search: useLocation().search };
+        return { navigationType: useNavigationType(), search: useLocation().search };
       },
-      { wrapper: wrapperAt('/?page=5') },
+      { wrapper: wrapperAt('/?page=5&q=teste&kind=a') },
     );
 
     await waitFor(() => {
       const params = currentParams(result.current.search);
       expect(params.get('page')).toBe('2');
       expect(params.has('limit')).toBe(false);
+      expect(params.get('q')).toBe('teste');
+      expect(params.get('kind')).toBe('a');
+      expect(result.current.navigationType).toBe('REPLACE');
     });
   });
 });

@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
 import { queryKeys } from '../../api/query-keys';
+import { invalidateBuildingEditCaches } from '../../api/edit-cache-invalidation';
 import { brand } from '../../app/theme/theme';
 import {
   BuildingOccupancyChip,
@@ -69,13 +70,13 @@ export function BuildingDetailPage() {
   const mayEdit = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
 
   const submitEdit = async (input: UpdateBuildingInput) => {
+    const previousNeighborhood = building.data?.neighborhood;
     const updated = await updateBuilding.mutateAsync(input);
     queryClient.setQueryData(queryKeys.building(buildingId), updated);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['buildings'] }),
-      queryClient.invalidateQueries({ queryKey: ['properties'] }),
-      queryClient.invalidateQueries({ queryKey: ['property'] }),
-    ]);
+    await invalidateBuildingEditCaches(
+      queryClient,
+      previousNeighborhood !== undefined && previousNeighborhood !== updated.neighborhood,
+    );
   };
 
   const closeEdit = () => {
