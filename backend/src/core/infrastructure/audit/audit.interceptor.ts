@@ -19,6 +19,7 @@ const PII_ROUTE_PATTERNS: ReadonlyArray<{
   { method: 'GET', path: /^\/contracts(?:\/[^/]+)?$/ },
   { method: 'POST', path: /^\/tenants$/ },
   { method: 'POST', path: /^\/contracts$/ },
+  { method: 'PATCH', path: /^\/tenants\/[^/]+$/ },
   { method: 'PATCH', path: /^\/contracts\/[^/]+\/renew$/ },
 ];
 

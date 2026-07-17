@@ -70,6 +70,19 @@ export class UpdatePropertyDto extends PartialType(
   OmitType(CreatePropertyDto, ['buildingId'] as const),
 ) {
   @ApiPropertyOptional({
+    minLength: 1,
+    maxLength: 120,
+    example: 'Centro',
+    description:
+      'Editável apenas para unidade avulsa. Em unidade vinculada, o bairro é derivado do prédio e alterações retornam 422; buildingId é imutável.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  neighborhood?: string;
+
+  @ApiPropertyOptional({
     format: 'uuid',
     description: 'Campo imutável; presente apenas para explicitar a rejeição de alterações.',
   })

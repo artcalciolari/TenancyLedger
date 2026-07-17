@@ -146,6 +146,75 @@ describe('AuditInterceptor', () => {
     expect(metadataOf(insert)).toMatchObject({ piiUnmasked: true });
   });
 
+  it.each(['ADMIN', 'MANAGER'])(
+    'marks tenant PII returned by PATCH as unmasked for %s without copying PII into metadata',
+    async (role) => {
+      const request = requestOf({
+        method: 'PATCH',
+        path: '/tenants/tenant-1',
+        routePath: '/tenants/:id',
+        user: { id: 'operator-1', role },
+      });
+      const body = {
+        id: 'tenant-1',
+        name: 'Maria da Silva',
+        cpf: '123.456.789-09',
+        rg: '12.345.678-9',
+        email: 'maria@example.com',
+        phone: '(11) 99999-9999',
+      };
+
+      await firstValueFrom(
+        interceptor.intercept(contextOf(request), {
+          handle: () => of(body),
+        } as CallHandler),
+      );
+
+      const metadata = metadataOf(insert);
+      expect(metadata).toEqual({
+        method: 'PATCH',
+        path: '/tenants/tenant-1',
+        statusCode: 200,
+        role,
+        piiUnmasked: true,
+      });
+      for (const piiValue of [body.cpf, body.rg, body.email, body.phone]) {
+        expect(JSON.stringify(metadata)).not.toContain(piiValue);
+      }
+    },
+  );
+
+  it.each([
+    { label: 'VIEWER', user: { id: 'viewer-1', role: 'VIEWER' } },
+    { label: 'an unauthenticated request', user: undefined },
+  ])('does not mark tenant PII returned by PATCH as unmasked for $label', async ({ user }) => {
+    const request = requestOf({
+      method: 'PATCH',
+      path: '/tenants/tenant-1',
+      routePath: '/tenants/:id',
+      user,
+    });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request), {
+        handle: () =>
+          of({
+            id: 'tenant-1',
+            cpf: '***.***.***-09',
+            email: 'm***@example.com',
+            phone: '(**) *****-9999',
+          }),
+      } as CallHandler),
+    );
+
+    expect(metadataOf(insert)).toEqual({
+      method: 'PATCH',
+      path: '/tenants/tenant-1',
+      statusCode: 200,
+      role: user?.role ?? null,
+    });
+  });
+
   it('marks an unmasked contracts CSV export for a manager', async () => {
     const request = requestOf({
       path: '/contracts/export.csv',

@@ -1109,7 +1109,7 @@ export type components = {
              */
             buildingId?: string;
             /**
-             * @description Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.
+             * @description Editável apenas para unidade avulsa. Em unidade vinculada, o bairro é derivado do prédio e alterações retornam 422; buildingId é imutável.
              * @example Centro
              */
             neighborhood?: string;
