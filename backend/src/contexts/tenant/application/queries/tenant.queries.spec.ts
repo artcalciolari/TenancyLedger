@@ -66,6 +66,43 @@ describe('TenantQueries', () => {
     expect(queryBuilder.getCount.mock.calls).toHaveLength(1);
   });
 
+  it('escapa curingas SQL e pesquisa identificadores somente pelos dígitos', async () => {
+    queryBuilder.getRawMany.mockResolvedValue([tenantView]);
+    queryBuilder.getCount.mockResolvedValue(1);
+
+    await queries.findAll({
+      page: 1,
+      limit: 20,
+      q: '  Maria_%\\ 42  ',
+      civilStatus: TenantCivilStatus.SINGLE,
+    });
+
+    expect(queryBuilder.andWhere.mock.calls).toEqual([
+      [
+        expect.stringContaining("tenant.name ILIKE :q ESCAPE '\\'"),
+        { q: '%Maria\\_\\%\\\\ 42%', digits: '%42%' },
+      ],
+      ['tenant.civilStatus = :civilStatus', { civilStatus: TenantCivilStatus.SINGLE }],
+      [
+        expect.stringContaining("tenant.name ILIKE :q ESCAPE '\\'"),
+        { q: '%Maria\\_\\%\\\\ 42%', digits: '%42%' },
+      ],
+      ['tenant.civilStatus = :civilStatus', { civilStatus: TenantCivilStatus.SINGLE }],
+    ]);
+  });
+
+  it('usa o texto normalizado como fallback quando a busca não contém dígitos', async () => {
+    queryBuilder.getRawMany.mockResolvedValue([]);
+    queryBuilder.getCount.mockResolvedValue(0);
+
+    await queries.findAll({ page: 1, limit: 20, q: '  Ana  ' });
+
+    expect(queryBuilder.andWhere.mock.calls).toEqual([
+      [expect.any(String), { q: '%Ana%', digits: '%Ana%' }],
+      [expect.any(String), { q: '%Ana%', digits: '%Ana%' }],
+    ]);
+  });
+
   it('retorna o tenant encontrado por id usando os mesmos aliases públicos', async () => {
     queryBuilder.getRawOne.mockResolvedValue(tenantView);
 

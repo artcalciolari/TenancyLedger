@@ -557,6 +557,32 @@ describe('BillingService', () => {
   });
 
   describe('invoice relationship views', () => {
+    it('monta a visão detalhada de uma fatura com suas relações públicas', async () => {
+      const relations = relationRepositories();
+      const relationalService = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        relations.contracts as unknown as Repository<Contract>,
+        relations.tenants as unknown as Repository<Tenant>,
+        relations.properties as unknown as Repository<PropertyUnit>,
+      );
+
+      await expect(relationalService.toDetailedView(invoice)).resolves.toMatchObject({
+        id: INVOICE_ID,
+        approvedAmountCents: 0,
+        outstandingAmountCents: 100_00,
+        contract: {
+          id: CONTRACT_ID,
+          tenant: { name: 'Maria da Silva', cpf: '***.***.***-25' },
+          propertyUnit: { id: PROPERTY_ID, neighborhood: 'Centro', unitNumber: '101-A' },
+        },
+      });
+      expect(relations.contracts.findBy).toHaveBeenCalledTimes(1);
+      expect(relations.tenants.findBy).toHaveBeenCalledTimes(1);
+      expect(relations.properties.findBy).toHaveBeenCalledTimes(1);
+    });
+
     it('lists invoice balances with an expired effective contract status', async () => {
       repository.list.mockResolvedValue({ items: [invoice], total: 1 });
       const relations = relationRepositories({

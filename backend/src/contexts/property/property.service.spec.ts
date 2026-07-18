@@ -304,6 +304,14 @@ describe('PropertyService', () => {
         new ConflictException('Já existe uma unidade com este número neste prédio.'),
       );
     });
+
+    it('preserves an unexpected persistence error during update', async () => {
+      const error = new Error('database unavailable');
+      findById.mockResolvedValue(persistedProperty());
+      save.mockRejectedValue(error);
+
+      await expect(service.update(PROPERTY_ID, { unitNumber: '202' })).rejects.toBe(error);
+    });
   });
 
   describe('getById', () => {
