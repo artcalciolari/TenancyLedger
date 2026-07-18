@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { ValidationError } from '../../core/domain/errors/validation.error';
 import type { StorageService } from '../../infrastructure/storage.service';
 import { BillingService } from './billing.service';
@@ -27,6 +27,7 @@ const PAYMENT_ID = '283b10d3-58f2-42d8-aa93-777f55ec9476';
 const NOW = new Date('2026-07-12T15:00:00.000Z');
 const IDEMPOTENCY_KEY = 'payment-attempt-0001';
 const SUBMITTER_ID = '4f59e471-f4d2-44f6-996f-547e83debc47';
+const REVIEWER_ID = '957a3866-f282-48d7-9180-5cbf99c74982';
 const REQUEST_FINGERPRINT = 'a'.repeat(64);
 const STORED_KEY = `payment-proofs/${INVOICE_ID}/ea055cde-36d4-42f7-8412-f2b74fa5d1be.pdf`;
 
@@ -38,6 +39,60 @@ function createInvoice(totalValueCents = 100_00): Invoice {
   const invoice = Invoice.create(CONTRACT_ID, '2026-07', totalValueCents, '2026-07-20');
   assignId(invoice, INVOICE_ID);
   return invoice;
+}
+
+function relationRepositories(
+  overrides: {
+    contracts?: Contract[];
+    tenants?: Tenant[];
+    properties?: PropertyUnit[];
+  } = {},
+): {
+  contracts: jest.Mocked<Pick<Repository<Contract>, 'findBy'>>;
+  tenants: jest.Mocked<Pick<Repository<Tenant>, 'findBy'>>;
+  properties: jest.Mocked<Pick<Repository<PropertyUnit>, 'findBy'>>;
+} {
+  const contracts = {
+    findBy: jest.fn().mockResolvedValue(
+      overrides.contracts ?? [
+        {
+          id: CONTRACT_ID,
+          tenantId: TENANT_ID,
+          propertyUnitId: PROPERTY_ID,
+          status: ContractStatus.ACTIVE,
+          endDate: '2027-06-30',
+        } as Contract,
+      ],
+    ),
+  };
+  const tenants = {
+    findBy: jest.fn().mockResolvedValue(
+      overrides.tenants ?? [
+        {
+          id: TENANT_ID,
+          name: 'Maria da Silva',
+          cpf: '52998224725',
+          profession: 'Engenheira',
+          civilStatus: TenantCivilStatus.SINGLE,
+          email: 'maria@example.com',
+          mobilePhone: '11987654321',
+        } as Tenant,
+      ],
+    ),
+  };
+  const properties = {
+    findBy: jest.fn().mockResolvedValue(
+      overrides.properties ?? [
+        {
+          id: PROPERTY_ID,
+          neighborhood: 'Centro',
+          type: UnitType.APARTMENT,
+          unitNumber: '101-A',
+        } as PropertyUnit,
+      ],
+    ),
+  };
+  return { contracts, tenants, properties };
 }
 
 type RepositoryMock = jest.Mocked<IInvoiceRepository>;
@@ -116,6 +171,32 @@ describe('BillingService', () => {
       );
       expect(uploadPaymentProof).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['zero', 0],
+      ['a fractional cent', 25.5],
+      ['above the database money limit', Invoice.MAX_MONEY_CENTS + 1],
+    ])(
+      'rejects %s instead of rounding an invalid monetary amount',
+      async (_description, amountCents) => {
+        await expect(
+          service.submitPayment(INVOICE_ID, {
+            idempotencyKey: IDEMPOTENCY_KEY,
+            submittedByUserId: SUBMITTER_ID,
+            amountCents,
+            method: PaymentMethod.CASH,
+            proofType: null,
+          }),
+        ).rejects.toThrow(
+          new ValidationError(
+            'O valor do pagamento em centavos deve ser um inteiro positivo seguro.',
+          ),
+        );
+
+        expect(invoice.transactions).toHaveLength(0);
+        expect(uploadPaymentProof).not.toHaveBeenCalled();
+      },
+    );
 
     it('rejects a CASH payment that includes a digital proof', async () => {
       await expect(
@@ -230,6 +311,55 @@ describe('BillingService', () => {
       expect(deleteObject).toHaveBeenCalledWith(STORED_KEY);
     });
 
+    it('preserves the persistence failure when orphan cleanup also fails', async () => {
+      const databaseError = new Error('database unavailable');
+      const cleanupError = new Error('storage unavailable');
+      const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      updateWithLock.mockImplementationOnce(async (_id, update) => {
+        await update(invoice);
+        throw databaseError;
+      });
+      deleteObject.mockRejectedValueOnce(cleanupError);
+
+      await expect(
+        service.submitPayment(INVOICE_ID, {
+          idempotencyKey: IDEMPOTENCY_KEY,
+          submittedByUserId: SUBMITTER_ID,
+          amountCents: 25_00,
+          method: PaymentMethod.PIX,
+          proofType: ProofType.DIGITAL_SLIP,
+          proof: {
+            originalName: 'proof.pdf',
+            contentType: 'application/pdf',
+            body: Buffer.from('%PDF-1.7\nproof'),
+          },
+        }),
+      ).rejects.toBe(databaseError);
+
+      expect(deleteObject).toHaveBeenCalledWith(STORED_KEY);
+      expect(logError).toHaveBeenCalledWith(
+        'Could not remove an orphaned payment proof',
+        cleanupError.stack,
+      );
+    });
+
+    it('reports an invoice missing under lock without retaining a proof', async () => {
+      updateWithLock.mockResolvedValueOnce(null);
+
+      await expect(
+        service.submitPayment(INVOICE_ID, {
+          idempotencyKey: IDEMPOTENCY_KEY,
+          submittedByUserId: SUBMITTER_ID,
+          amountCents: 25_00,
+          method: PaymentMethod.CASH,
+          proofType: null,
+        }),
+      ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
+
+      expect(uploadPaymentProof).not.toHaveBeenCalled();
+      expect(deleteObject).not.toHaveBeenCalled();
+    });
+
     it('returns the existing payment for an exact retry without uploading another proof', async () => {
       const input = {
         idempotencyKey: IDEMPOTENCY_KEY,
@@ -304,6 +434,102 @@ describe('BillingService', () => {
     });
   });
 
+  describe('payment review state', () => {
+    it('approves a partial payment and exposes the exact outstanding balance', async () => {
+      await service.submitPayment(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        submittedByUserId: SUBMITTER_ID,
+        amountCents: 25_00,
+        method: PaymentMethod.CASH,
+        proofType: null,
+      });
+
+      const result = await service.approvePayment(INVOICE_ID, PAYMENT_ID, REVIEWER_ID);
+
+      expect(result).toMatchObject({
+        status: InvoiceStatus.PARTIALLY_PAID,
+        approvedAmountCents: 25_00,
+        outstandingAmountCents: 75_00,
+      });
+      expect(result.transactions[0]).toMatchObject({
+        status: PaymentStatus.APPROVED,
+        reviewedByUserId: REVIEWER_ID,
+      });
+    });
+
+    it('quits the invoice exactly and rejects a later payment in the paid state', async () => {
+      await service.submitPayment(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        submittedByUserId: SUBMITTER_ID,
+        amountCents: 100_00,
+        method: PaymentMethod.CASH,
+        proofType: null,
+      });
+
+      const paid = await service.approvePayment(INVOICE_ID, PAYMENT_ID, REVIEWER_ID);
+      expect(paid).toMatchObject({
+        status: InvoiceStatus.PAID,
+        approvedAmountCents: 100_00,
+        outstandingAmountCents: 0,
+      });
+
+      await expect(
+        service.submitPayment(INVOICE_ID, {
+          idempotencyKey: 'payment-attempt-0002',
+          submittedByUserId: SUBMITTER_ID,
+          amountCents: 1,
+          method: PaymentMethod.CASH,
+          proofType: null,
+        }),
+      ).rejects.toThrow(
+        new InvoiceStateError('Não é possível adicionar pagamentos a uma fatura já quitada.'),
+      );
+    });
+
+    it('reopens the full balance after a submitted payment is rejected', async () => {
+      await service.submitPayment(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        submittedByUserId: SUBMITTER_ID,
+        amountCents: 25_00,
+        method: PaymentMethod.CASH,
+        proofType: null,
+      });
+
+      const result = await service.rejectPayment(
+        INVOICE_ID,
+        PAYMENT_ID,
+        'Comprovante ilegível',
+        REVIEWER_ID,
+      );
+
+      expect(result).toMatchObject({
+        status: InvoiceStatus.OPEN,
+        approvedAmountCents: 0,
+        outstandingAmountCents: 100_00,
+      });
+      expect(result.transactions[0]).toMatchObject({
+        status: PaymentStatus.REJECTED,
+        rejectionReason: 'Comprovante ilegível',
+      });
+    });
+
+    it('reports a missing invoice during approval', async () => {
+      updateWithLock.mockResolvedValueOnce(null);
+
+      await expect(service.approvePayment(INVOICE_ID, PAYMENT_ID, REVIEWER_ID)).rejects.toEqual(
+        new NotFoundException('Fatura não encontrada.'),
+      );
+    });
+
+    it('reports a missing invoice during rejection', async () => {
+      updateWithLock.mockResolvedValueOnce(null);
+
+      await expect(
+        service.rejectPayment(INVOICE_ID, PAYMENT_ID, 'Motivo', REVIEWER_ID),
+      ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
+    });
+  });
+
   describe('views', () => {
     it('exposes hasProof without leaking proofReference', () => {
       const payment = invoice.submitPayment(
@@ -330,7 +556,138 @@ describe('BillingService', () => {
     });
   });
 
+  describe('invoice relationship views', () => {
+    it('monta a visão detalhada de uma fatura com suas relações públicas', async () => {
+      const relations = relationRepositories();
+      const relationalService = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        relations.contracts as unknown as Repository<Contract>,
+        relations.tenants as unknown as Repository<Tenant>,
+        relations.properties as unknown as Repository<PropertyUnit>,
+      );
+
+      await expect(relationalService.toDetailedView(invoice)).resolves.toMatchObject({
+        id: INVOICE_ID,
+        approvedAmountCents: 0,
+        outstandingAmountCents: 100_00,
+        contract: {
+          id: CONTRACT_ID,
+          tenant: { name: 'Maria da Silva', cpf: '***.***.***-25' },
+          propertyUnit: { id: PROPERTY_ID, neighborhood: 'Centro', unitNumber: '101-A' },
+        },
+      });
+      expect(relations.contracts.findBy).toHaveBeenCalledTimes(1);
+      expect(relations.tenants.findBy).toHaveBeenCalledTimes(1);
+      expect(relations.properties.findBy).toHaveBeenCalledTimes(1);
+    });
+
+    it('lists invoice balances with an expired effective contract status', async () => {
+      repository.list.mockResolvedValue({ items: [invoice], total: 1 });
+      const relations = relationRepositories({
+        contracts: [
+          {
+            id: CONTRACT_ID,
+            tenantId: TENANT_ID,
+            propertyUnitId: PROPERTY_ID,
+            status: ContractStatus.ACTIVE,
+            endDate: '2026-07-11',
+          } as Contract,
+        ],
+      });
+      const relationalService = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        relations.contracts as unknown as Repository<Contract>,
+        relations.tenants as unknown as Repository<Tenant>,
+        relations.properties as unknown as Repository<PropertyUnit>,
+      );
+
+      await expect(relationalService.list({ page: 1, limit: 20 })).resolves.toMatchObject({
+        data: [
+          {
+            id: INVOICE_ID,
+            approvedAmountCents: 0,
+            outstandingAmountCents: 100_00,
+            contract: {
+              id: CONTRACT_ID,
+              status: ContractStatus.EXPIRED,
+              tenant: { name: 'Maria da Silva', cpf: '***.***.***-25' },
+              propertyUnit: { id: PROPERTY_ID, neighborhood: 'Centro', unitNumber: '101-A' },
+            },
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      });
+    });
+
+    it('fails explicitly when relational repositories are unavailable', async () => {
+      repository.list.mockResolvedValue({ items: [invoice], total: 1 });
+
+      await expect(service.list({ page: 1, limit: 20 })).rejects.toEqual(
+        new NotFoundException('Relacionamentos da fatura não encontrados.'),
+      );
+    });
+
+    it('does not query unrelated tables when no contract is found', async () => {
+      repository.list.mockResolvedValue({ items: [invoice], total: 1 });
+      const relations = relationRepositories({ contracts: [] });
+      const relationalService = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        relations.contracts as unknown as Repository<Contract>,
+        relations.tenants as unknown as Repository<Tenant>,
+        relations.properties as unknown as Repository<PropertyUnit>,
+      );
+
+      await expect(relationalService.list({ page: 1, limit: 20 })).rejects.toEqual(
+        new NotFoundException('Relacionamentos da fatura não encontrados.'),
+      );
+      expect(relations.tenants.findBy).not.toHaveBeenCalled();
+      expect(relations.properties.findBy).not.toHaveBeenCalled();
+    });
+
+    it('does not expose a partial relationship when the tenant is missing', async () => {
+      repository.list.mockResolvedValue({ items: [invoice], total: 1 });
+      const relations = relationRepositories({ tenants: [] });
+      const relationalService = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        relations.contracts as unknown as Repository<Contract>,
+        relations.tenants as unknown as Repository<Tenant>,
+        relations.properties as unknown as Repository<PropertyUnit>,
+      );
+
+      await expect(relationalService.list({ page: 1, limit: 20 })).rejects.toEqual(
+        new NotFoundException('Relacionamentos da fatura não encontrados.'),
+      );
+    });
+  });
+
   describe('exportCsv', () => {
+    it('keeps relational columns empty when optional context is unavailable', async () => {
+      repository.listForExport.mockResolvedValue([invoice]);
+
+      const csv = await service.exportCsv({ page: 1, limit: 20 });
+      const row = csv.split('\r\n')[1]?.split(',') ?? [];
+
+      expect(row.slice(0, 8)).toEqual([
+        INVOICE_ID,
+        '2026-07',
+        '2026-07-20',
+        InvoiceStatus.OPEN,
+        '10000',
+        '0',
+        '10000',
+        CONTRACT_ID,
+      ]);
+      expect(row.slice(8)).toEqual(['', '', '', '', '', '']);
+    });
+
     it('neutralizes =, +, -, and @ formula prefixes in exported invoice cells', async () => {
       const secondInvoice = Invoice.create(SECOND_CONTRACT_ID, '2026-08', 200_00, '2026-08-20');
       assignId(secondInvoice, SECOND_INVOICE_ID);
@@ -469,6 +826,14 @@ describe('BillingService', () => {
   });
 
   describe('idempotency lookup', () => {
+    it('reports an invoice that no longer exists', async () => {
+      repository.findById.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getPaymentByIdempotencyKey(INVOICE_ID, IDEMPOTENCY_KEY, SUBMITTER_ID, false),
+      ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
+    });
+
     it('allows the submitter to recover the accepted invoice and payment', async () => {
       await service.submitPayment(INVOICE_ID, {
         idempotencyKey: IDEMPOTENCY_KEY,
@@ -487,6 +852,28 @@ describe('BillingService', () => {
 
       expect(result.invoice).toBe(invoice);
       expect(result.payment.id).toBe(PAYMENT_ID);
+    });
+
+    it('does not claim an idempotency key that has no payment on the invoice', async () => {
+      await expect(
+        service.getPaymentByIdempotencyKey(INVOICE_ID, IDEMPOTENCY_KEY, SUBMITTER_ID, false),
+      ).rejects.toEqual(new NotFoundException('Pagamento não encontrado para a chave informada.'));
+    });
+
+    it('prevents another non-admin user from probing the accepted key', async () => {
+      await service.submitPayment(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        submittedByUserId: SUBMITTER_ID,
+        amountCents: 25_00,
+        method: PaymentMethod.CASH,
+        proofType: null,
+      });
+
+      await expect(
+        service.getPaymentByIdempotencyKey(INVOICE_ID, IDEMPOTENCY_KEY, REVIEWER_ID, false),
+      ).rejects.toEqual(
+        new ForbiddenException('A chave de idempotência pertence a outro usuário.'),
+      );
     });
   });
 

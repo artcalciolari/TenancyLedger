@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js 24
         uses: actions/setup-node@v4
@@ -50,8 +52,17 @@ jobs:
       - name: Type-check backend
         run: npm run typecheck
 
+      - name: Test backend diff coverage gate
+        run: npm run test:diff-coverage
+
       - name: Run backend unit tests
         run: npm run test:ci
+
+      - name: Enforce backend diff coverage
+        env:
+          DIFF_COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DIFF_COVERAGE_FALLBACK_BASE: HEAD^
+        run: npm run coverage:diff
 
       - name: Upload backend coverage
         if: always()

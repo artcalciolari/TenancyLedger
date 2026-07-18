@@ -211,22 +211,27 @@ com `INVOICE_CRON_ENABLED=false`.
 
 ### Scripts de desenvolvimento
 
-| Comando                  | Ação                                       |
-| ------------------------ | ------------------------------------------ |
-| `npm run start:dev`      | Executa a API com recarga automática       |
-| `npm run build`          | Compila a aplicação                        |
-| `npm run typecheck`      | Verifica tipos sem gerar arquivos          |
-| `npm run format:check`   | Verifica formatação Prettier               |
-| `npm run lint:check`     | Executa ESLint sem alterar arquivos        |
-| `npm test`               | Executa testes unitários                   |
-| `npm run test:ci`        | Executa testes unitários com cobertura     |
-| `npm run test:e2e:ci`    | Executa testes de integração com cobertura |
-| `npm run test:e2e:seed`  | Prepara fixtures do E2E full-stack         |
-| `npm run security:audit` | Audita dependências de produção            |
+| Comando                           | Ação                                       |
+| --------------------------------- | ------------------------------------------ |
+| `npm run start:dev`               | Executa a API com recarga automática       |
+| `npm run build`                   | Compila a aplicação                        |
+| `npm run typecheck`               | Verifica tipos sem gerar arquivos          |
+| `npm run format:check`            | Verifica formatação Prettier               |
+| `npm run lint:check`              | Executa ESLint sem alterar arquivos        |
+| `npm test`                        | Executa testes unitários                   |
+| `npm run test:ci`                 | Executa testes unitários com cobertura     |
+| `npm run test:diff-coverage`      | Testa o gate local de diff coverage        |
+| `npm run coverage:diff -- <base>` | Valida cobertura do código alterado        |
+| `npm run test:e2e:ci`             | Executa testes de integração com cobertura |
+| `npm run test:e2e:seed`           | Prepara fixtures do E2E full-stack         |
+| `npm run security:audit`          | Audita dependências de produção            |
 
 O workflow de CI usa Node 24 LTS, instala com `npm ci`, executa todas essas validações,
 aplica migrations em PostgreSQL real, testa com MinIO e constrói a imagem Docker.
 A cobertura é publicada como artefato do workflow.
+
+As regras do gate de código alterado, a resolução da base Git e o processo de elevação sem
+retrocesso estão na [política de cobertura e ratchet](docs/coverage-policy.md).
 
 O comando `test:e2e:seed` é destrutivo e exclusivo para testes: ele exige simultaneamente
 `NODE_ENV=test`, `E2E_INTEGRATION=1` e um `DB_DATABASE` cujo nome contenha o segmento `e2e`.

@@ -56,6 +56,12 @@ function queryFailure(code: string): QueryFailedError {
   return new QueryFailedError('INSERT INTO contracts', [], driverError);
 }
 
+function queryFailureWithDriverError(driverError: unknown): QueryFailedError {
+  const error = queryFailure('unclassified');
+  Object.defineProperty(error, 'driverError', { value: driverError });
+  return error;
+}
+
 type ExistsBy = (criteria: { id: string }) => Promise<boolean>;
 
 describe('ContractService', () => {
@@ -188,6 +194,17 @@ describe('ContractService', () => {
 
       await expect(service.create(input)).rejects.toBe(error);
     });
+
+    it.each([
+      queryFailure('23505'),
+      queryFailureWithDriverError(null),
+      queryFailureWithDriverError('malformed driver error'),
+      queryFailureWithDriverError({ code: 23_505 }),
+    ])('preserves a non-exclusion or malformed database failure', async (error) => {
+      save.mockRejectedValue(error);
+
+      await expect(service.create(input)).rejects.toBe(error);
+    });
   });
 
   describe('getById', () => {
@@ -254,6 +271,16 @@ describe('ContractService', () => {
       expect(list).toHaveBeenCalledWith(expect.objectContaining(options));
       expect(list.mock.calls[0]?.[0].asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
+
+    it('returns an empty page without querying relation repositories', async () => {
+      await expect(service.list({ page: 1, limit: 20 })).resolves.toEqual({
+        data: [],
+        meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      });
+
+      expect(tenantFindBy).not.toHaveBeenCalled();
+      expect(propertyFindBy).not.toHaveBeenCalled();
+    });
   });
 
   describe('exportCsv', () => {
@@ -307,6 +334,35 @@ describe('ContractService', () => {
         expect.arrayContaining(["'=1+1", "'+SUM(A1:A2)", "'-2+3", "'@SUM(A1:A2)"]),
       );
     });
+
+    it('leaves missing optional relation fields empty in the export', async () => {
+      repository.listForExport.mockResolvedValue([persistedContract()]);
+      tenantFindBy.mockResolvedValue([]);
+      propertyFindBy.mockResolvedValue([]);
+
+      const csv = await service.exportCsv({ page: 1, limit: 20 });
+      const cells = csv.split('\r\n')[1]?.split(',');
+
+      expect(cells).toHaveLength(16);
+      expect(cells?.slice(9, 12)).toEqual(['', '', '']);
+      expect(cells?.slice(13, 16)).toEqual(['', '', '']);
+    });
+
+    it('quotes delimiters, line breaks, and embedded quotes in relation fields', async () => {
+      repository.listForExport.mockResolvedValue([persistedContract()]);
+      propertyFindBy.mockResolvedValue([
+        {
+          id: PROPERTY_ID,
+          neighborhood: 'Centro, "Histórico"\nSul',
+          type: UnitType.APARTMENT,
+          unitNumber: '101-A',
+        } as PropertyUnit,
+      ]);
+
+      const csv = await service.exportCsv({ page: 1, limit: 20 });
+
+      expect(csv).toContain('"Centro, ""Histórico""\nSul"');
+    });
   });
 
   describe('renew', () => {
@@ -354,6 +410,53 @@ describe('ContractService', () => {
       expect(findByIdForUpdate).toHaveBeenCalledWith(CONTRACT_ID);
       expect(save).not.toHaveBeenCalled();
     });
+
+    it('does not check overlap or persist when contract status forbids renewal', async () => {
+      findByIdForUpdate.mockResolvedValue(persistedContract({ isRenewable: false }));
+
+      await expect(service.renew(CONTRACT_ID, 6)).rejects.toThrow(
+        'Este contrato não permite renovação.',
+      );
+
+      expect(hasOverlap).not.toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('reactivates an expired renewable contract after extending it', async () => {
+      const contract = persistedContract();
+      contract.markExpired('2028-01-01');
+      findByIdForUpdate.mockResolvedValue(contract);
+
+      const renewed = await service.renew(CONTRACT_ID, 6);
+
+      expect(renewed.status).toBe(ContractStatus.ACTIVE);
+      expect(renewed.endDate).toBe('2028-01-14');
+      expect(save).toHaveBeenCalledWith(contract);
+    });
+  });
+
+  describe('toDetailedView', () => {
+    it('loads both relations and returns the detailed public view', async () => {
+      const contract = persistedContract();
+
+      await expect(service.toDetailedView(contract)).resolves.toMatchObject({
+        id: CONTRACT_ID,
+        tenant: { id: TENANT_ID, cpf: '***.***.***-09' },
+        propertyUnit: { id: PROPERTY_ID, unitNumber: '101-A' },
+      });
+    });
+
+    it.each(['tenant', 'property'])(
+      'rejects a contract whose %s relation disappeared',
+      async (missingRelation) => {
+        if (missingRelation === 'tenant') tenantFindBy.mockResolvedValue([]);
+        else propertyFindBy.mockResolvedValue([]);
+
+        await expect(service.toDetailedView(persistedContract())).rejects.toThrow(
+          new NotFoundException('Relacionamentos do contrato não encontrados.'),
+        );
+      },
+    );
   });
 
   it('maps only public contract fields in toView', () => {

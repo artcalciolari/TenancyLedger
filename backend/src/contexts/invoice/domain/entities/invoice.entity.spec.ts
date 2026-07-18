@@ -4,6 +4,7 @@ import {
   PaymentMethod,
   PaymentStateError,
   PaymentStatus,
+  PaymentTransaction,
   ProofType,
 } from './payment-transaction.entity';
 
@@ -17,6 +18,24 @@ const REVIEWER_ID = 'e5c1163a-8151-41e3-b953-350cb36435b1';
 
 function assignId(target: object, id: string): void {
   Object.defineProperty(target, 'id', { value: id, configurable: true });
+}
+
+function submitCashPayment(
+  invoice: Invoice,
+  amountCents: number,
+  idempotencyKey = IDEMPOTENCY_KEY,
+  requestFingerprint = REQUEST_FINGERPRINT,
+): PaymentTransaction {
+  return invoice.submitPayment(
+    amountCents,
+    PaymentMethod.CASH,
+    null,
+    undefined,
+    NOW,
+    idempotencyKey,
+    requestFingerprint,
+    SUBMITTER_ID,
+  );
 }
 
 describe('Invoice payment state machine', () => {
@@ -107,6 +126,8 @@ describe('Invoice payment state machine', () => {
       SUBMITTER_ID,
     );
     assignId(second, '223f6cc5-0db3-47ab-8cdf-101e23ac146f');
+    expect(invoice.status).toBe(InvoiceStatus.UNDER_REVIEW);
+
     invoice.approvePayment(second.id, new Date('2026-07-11T13:00:00.000Z'), REVIEWER_ID);
 
     expect(invoice.status).toBe(InvoiceStatus.PAID);
@@ -152,6 +173,23 @@ describe('Invoice payment state machine', () => {
     ).toThrow(InvoiceStateError);
   });
 
+  it('releases a rejected reservation for a replacement payment', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    const rejected = submitCashPayment(invoice, 100_00);
+    assignId(rejected, 'e1687aaa-1967-4f58-9aa1-227268df5899');
+    invoice.rejectPayment(
+      rejected.id,
+      'Pagamento não localizado',
+      new Date('2026-07-10T13:00:00.000Z'),
+      REVIEWER_ID,
+    );
+
+    expect(() =>
+      submitCashPayment(invoice, 100_00, SECOND_IDEMPOTENCY_KEY, 'b'.repeat(64)),
+    ).not.toThrow();
+    expect(invoice.status).toBe(InvoiceStatus.UNDER_REVIEW);
+  });
+
   it('does not allow a reviewed payment to be reviewed again', () => {
     const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
     const payment = invoice.submitPayment(
@@ -172,6 +210,17 @@ describe('Invoice payment state machine', () => {
     ).toThrow(PaymentStateError);
   });
 
+  it('rejects a repeated approval that would exceed the invoice total', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    const payment = submitCashPayment(invoice, 60_00);
+    assignId(payment, '76b477d8-a311-4557-a739-fe0406f10f2a');
+    invoice.approvePayment(payment.id, new Date('2026-07-10T13:00:00.000Z'), REVIEWER_ID);
+
+    expect(() =>
+      invoice.approvePayment(payment.id, new Date('2026-07-10T14:00:00.000Z'), REVIEWER_ID),
+    ).toThrow(InvoiceStateError);
+  });
+
   it('marks an unpaid invoice overdue after its due date', () => {
     const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-09');
     invoice.refreshStatus(NOW);
@@ -184,6 +233,16 @@ describe('Invoice payment state machine', () => {
     expect(invoice.status).toBe(InvoiceStatus.OPEN);
     invoice.refreshStatus('2026-07-13');
     expect(invoice.status).toBe(InvoiceStatus.OVERDUE);
+  });
+
+  it.each([
+    ['a malformed string', '10/07/2026'],
+    ['an invalid Date', new Date(Number.NaN)],
+    ['a value of another type', 42 as unknown as string],
+  ])('rejects %s as a status reference', (_scenario, asOf) => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+    expect(() => invoice.refreshStatus(asOf)).toThrow(ValidationError);
   });
 
   it('requires proof for non-cash payments', () => {
@@ -225,11 +284,51 @@ describe('Invoice payment state machine', () => {
     expect(payment.reviewedByUserId).toBe(REVIEWER_ID);
   });
 
+  it('finds a payment by idempotency key without inventing a missing match', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    const payment = submitCashPayment(invoice, 25_00);
+
+    expect(invoice.findPaymentByIdempotencyKey(IDEMPOTENCY_KEY)).toBe(payment);
+    expect(invoice.findPaymentByIdempotencyKey('payment-attempt-missing')).toBeUndefined();
+  });
+
+  it.each(['approve', 'reject'] as const)(
+    'rejects an attempt to %s a payment from another invoice',
+    (operation) => {
+      const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+      const reviewDate = new Date('2026-07-10T13:00:00.000Z');
+
+      const review = (): PaymentTransaction =>
+        operation === 'approve'
+          ? invoice.approvePayment('missing-payment', reviewDate, REVIEWER_ID)
+          : invoice.rejectPayment(
+              'missing-payment',
+              'Pagamento não localizado',
+              reviewDate,
+              REVIEWER_ID,
+            );
+
+      expect(review).toThrow(ValidationError);
+    },
+  );
+
+  it.each([0, 10.5, Invoice.MAX_MONEY_CENTS + 1])(
+    'rejects invalid submitted payment amount %s',
+    (amountCents) => {
+      const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+      expect(() => submitCashPayment(invoice, amountCents)).toThrow(ValidationError);
+    },
+  );
+
   it.each([
     ['bad-id', '2026-07', 100, '2026-07-10'],
     [CONTRACT_ID, '07-2026', 100, '2026-07-10'],
     [CONTRACT_ID, '2026-07', 0, '2026-07-10'],
     [CONTRACT_ID, '2026-07', 100.5, '2026-07-10'],
+    [CONTRACT_ID, '2026-07', Invoice.MAX_MONEY_CENTS + 1, '2026-07-10'],
+    [CONTRACT_ID, '2026-07', 100, '10/07/2026'],
+    [CONTRACT_ID, '2026-02', 100, '2026-02-30'],
     [CONTRACT_ID, '2026-07', 100, '2026-08-10'],
   ])(
     'rejects invalid invoice data with a DomainError',

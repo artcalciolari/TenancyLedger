@@ -1,4 +1,4 @@
-import { CallHandler, ExecutionContext } from '@nestjs/common';
+import { CallHandler, ExecutionContext, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { firstValueFrom, of } from 'rxjs';
 import { Repository } from 'typeorm';
@@ -9,6 +9,7 @@ interface RequestOverrides {
   method?: string;
   path?: string;
   routePath?: string;
+  route?: unknown;
   user?: { id?: string; sub?: string; role?: string };
   requestId?: string;
 }
@@ -18,16 +19,19 @@ function requestOf(overrides: RequestOverrides = {}): Request {
   return {
     method: overrides.method ?? 'GET',
     path: overrides.path ?? '/properties',
-    route: { path: overrides.routePath ?? overrides.path ?? '/properties' },
+    route:
+      'route' in overrides
+        ? overrides.route
+        : { path: overrides.routePath ?? overrides.path ?? '/properties' },
     user: overrides.user,
     header: jest.fn((name: string) => (name === 'x-request-id' ? requestId : undefined)),
   } as unknown as Request;
 }
 
-function contextOf(request: Request, statusCode = 200): ExecutionContext {
+function contextOf(request: Request, statusCode = 200, type = 'http'): ExecutionContext {
   const response = { statusCode } as Response;
   return {
-    getType: () => 'http',
+    getType: () => type,
     switchToHttp: () => ({
       getRequest: () => request,
       getResponse: () => response,
@@ -50,6 +54,44 @@ describe('AuditInterceptor', () => {
     interceptor = new AuditInterceptor({
       insert,
     } as unknown as Repository<AuditLog>);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('passes non-HTTP execution through without inspecting or auditing it', async () => {
+    const body = { consumedBy: 'worker' };
+    const handle = jest.fn(() => of(body));
+
+    await expect(
+      firstValueFrom(
+        interceptor.intercept(contextOf(requestOf(), 200, 'rpc'), {
+          handle,
+        } as CallHandler),
+      ),
+    ).resolves.toBe(body);
+
+    expect(handle).toHaveBeenCalledTimes(1);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'client telemetry', method: 'POST', path: '/client-errors' },
+    { label: 'an ordinary GET', method: 'GET', path: '/version' },
+    { label: 'an ordinary HEAD', method: 'HEAD', path: '/version' },
+  ])('does not audit $label request', async ({ method, path }) => {
+    const body = { accepted: true };
+
+    await expect(
+      firstValueFrom(
+        interceptor.intercept(contextOf(requestOf({ method, path })), {
+          handle: () => of(body),
+        } as CallHandler),
+      ),
+    ).resolves.toBe(body);
+
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it('waits for the audit insert before releasing the response body', async () => {
@@ -265,6 +307,87 @@ describe('AuditInterceptor', () => {
         action: 'POST /auth/login',
         resourceType: 'auth',
         resourceId: 'logged-in-user',
+      }),
+    );
+  });
+
+  it.each([new Error('audit database unavailable'), 'audit database unavailable'])(
+    'releases the response when audit persistence rejects with %p',
+    async (auditFailure) => {
+      const loggerError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      insert.mockRejectedValue(auditFailure);
+      const body = { id: 'contract-1' };
+      const request = requestOf({ method: 'POST', path: '/contracts' });
+
+      await expect(
+        firstValueFrom(
+          interceptor.intercept(contextOf(request, 201), {
+            handle: () => of(body),
+          } as CallHandler),
+        ),
+      ).resolves.toBe(body);
+
+      expect(loggerError).toHaveBeenCalledWith(
+        'Could not persist the audit trail entry',
+        auditFailure instanceof Error ? auditFailure.stack : undefined,
+      );
+    },
+  );
+
+  it('audits anonymous responses with null route and body context', async () => {
+    const request = requestOf({
+      method: 'POST',
+      path: '/',
+      route: null,
+      user: undefined,
+    });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request, 202), {
+        handle: () => of(null),
+      } as CallHandler),
+    );
+
+    expect(insert).toHaveBeenCalledWith({
+      actorId: null,
+      action: 'POST /',
+      resourceType: 'unknown',
+      resourceId: null,
+      requestId: null,
+      metadata: {
+        method: 'POST',
+        path: '/',
+        statusCode: 202,
+        role: null,
+      },
+    });
+  });
+
+  it.each([
+    {
+      label: 'a primitive body and absent route metadata',
+      body: 'accepted',
+      route: undefined,
+    },
+    {
+      label: 'non-string direct and nested identifiers',
+      body: { id: 42, user: { id: 43 } },
+      route: { path: 44 },
+    },
+  ])('falls back to request context for $label', async ({ body, route }) => {
+    const request = requestOf({ method: 'POST', path: '/sessions', route });
+
+    await firstValueFrom(
+      interceptor.intercept(contextOf(request), {
+        handle: () => of(body),
+      } as CallHandler),
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'POST /sessions',
+        resourceType: 'sessions',
+        resourceId: null,
       }),
     );
   });
