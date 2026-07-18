@@ -4,6 +4,18 @@ import { Contract, ContractStateError, ContractStatus } from './contract.entity'
 const TENANT_ID = 'c16a5325-1d5c-49c5-a5cb-452e75a72c75';
 const PROPERTY_ID = 'f04b6434-28f1-49a7-99aa-e49624bc68b9';
 
+function createContract(durationInMonths = 12, isRenewable = true, billingDay?: number): Contract {
+  return Contract.create(
+    TENANT_ID,
+    PROPERTY_ID,
+    '2026-01-01',
+    100_00,
+    durationInMonths,
+    isRenewable,
+    billingDay,
+  );
+}
+
 describe('Contract', () => {
   it('creates a contract with an explicit, inclusive validity period and cents', () => {
     const contract = Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 125_050, 12, true, 10);
@@ -18,6 +30,29 @@ describe('Contract', () => {
   it('handles calendar-month boundaries deterministically', () => {
     expect(Contract.calculateEndDate('2025-01-31', 1)).toBe('2025-02-27');
     expect(Contract.calculateEndDate('2024-02-29', 12)).toBe('2025-02-27');
+  });
+
+  it.each([
+    ['the move-in day', '2026-01-10', 10],
+    ['day 28 for a later move-in day', '2026-01-31', 28],
+  ])('defaults the billing day to %s', (_scenario, moveInDate, expectedBillingDay) => {
+    const contract = Contract.create(TENANT_ID, PROPERTY_ID, moveInDate, 100_00, 1, true);
+
+    expect(contract.billingDay).toBe(expectedBillingDay);
+  });
+
+  it('accepts the documented upper bounds', () => {
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-01-01',
+        Contract.MAX_MONEY_CENTS,
+        600,
+        true,
+        28,
+      ),
+    ).not.toThrow();
   });
 
   it('renews a renewable contract and recomputes its end date', () => {
@@ -35,19 +70,116 @@ describe('Contract', () => {
   });
 
   it.each([
-    ['not-a-uuid', PROPERTY_ID, '2026-01-01', 100, 1],
-    [TENANT_ID, PROPERTY_ID, '2026-02-30', 100, 1],
-    [TENANT_ID, PROPERTY_ID, '2026-01-01', 0, 1],
-    [TENANT_ID, PROPERTY_ID, '2026-01-01', 100.5, 1],
-    [TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 0],
-  ])(
-    'rejects invalid identifiers, dates, money, and duration',
-    (tenantId, propertyId, date, cents, duration) => {
-      expect(() => Contract.create(tenantId, propertyId, date, cents, duration, true)).toThrow(
-        ValidationError,
-      );
+    {
+      scenario: 'a terminated contract',
+      expectedError: ContractStateError,
+      arrange: () => {
+        const contract = createContract();
+        Object.assign(contract, { _status: ContractStatus.TERMINATED });
+        return contract;
+      },
+      extraMonths: 1,
     },
-  );
+    {
+      scenario: 'a term beyond 600 months',
+      expectedError: ValidationError,
+      arrange: () => createContract(600),
+      extraMonths: 1,
+    },
+    {
+      scenario: 'zero extra months',
+      expectedError: ValidationError,
+      arrange: () => createContract(),
+      extraMonths: 0,
+    },
+    {
+      scenario: 'fractional extra months',
+      expectedError: ValidationError,
+      arrange: () => createContract(),
+      extraMonths: 1.5,
+    },
+  ])('rejects renewal for $scenario', ({ arrange, extraMonths, expectedError }) => {
+    const contract = arrange();
+
+    expect(() => contract.renew(extraMonths)).toThrow(expectedError);
+  });
+
+  it('reactivates an expired renewable contract with an extended end date', () => {
+    const contract = createContract(1);
+    contract.markExpired('2026-02-01');
+
+    expect(contract.status).toBe(ContractStatus.EXPIRED);
+
+    contract.renew(1);
+
+    expect(contract.status).toBe(ContractStatus.ACTIVE);
+    expect(contract.endDate).toBe('2026-02-28');
+  });
+
+  it.each([
+    {
+      scenario: 'tenant ID',
+      create: () => Contract.create('not-a-uuid', PROPERTY_ID, '2026-01-01', 100, 1, true),
+    },
+    {
+      scenario: 'property ID',
+      create: () => Contract.create(TENANT_ID, 'not-a-uuid', '2026-01-01', 100, 1, true),
+    },
+    {
+      scenario: 'date format',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '01/01/2026', 100, 1, true),
+    },
+    {
+      scenario: 'civil date',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-02-30', 100, 1, true),
+    },
+    {
+      scenario: 'zero money',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 0, 1, true),
+    },
+    {
+      scenario: 'fractional money',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100.5, 1, true),
+    },
+    {
+      scenario: 'money above the maximum',
+      create: () =>
+        Contract.create(
+          TENANT_ID,
+          PROPERTY_ID,
+          '2026-01-01',
+          Contract.MAX_MONEY_CENTS + 1,
+          1,
+          true,
+        ),
+    },
+    {
+      scenario: 'zero duration',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 0, true),
+    },
+    {
+      scenario: 'fractional duration',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 1.5, true),
+    },
+    {
+      scenario: 'duration above the maximum',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 601, true),
+    },
+    {
+      scenario: 'billing day below the minimum',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 1, true, 0),
+    },
+    {
+      scenario: 'fractional billing day',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 1, true, 1.5),
+    },
+    {
+      scenario: 'billing day above the maximum',
+      create: () => Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 100, 1, true, 29),
+    },
+  ])('rejects an invalid $scenario', ({ create }) => {
+    expect(create).toThrow(ValidationError);
+  });
 
   it('reports billing eligibility only while active and in force', () => {
     const contract = Contract.create(TENANT_ID, PROPERTY_ID, '2026-07-10', 100_00, 2, true, 15);
@@ -56,5 +188,29 @@ describe('Contract', () => {
     expect(contract.isActiveOn('2026-07-15')).toBe(true);
     expect(contract.isActiveOn('2026-09-10')).toBe(false);
     expect(contract.dueDateFor('2026-07')).toBe('2026-07-15');
+  });
+
+  it.each(['2026-00', '2026-13', '07-2026'])('rejects invalid billing competence %s', (value) => {
+    expect(() => createContract().dueDateFor(value)).toThrow(ValidationError);
+  });
+
+  it('expires only after the inclusive end date and remains expired on repeated refreshes', () => {
+    const contract = createContract(1);
+
+    contract.markExpired('2026-01-31');
+    expect(contract.status).toBe(ContractStatus.ACTIVE);
+
+    contract.markExpired('2026-02-01');
+    contract.markExpired('2026-02-02');
+
+    expect(contract.status).toBe(ContractStatus.EXPIRED);
+    expect(contract.isActiveOn('2026-01-15')).toBe(false);
+  });
+
+  it.each(['2026/02/01', '2026-02-30'])('rejects invalid status reference date %s', (value) => {
+    const contract = createContract();
+
+    expect(() => contract.markExpired(value)).toThrow(ValidationError);
+    expect(() => contract.isActiveOn(value)).toThrow(ValidationError);
   });
 });
