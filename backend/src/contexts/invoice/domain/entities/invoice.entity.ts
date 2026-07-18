@@ -180,15 +180,24 @@ export class Invoice {
     paymentId: string,
     reviewedAt: Date,
     reviewedByUserId: string,
-    statusAsOf = reviewedAt.toISOString().slice(0, 10),
+    statusAsOf?: string,
   ): PaymentTransaction {
+    const reviewedAsOf =
+      reviewedAt instanceof Date && !Number.isNaN(reviewedAt.getTime())
+        ? reviewedAt.toISOString().slice(0, 10)
+        : null;
+    if (!reviewedAsOf) {
+      throw new ValidationError('A data de revisão do pagamento é inválida.');
+    }
+    const effectiveStatusAsOf = statusAsOf ?? reviewedAsOf;
+    Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
     const transaction = this.findPayment(paymentId);
     const approvedAfterReview = this.approvedAmountCents + transaction.amountCents;
     if (approvedAfterReview > this._totalValueCents) {
       throw new InvoiceStateError('A aprovação causaria pagamento acima do valor da fatura.');
     }
     transaction.approve(reviewedAt, reviewedByUserId);
-    this.recalculateStatus(statusAsOf);
+    this.recalculateStatus(effectiveStatusAsOf);
     return transaction;
   }
 
@@ -197,11 +206,20 @@ export class Invoice {
     reason: string,
     reviewedAt: Date,
     reviewedByUserId: string,
-    statusAsOf = reviewedAt.toISOString().slice(0, 10),
+    statusAsOf?: string,
   ): PaymentTransaction {
+    const reviewedAsOf =
+      reviewedAt instanceof Date && !Number.isNaN(reviewedAt.getTime())
+        ? reviewedAt.toISOString().slice(0, 10)
+        : null;
+    if (!reviewedAsOf) {
+      throw new ValidationError('A data de revisão do pagamento é inválida.');
+    }
+    const effectiveStatusAsOf = statusAsOf ?? reviewedAsOf;
+    Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
     const transaction = this.findPayment(paymentId);
     transaction.reject(reason, reviewedAt, reviewedByUserId);
-    this.recalculateStatus(statusAsOf);
+    this.recalculateStatus(effectiveStatusAsOf);
     return transaction;
   }
 

@@ -315,6 +315,61 @@ describe('Invoice payment state machine', () => {
     expect(invoice.outstandingAmountCents).toBe(100_00);
   });
 
+  it.each(['approve', 'reject'] as const)(
+    'rejects an invalid review date atomically when omitting statusAsOf on %s',
+    (operation) => {
+      const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+      const payment = submitCashPayment(invoice, 25_00);
+      assignId(payment, '9f983c4b-f065-4486-8951-8f8fb3ce467e');
+      const invalidReviewedAt = new Date(Number.NaN);
+
+      expect(() =>
+        operation === 'approve'
+          ? invoice.approvePayment(payment.id, invalidReviewedAt, REVIEWER_ID)
+          : invoice.rejectPayment(
+              payment.id,
+              'Pagamento não localizado',
+              invalidReviewedAt,
+              REVIEWER_ID,
+            ),
+      ).toThrow(ValidationError);
+      expect(payment.status).toBe(PaymentStatus.SUBMITTED);
+      expect(payment.reviewedAt).toBeNull();
+      expect(payment.rejectionReason).toBeNull();
+      expect(invoice.status).toBe(InvoiceStatus.UNDER_REVIEW);
+    },
+  );
+
+  it.each(['approve', 'reject'] as const)(
+    'rejects an invalid explicit statusAsOf before mutating payment on %s',
+    (operation) => {
+      const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+      const payment = submitCashPayment(invoice, 25_00);
+      assignId(payment, '69dd7ba4-ec61-4df2-b4f0-6f63f2f7de48');
+
+      expect(() =>
+        operation === 'approve'
+          ? invoice.approvePayment(
+              payment.id,
+              new Date('2026-07-10T13:00:00.000Z'),
+              REVIEWER_ID,
+              '2026-02-30',
+            )
+          : invoice.rejectPayment(
+              payment.id,
+              'Pagamento não localizado',
+              new Date('2026-07-10T13:00:00.000Z'),
+              REVIEWER_ID,
+              '2026-02-30',
+            ),
+      ).toThrow(ValidationError);
+      expect(payment.status).toBe(PaymentStatus.SUBMITTED);
+      expect(payment.reviewedAt).toBeNull();
+      expect(payment.rejectionReason).toBeNull();
+      expect(invoice.status).toBe(InvoiceStatus.UNDER_REVIEW);
+    },
+  );
+
   it('requires proof for non-cash payments', () => {
     const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
     expect(() =>
