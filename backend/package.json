@@ -29,7 +29,7 @@
     "coverage:diff": "node scripts/diff-coverage.mjs",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runTestsByPath ./test/app.e2e-spec.ts --runInBand",
-    "test:e2e:ci": "jest --config ./test/jest-e2e.json --runTestsByPath ./test/app.e2e-spec.ts --runInBand --coverage",
+    "test:e2e:ci": "jest --config ./test/jest-e2e.json --runInBand --coverage",
     "test:e2e:seed": "node -r ts-node/register -r tsconfig-paths/register test/fixtures/seed-fullstack-e2e.ts",
     "openapi:generate": "node scripts/openapi-snapshot.mjs",
     "openapi:check": "node scripts/openapi-snapshot.mjs --check",
