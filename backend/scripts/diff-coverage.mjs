@@ -13,6 +13,7 @@ export const DIFF_COVERAGE_THRESHOLDS = Object.freeze({
 const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPOSITORY_ROOT = path.resolve(SCRIPT_DIRECTORY, '..', '..');
 const ZERO_SHA_PATTERN = /^0{7,64}$/;
+const COMMIT_SHA_PATTERN = /^[0-9a-f]{40,64}$/i;
 
 export class DiffCoverageError extends Error {
   constructor(message, options) {
@@ -652,29 +653,45 @@ export function resolveBaseRef({ requestedBase, requestedSource, fallbackBase, i
   }
 
   for (const [index, candidate] of candidates.entries()) {
+    let sha;
     try {
-      const sha = git([
+      sha = git([
         'rev-parse',
         '--verify',
         '--quiet',
         '--end-of-options',
         `${candidate.label}^{commit}`,
       ]).trim();
-      if (!/^[0-9a-f]{40,64}$/i.test(sha)) {
-        warnings.push(`${candidate.label} did not resolve to a commit SHA.`);
-        continue;
-      }
-      if (index > 0 || (!requested && candidate.source.toLowerCase().includes('fallback'))) {
-        warnings.push(
-          `Using ${candidate.label} (${candidate.source}) as the visible fallback base.`,
-        );
-      }
-      return { label: candidate.label, sha, source: candidate.source, warnings };
     } catch (error) {
       warnings.push(
         `Base candidate ${candidate.label} (${candidate.source}) is unavailable: ${error.message}`,
       );
+      continue;
     }
+    if (!COMMIT_SHA_PATTERN.test(sha)) {
+      warnings.push(`${candidate.label} did not resolve to a commit SHA.`);
+      continue;
+    }
+
+    try {
+      const mergeBase = git(['merge-base', sha, 'HEAD']).trim();
+      if (!COMMIT_SHA_PATTERN.test(mergeBase)) {
+        warnings.push(
+          `Base candidate ${candidate.label} (${candidate.source}) did not produce a valid merge base with HEAD and cannot be used.`,
+        );
+        continue;
+      }
+    } catch (error) {
+      warnings.push(
+        `Base candidate ${candidate.label} (${candidate.source}) is disconnected from HEAD or its merge base could not be validated: ${error.message}`,
+      );
+      continue;
+    }
+
+    if (index > 0 || (!requested && candidate.source.toLowerCase().includes('fallback'))) {
+      warnings.push(`Using ${candidate.label} (${candidate.source}) as the visible fallback base.`);
+    }
+    return { label: candidate.label, sha, source: candidate.source, warnings };
   }
 
   throw new DiffCoverageError(

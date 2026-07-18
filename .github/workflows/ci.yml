@@ -52,6 +52,9 @@ jobs:
       - name: Type-check backend
         run: npm run typecheck
 
+      - name: Test backend diff coverage gate
+        run: npm run test:diff-coverage
+
       - name: Run backend unit tests
         run: npm run test:ci
 

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, test } from 'node:test';
 
 import {
@@ -7,6 +10,7 @@ import {
   evaluateDiffCoverage,
   formatDiffCoverageReport,
   resolveBaseRef,
+  runDiffCoverage,
   toRepositoryRelativePath,
 } from './diff-coverage.mjs';
 
@@ -257,5 +261,52 @@ describe('base ref resolution', () => {
         }),
       /No safe base commit is available/,
     );
+  });
+
+  test('skips a disconnected base and diffs the safe HEAD^ candidate SHA', async (context) => {
+    const repositoryRoot = await mkdtemp(path.join(tmpdir(), 'diff-coverage-'));
+    context.after(() => rm(repositoryRoot, { recursive: true, force: true }));
+    await mkdir(path.join(repositoryRoot, 'backend', 'coverage'), { recursive: true });
+    await writeFile(
+      path.join(repositoryRoot, 'backend', 'package.json'),
+      JSON.stringify({ jest: { collectCoverageFrom: COLLECT_COVERAGE_FROM } }),
+    );
+    await writeFile(path.join(repositoryRoot, 'backend', 'coverage', 'coverage-final.json'), '{}');
+
+    const requestedSha = 'b'.repeat(40);
+    const fallbackSha = 'c'.repeat(40);
+    const mergeBaseSha = 'd'.repeat(40);
+    const calls = [];
+    const git = (arguments_) => {
+      calls.push(arguments_);
+      if (arguments_[0] === 'rev-parse') {
+        return arguments_.at(-1).startsWith('requested-base')
+          ? `${requestedSha}\n`
+          : `${fallbackSha}\n`;
+      }
+      if (arguments_[0] === 'merge-base') {
+        if (arguments_[1] === requestedSha) {
+          throw new DiffCoverageError('no merge base');
+        }
+        return `${mergeBaseSha}\n`;
+      }
+      if (arguments_[2] === 'diff') return '';
+      throw new DiffCoverageError(`unexpected Git call: ${arguments_.join(' ')}`);
+    };
+
+    const result = await runDiffCoverage({
+      arguments_: ['requested-base'],
+      environment: { CI: 'true', DIFF_COVERAGE_FALLBACK_BASE: 'HEAD^' },
+      repositoryRoot,
+      git,
+    });
+
+    assert.match(result.output, /requested-base .* is disconnected from HEAD/);
+    assert.match(result.output, /Using HEAD\^ .* as the visible fallback base/);
+    assert.match(result.output, new RegExp(`Diff coverage base: HEAD\\^ -> ${fallbackSha}`));
+    const diffCall = calls.find((arguments_) => arguments_[2] === 'diff');
+    assert.ok(diffCall);
+    assert.ok(diffCall.includes(`${fallbackSha}...HEAD`));
+    assert.ok(!diffCall.includes(`${requestedSha}...HEAD`));
   });
 });
