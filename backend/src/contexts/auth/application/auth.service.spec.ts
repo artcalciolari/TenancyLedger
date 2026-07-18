@@ -1,4 +1,4 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { EntityManager, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
@@ -169,6 +169,30 @@ describe('AuthService', () => {
     ]);
   });
 
+  it('valida o payload somente contra o papel e a versão atuais do usuário ativo', async () => {
+    const user = User.create('viewer@example.com', storedPasswordHash, UserRole.VIEWER);
+    user.id = 'current-user';
+    user.tokenVersion = 3;
+    users.findOne.mockResolvedValue(user);
+
+    await expect(
+      service.validatePayload({
+        sub: user.id,
+        email: 'stale-address@example.com',
+        role: UserRole.ADMIN,
+        ver: 3,
+      }),
+    ).resolves.toEqual({
+      id: user.id,
+      email: user.email,
+      role: UserRole.VIEWER,
+      active: true,
+    });
+    expect(users.findOne.mock.calls).toContainEqual([
+      { where: { id: user.id, active: true, tokenVersion: 3 } },
+    ]);
+  });
+
   it('rotaciona o refresh token e assina o acesso com o estado atual do usuário', async () => {
     const user = User.create('manager@example.com', storedPasswordHash, UserRole.MANAGER);
     user.id = '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee';
@@ -243,6 +267,16 @@ describe('AuthService', () => {
         service.createUser('duplicate@example.com', 'a-strong-password', UserRole.VIEWER),
       ).rejects.toEqual(new ConflictException('Já existe um usuário com este e-mail.'));
     });
+
+    it('propaga uma falha de persistência que não seja conflito de e-mail', async () => {
+      bcryptHash.mockResolvedValue(storedPasswordHash);
+      const databaseUnavailable = new Error('database unavailable');
+      users.save.mockRejectedValue(databaseUnavailable);
+
+      await expect(
+        service.createUser('new@example.com', 'a-strong-password', UserRole.VIEWER),
+      ).rejects.toBe(databaseUnavailable);
+    });
   });
 
   it('lista usuários com paginação determinística e metadados', async () => {
@@ -269,6 +303,17 @@ describe('AuthService', () => {
   });
 
   describe('updateUserAccess', () => {
+    it('rejeita a alteração quando o usuário não existe sob o lock', async () => {
+      transactionUsers.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateUserAccess('missing-user', UserRole.VIEWER, true, 'admin-id'),
+      ).rejects.toEqual(new NotFoundException('Usuário não encontrado.'));
+
+      expect(transactionUsers.save.mock.calls).toHaveLength(0);
+      expect(refreshSessions.revokeAllForUser.mock.calls).toHaveLength(0);
+    });
+
     it('impede que o administrador remova o próprio papel administrativo', async () => {
       const admin = User.create('admin@example.com', storedPasswordHash, UserRole.ADMIN);
       admin.id = 'current-admin';
@@ -364,6 +409,22 @@ describe('AuthService', () => {
   });
 
   describe('changePassword', () => {
+    it('usa o hash dummy e preserva a resposta quando o usuário ativo não existe', async () => {
+      bcryptHash.mockResolvedValue(newPasswordHash);
+      queryBuilder.getOne.mockResolvedValue(null);
+      bcryptCompare.mockResolvedValue(false);
+
+      await expect(
+        service.changePassword('missing-user', 'current-password', 'brand-new-password'),
+      ).rejects.toEqual(new UnauthorizedException('Senha atual inválida.'));
+
+      expect(bcryptCompare).toHaveBeenCalledWith(
+        'current-password',
+        expect.stringMatching(/^\$2b\$12\$/),
+      );
+      expect(transactionUsers.save.mock.calls).toHaveLength(0);
+    });
+
     it('rejeita a senha atual incorreta sem alterar o usuário', async () => {
       const user = User.create('user@example.com', storedPasswordHash, UserRole.VIEWER);
       user.id = 'user-id';

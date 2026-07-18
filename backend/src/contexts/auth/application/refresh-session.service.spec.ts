@@ -12,6 +12,28 @@ const SESSION_ID = '6c314215-6937-4998-acfa-5c6e4a679979';
 const TOKEN = Buffer.alloc(32, 1).toString('base64url');
 const NOW = new Date('2026-07-12T12:00:00.000Z');
 
+function refreshSession(overrides: Partial<RefreshSession> = {}): RefreshSession {
+  return Object.assign(new RefreshSession(), {
+    id: SESSION_ID,
+    userId: USER_ID,
+    familyId: FAMILY_ID,
+    tokenVersion: 0,
+    tokenHash: createHash('sha256').update(TOKEN).digest('hex'),
+    expiresAt: new Date('2026-08-12T12:00:00.000Z'),
+    revokedAt: null,
+    replacedBySessionId: null,
+    createdAt: new Date('2026-07-01T12:00:00.000Z'),
+    ...overrides,
+  });
+}
+
+function activeUser(tokenVersion = 0): User {
+  const user = User.create('manager@example.com', 'x'.repeat(60), UserRole.MANAGER);
+  user.id = USER_ID;
+  user.tokenVersion = tokenVersion;
+  return user;
+}
+
 describe('RefreshSessionService', () => {
   let sessions: jest.Mocked<Repository<RefreshSession>>;
   let transactionSessions: jest.Mocked<Repository<RefreshSession>>;
@@ -19,6 +41,7 @@ describe('RefreshSessionService', () => {
   let select: jest.Mocked<SelectQueryBuilder<RefreshSession>>;
   let update: jest.Mocked<UpdateQueryBuilder<RefreshSession>>;
   let transactionManager: jest.Mocked<EntityManager>;
+  let sessionsManager: jest.Mocked<EntityManager>;
   let service: RefreshSessionService;
 
   beforeEach(() => {
@@ -53,14 +76,14 @@ describe('RefreshSessionService', () => {
         entity === RefreshSession ? transactionSessions : users,
       ),
     } as unknown as jest.Mocked<EntityManager>;
-    const manager = {
+    sessionsManager = {
       transaction: jest.fn(async (operation: (manager: EntityManager) => Promise<unknown>) =>
         operation(transactionManager),
       ),
       getRepository: jest.fn().mockReturnValue(transactionSessions),
     } as unknown as jest.Mocked<EntityManager>;
     sessions = {
-      manager,
+      manager: sessionsManager,
       create: jest.fn((input: Partial<RefreshSession>) => input as RefreshSession),
       save: jest.fn((session: RefreshSession) => Promise.resolve(session)),
     } as unknown as jest.Mocked<Repository<RefreshSession>>;
@@ -92,19 +115,8 @@ describe('RefreshSessionService', () => {
   });
 
   it('rotaciona a sessão sob lock e preserva a família', async () => {
-    const session = Object.assign(new RefreshSession(), {
-      id: SESSION_ID,
-      userId: USER_ID,
-      familyId: FAMILY_ID,
-      tokenVersion: 0,
-      tokenHash: createHash('sha256').update(TOKEN).digest('hex'),
-      expiresAt: new Date('2026-08-12T12:00:00.000Z'),
-      revokedAt: null,
-      replacedBySessionId: null,
-      createdAt: new Date('2026-07-01T12:00:00.000Z'),
-    });
-    const user = User.create('manager@example.com', 'x'.repeat(60), UserRole.MANAGER);
-    user.id = USER_ID;
+    const session = refreshSession();
+    const user = activeUser();
     select.getOne.mockResolvedValue(session);
     users.findOne.mockResolvedValue(user);
 
@@ -125,13 +137,7 @@ describe('RefreshSessionService', () => {
   });
 
   it('detecta replay e revoga todas as sessões ainda ativas da família', async () => {
-    const replayed = Object.assign(new RefreshSession(), {
-      id: SESSION_ID,
-      userId: USER_ID,
-      familyId: FAMILY_ID,
-      tokenVersion: 0,
-      tokenHash: createHash('sha256').update(TOKEN).digest('hex'),
-      expiresAt: new Date('2026-08-12T12:00:00.000Z'),
+    const replayed = refreshSession({
       revokedAt: new Date('2026-07-12T11:00:00.000Z'),
       replacedBySessionId: 'c68ffec8-39a5-4d3e-af16-401ff6ed83fd',
     });
@@ -158,5 +164,117 @@ describe('RefreshSessionService', () => {
     await expect(service.rotate(TOKEN)).rejects.toEqual(
       new UnauthorizedException('Refresh token ausente, inválido ou expirado.'),
     );
+  });
+
+  it.each([
+    ['ausente', undefined],
+    ['curto demais', 'short-token'],
+    ['com caracteres fora de base64url', '!'.repeat(43)],
+  ])('rejeita um token %s antes de abrir transação', async (_description, token) => {
+    await expect(service.rotate(token)).rejects.toEqual(
+      new UnauthorizedException('Refresh token ausente, inválido ou expirado.'),
+    );
+    expect(sessionsManager.transaction.mock.calls).toHaveLength(0);
+  });
+
+  it('rejeita a rotação se a sessão desaparecer depois do lock da família', async () => {
+    select.getOne.mockResolvedValueOnce(refreshSession()).mockResolvedValueOnce(null);
+    users.findOne.mockResolvedValue(activeUser());
+
+    await expect(service.rotate(TOKEN)).rejects.toEqual(
+      new UnauthorizedException('Refresh token ausente, inválido ou expirado.'),
+    );
+    expect(transactionManager.query.mock.calls).toContainEqual([
+      'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+      ['refresh-session-family', FAMILY_ID],
+    ]);
+  });
+
+  it('revoga uma sessão expirada e recusa a rotação', async () => {
+    const expired = refreshSession({ expiresAt: new Date(NOW) });
+    select.getOne.mockResolvedValue(expired);
+    users.findOne.mockResolvedValue(activeUser());
+
+    await expect(service.rotate(TOKEN)).rejects.toEqual(
+      new UnauthorizedException('Refresh token ausente, inválido ou expirado.'),
+    );
+
+    expect(expired.revokedAt).toEqual(NOW);
+    expect(transactionSessions.save.mock.calls).toContainEqual([expired]);
+    expect(update.execute.mock.calls).toHaveLength(0);
+  });
+
+  it('revoga a família quando a versão do usuário invalida a sessão', async () => {
+    const stale = refreshSession({ tokenVersion: 1 });
+    select.getOne.mockResolvedValue(stale);
+    users.findOne.mockResolvedValue(activeUser(2));
+    transactionSessions.createQueryBuilder
+      .mockReturnValueOnce(select)
+      .mockReturnValueOnce(select)
+      .mockReturnValueOnce(update as never);
+
+    await expect(service.rotate(TOKEN)).rejects.toEqual(
+      new UnauthorizedException('Refresh token ausente, inválido ou expirado.'),
+    );
+
+    expect(update.set.mock.calls).toContainEqual([{ revokedAt: NOW }]);
+    expect(update.where.mock.calls).toContainEqual([
+      'family_id = :familyId',
+      { familyId: FAMILY_ID },
+    ]);
+  });
+
+  describe('revoke', () => {
+    it('ignora logout sem token válido antes de abrir transação', async () => {
+      await expect(service.revoke(undefined)).resolves.toBeUndefined();
+      expect(sessionsManager.transaction.mock.calls).toHaveLength(0);
+    });
+
+    it('trata token opaco desconhecido como logout idempotente', async () => {
+      select.getOne.mockResolvedValue(null);
+
+      await expect(service.revoke(TOKEN)).resolves.toBeUndefined();
+
+      expect(transactionManager.query.mock.calls).toHaveLength(0);
+    });
+
+    it('não revoga outra família se a sessão desaparecer após o lock', async () => {
+      select.getOne.mockResolvedValueOnce(refreshSession()).mockResolvedValueOnce(null);
+
+      await expect(service.revoke(TOKEN)).resolves.toBeUndefined();
+
+      expect(transactionManager.query.mock.calls).toHaveLength(1);
+      expect(update.execute.mock.calls).toHaveLength(0);
+    });
+
+    it('revoga todas as sessões ativas da família encontrada', async () => {
+      const session = refreshSession();
+      select.getOne.mockResolvedValue(session);
+      transactionSessions.createQueryBuilder
+        .mockReturnValueOnce(select)
+        .mockReturnValueOnce(select)
+        .mockReturnValueOnce(update as never);
+
+      await expect(service.revoke(TOKEN)).resolves.toBeUndefined();
+
+      expect(update.set.mock.calls).toContainEqual([{ revokedAt: NOW }]);
+      expect(update.andWhere.mock.calls).toContainEqual(['revoked_at IS NULL']);
+    });
+  });
+
+  it('revoga todas as sessões do usuário com o manager padrão ou o transacional', async () => {
+    transactionSessions.createQueryBuilder.mockReturnValue(update as never);
+
+    await service.revokeAllForUser(USER_ID);
+    expect(sessionsManager.getRepository.mock.calls).toContainEqual([RefreshSession]);
+    expect(update.where.mock.calls).toContainEqual(['user_id = :userId', { userId: USER_ID }]);
+
+    const explicitManager = {
+      getRepository: jest.fn().mockReturnValue(transactionSessions),
+    } as unknown as jest.Mocked<EntityManager>;
+    await service.revokeAllForUser(USER_ID, explicitManager);
+
+    expect(explicitManager.getRepository.mock.calls).toContainEqual([RefreshSession]);
+    expect(update.execute.mock.calls).toHaveLength(2);
   });
 });

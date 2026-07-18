@@ -23,13 +23,15 @@ const storedKey =
 describe('StorageService', () => {
   let send: jest.MockedFunction<(command: unknown) => Promise<unknown>>;
   let configGet: jest.Mock;
+  let client: S3Client;
+  let config: ConfigService;
   let service: StorageService;
 
   beforeEach(() => {
     send = jest.fn<Promise<unknown>, [unknown]>();
     configGet = jest.fn((_key: string, fallback?: unknown) => fallback);
-    const client = { send } as unknown as S3Client;
-    const config = {
+    client = { send } as unknown as S3Client;
+    config = {
       getOrThrow: jest.fn().mockReturnValue(bucket),
       get: configGet,
     } as unknown as ConfigService;
@@ -126,6 +128,54 @@ describe('StorageService', () => {
         ServerSideEncryption: 'AES256',
       });
     });
+
+    it.each([
+      ['JPEG', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff, 0x00]), 'jpg'],
+      ['PNG', 'image/png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'png'],
+      [
+        'WebP',
+        'image/webp',
+        Buffer.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]),
+        'webp',
+      ],
+    ])(
+      'detects and uploads a valid %s proof without enabling encryption by default',
+      async (_description, contentType, body, extension) => {
+        send.mockResolvedValue({});
+
+        const result = await service.uploadPaymentProof({
+          invoiceId,
+          originalName: `proof.${extension}`,
+          contentType,
+          body,
+        });
+
+        expect(result.key).toMatch(new RegExp(`^payment-proofs/${invoiceId}/.+\\.${extension}$`));
+        const command = send.mock.calls[0]?.[0] as PutObjectCommand;
+        expect(command.input).toMatchObject({
+          Bucket: bucket,
+          Key: result.key,
+          ContentType: contentType,
+          ContentLength: body.length,
+          ServerSideEncryption: undefined,
+        });
+      },
+    );
+
+    it('rejects an allowlisted MIME type when the payload has no recognized signature', async () => {
+      await expect(
+        service.uploadPaymentProof({
+          invoiceId,
+          originalName: 'fake.png',
+          contentType: 'image/png',
+          body: Buffer.from('not a real image'),
+        }),
+      ).rejects.toThrow(
+        new BadRequestException('Proof content does not match the declared content type'),
+      );
+
+      expect(send).not.toHaveBeenCalled();
+    });
   });
 
   describe('createReadUrl', () => {
@@ -158,9 +208,47 @@ describe('StorageService', () => {
       });
       expect(options).toEqual({ expiresIn: 120 });
     });
+
+    it('uses the dedicated presign client and the five-minute default expiry', async () => {
+      const presignClient = { send: jest.fn() } as unknown as S3Client;
+      service = new StorageService(client, config, presignClient);
+      jest.mocked(getSignedUrl).mockResolvedValue('https://signed.example/default-expiry');
+
+      await expect(service.createReadUrl(storedKey)).resolves.toBe(
+        'https://signed.example/default-expiry',
+      );
+
+      const [usedClient, , options] = jest.mocked(getSignedUrl).mock.calls[0] ?? [];
+      expect(usedClient).toBe(presignClient);
+      expect(options).toEqual({ expiresIn: 300 });
+    });
   });
 
   describe('bucket lifecycle', () => {
+    it('skips object-storage probes in the unit-test environment', async () => {
+      configGet.mockImplementation((key: string, fallback?: unknown) =>
+        key === 'NODE_ENV' ? 'test' : fallback,
+      );
+
+      await service.onModuleInit();
+
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('auto-creates the bucket outside production when configured', async () => {
+      configGet.mockImplementation((key: string, fallback?: unknown) => {
+        if (key === 'NODE_ENV') return 'development';
+        if (key === 'MINIO_AUTO_CREATE_BUCKET') return true;
+        return fallback;
+      });
+      send.mockResolvedValue({});
+
+      await service.onModuleInit();
+
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0]?.[0]).toBeInstanceOf(HeadBucketCommand);
+    });
+
     it('probes encrypted write and delete capability during production startup', async () => {
       send.mockResolvedValue({});
       configGet.mockImplementation((key: string, fallback?: unknown) => {
@@ -233,6 +321,17 @@ describe('StorageService', () => {
         .mockRejectedValueOnce(forbidden);
 
       await expect(service.ensureBucket()).rejects.toBe(forbidden);
+    });
+
+    it.each([
+      ['a primitive provider error', 'storage offline'],
+      ['an error without response metadata', {}],
+      ['an error with a non-numeric status', { $metadata: { httpStatusCode: '404' } }],
+    ])('does not misclassify %s as a missing bucket', async (_description, providerError) => {
+      send.mockRejectedValue(providerError);
+
+      await expect(service.ensureBucket()).rejects.toBe(providerError);
+      expect(send).toHaveBeenCalledTimes(1);
     });
   });
 
