@@ -86,4 +86,22 @@ describe('User', () => {
     expect(user.passwordHash).toBe(secondHash);
     expect(user.tokenVersion).toBe(2);
   });
+
+  it('rejects a short replacement hash without mutating the hash or token version', () => {
+    const user = createUser();
+
+    expect(() => user.changePasswordHash('a'.repeat(49))).toThrow(ValidationError);
+    expect(user.passwordHash).toBe(PASSWORD_HASH);
+    expect(user.tokenVersion).toBe(0);
+  });
+
+  it('accepts a 50-character replacement hash and increments the token version once', () => {
+    const user = createUser();
+    const replacementHash = 'a'.repeat(50);
+
+    user.changePasswordHash(replacementHash);
+
+    expect(user.passwordHash).toBe(replacementHash);
+    expect(user.tokenVersion).toBe(1);
+  });
 });

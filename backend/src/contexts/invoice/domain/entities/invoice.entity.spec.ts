@@ -235,6 +235,21 @@ describe('Invoice payment state machine', () => {
     expect(invoice.status).toBe(InvoiceStatus.OVERDUE);
   });
 
+  it('rejects an impossible civil status date without changing the current status', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-09');
+    invoice.refreshStatus('2026-07-10');
+
+    expect(() => invoice.refreshStatus('2026-02-30')).toThrow(ValidationError);
+    expect(invoice.status).toBe(InvoiceStatus.OVERDUE);
+  });
+
+  it('accepts a valid leap day as a civil status date', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2028-02', 100_00, '2028-02-29');
+
+    expect(() => invoice.refreshStatus('2028-02-29')).not.toThrow();
+    expect(invoice.status).toBe(InvoiceStatus.OPEN);
+  });
+
   it.each([
     ['a malformed string', '10/07/2026'],
     ['an invalid Date', new Date(Number.NaN)],
@@ -243,6 +258,61 @@ describe('Invoice payment state machine', () => {
     const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
 
     expect(() => invoice.refreshStatus(asOf)).toThrow(ValidationError);
+  });
+
+  it('rejects an invalid submission date atomically when the status date is omitted', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+    const submit = (): PaymentTransaction =>
+      invoice.submitPayment(
+        25_00,
+        PaymentMethod.CASH,
+        null,
+        undefined,
+        new Date(Number.NaN),
+        IDEMPOTENCY_KEY,
+        REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
+      );
+
+    expect(submit).toThrow(ValidationError);
+    expect(invoice.transactions).toHaveLength(0);
+    expect(invoice.status).toBe(InvoiceStatus.OPEN);
+    expect(invoice.approvedAmountCents).toBe(0);
+    expect(invoice.outstandingAmountCents).toBe(100_00);
+  });
+
+  it('rejects an invalid explicit status date before appending the payment', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+    expect(() =>
+      invoice.submitPayment(
+        25_00,
+        PaymentMethod.CASH,
+        null,
+        undefined,
+        NOW,
+        IDEMPOTENCY_KEY,
+        REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
+        '2026-02-30',
+      ),
+    ).toThrow(ValidationError);
+    expect(invoice.transactions).toHaveLength(0);
+    expect(invoice.status).toBe(InvoiceStatus.OPEN);
+    expect(invoice.approvedAmountCents).toBe(0);
+    expect(invoice.outstandingAmountCents).toBe(100_00);
+  });
+
+  it('uses a valid submission date as the omitted status date and appends one transaction', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+    const transaction = submitCashPayment(invoice, 25_00);
+
+    expect(invoice.transactions).toEqual([transaction]);
+    expect(invoice.status).toBe(InvoiceStatus.UNDER_REVIEW);
+    expect(invoice.approvedAmountCents).toBe(0);
+    expect(invoice.outstandingAmountCents).toBe(100_00);
   });
 
   it('requires proof for non-cash payments', () => {
