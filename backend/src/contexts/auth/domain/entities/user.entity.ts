@@ -50,9 +50,7 @@ export class User {
     if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       throw new ValidationError('E-mail de usuário inválido.');
     }
-    if (passwordHash.length < 50) {
-      throw new ValidationError('Hash de senha inválido.');
-    }
+    User.assertPasswordHash(passwordHash);
     if (!Object.values(UserRole).includes(role)) {
       throw new ValidationError('Papel de usuário inválido.');
     }
@@ -76,7 +74,14 @@ export class User {
   }
 
   changePasswordHash(passwordHash: string): void {
+    User.assertPasswordHash(passwordHash);
     this.passwordHash = passwordHash;
     this.tokenVersion += 1;
+  }
+
+  private static assertPasswordHash(passwordHash: string): void {
+    if (passwordHash.length < 50) {
+      throw new ValidationError('Hash de senha inválido.');
+    }
   }
 }

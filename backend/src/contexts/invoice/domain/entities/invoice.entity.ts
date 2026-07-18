@@ -132,7 +132,7 @@ export class Invoice {
     idempotencyKey: string,
     requestFingerprint: string,
     submittedByUserId: string,
-    statusAsOf = submittedAt.toISOString().slice(0, 10),
+    statusAsOf?: string,
   ): PaymentTransaction {
     if (this._status === InvoiceStatus.PAID) {
       throw new InvoiceStateError('Não é possível adicionar pagamentos a uma fatura já quitada.');
@@ -165,8 +165,10 @@ export class Invoice {
       requestFingerprint,
       submittedByUserId,
     );
+    const effectiveStatusAsOf = statusAsOf ?? submittedAt.toISOString().slice(0, 10);
+    Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
     this._transactions.push(transaction);
-    this.recalculateStatus(statusAsOf);
+    this.recalculateStatus(effectiveStatusAsOf);
     return transaction;
   }
 
@@ -178,15 +180,24 @@ export class Invoice {
     paymentId: string,
     reviewedAt: Date,
     reviewedByUserId: string,
-    statusAsOf = reviewedAt.toISOString().slice(0, 10),
+    statusAsOf?: string,
   ): PaymentTransaction {
+    const reviewedAsOf =
+      reviewedAt instanceof Date && !Number.isNaN(reviewedAt.getTime())
+        ? reviewedAt.toISOString().slice(0, 10)
+        : null;
+    if (!reviewedAsOf) {
+      throw new ValidationError('A data de revisão do pagamento é inválida.');
+    }
+    const effectiveStatusAsOf = statusAsOf ?? reviewedAsOf;
+    Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
     const transaction = this.findPayment(paymentId);
     const approvedAfterReview = this.approvedAmountCents + transaction.amountCents;
     if (approvedAfterReview > this._totalValueCents) {
       throw new InvoiceStateError('A aprovação causaria pagamento acima do valor da fatura.');
     }
     transaction.approve(reviewedAt, reviewedByUserId);
-    this.recalculateStatus(statusAsOf);
+    this.recalculateStatus(effectiveStatusAsOf);
     return transaction;
   }
 
@@ -195,11 +206,20 @@ export class Invoice {
     reason: string,
     reviewedAt: Date,
     reviewedByUserId: string,
-    statusAsOf = reviewedAt.toISOString().slice(0, 10),
+    statusAsOf?: string,
   ): PaymentTransaction {
+    const reviewedAsOf =
+      reviewedAt instanceof Date && !Number.isNaN(reviewedAt.getTime())
+        ? reviewedAt.toISOString().slice(0, 10)
+        : null;
+    if (!reviewedAsOf) {
+      throw new ValidationError('A data de revisão do pagamento é inválida.');
+    }
+    const effectiveStatusAsOf = statusAsOf ?? reviewedAsOf;
+    Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
     const transaction = this.findPayment(paymentId);
     transaction.reject(reason, reviewedAt, reviewedByUserId);
-    this.recalculateStatus(statusAsOf);
+    this.recalculateStatus(effectiveStatusAsOf);
     return transaction;
   }
 
@@ -210,9 +230,10 @@ export class Invoice {
         : asOf instanceof Date && !Number.isNaN(asOf.getTime())
           ? asOf.toISOString().slice(0, 10)
           : null;
-    if (!civilDate || !/^\d{4}-\d{2}-\d{2}$/.test(civilDate)) {
+    if (!civilDate) {
       throw new ValidationError('A data de referência da fatura é inválida.');
     }
+    Invoice.assertDate(civilDate, 'referência da fatura');
     this.recalculateStatus(civilDate);
   }
 
@@ -241,9 +262,9 @@ export class Invoice {
     this._status = this._dueDate < asOf ? InvoiceStatus.OVERDUE : InvoiceStatus.OPEN;
   }
 
-  private static assertDate(value: string): void {
+  private static assertDate(value: string, field = 'vencimento'): void {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
-      throw new ValidationError('A data de vencimento deve estar no formato AAAA-MM-DD.');
+      throw new ValidationError(`A data de ${field} deve estar no formato AAAA-MM-DD.`);
     const year = Number(value.slice(0, 4));
     const month = Number(value.slice(5, 7));
     const day = Number(value.slice(8, 10));
@@ -253,7 +274,7 @@ export class Invoice {
       parsed.getUTCMonth() !== month - 1 ||
       parsed.getUTCDate() !== day
     ) {
-      throw new ValidationError('A data de vencimento é inválida.');
+      throw new ValidationError(`A data de ${field} é inválida.`);
     }
   }
 
