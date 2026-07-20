@@ -404,15 +404,15 @@ describe('OnboardingWizard', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: 'Retomar' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(screen.getByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(screen.getByRole('heading', { name: 'Referências' })).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(screen.getByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByRole('heading', { name: 'Referências' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
     await user.click(await screen.findByRole('radio'));
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(screen.getByRole('heading', { name: 'Revisão do cadastro' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByRole('heading', { name: 'Revisão do cadastro' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
 
     expect(await screen.findByText('O rascunho já foi concluído ou descartado.')).toBeVisible();
