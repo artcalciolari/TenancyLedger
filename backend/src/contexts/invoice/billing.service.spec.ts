@@ -529,6 +529,36 @@ describe('BillingService', () => {
         service.rejectPayment(INVOICE_ID, PAYMENT_ID, 'Motivo', REVIEWER_ID),
       ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
     });
+
+    it('reviews a non-cash payment without consulting the cashbox', async () => {
+      const cashbox = { assertOpen: jest.fn().mockResolvedValue(undefined) };
+      service = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        undefined,
+        undefined,
+        undefined,
+        cashbox as unknown as CashboxService,
+      );
+      const payment = invoice.submitPayment(
+        100_00,
+        PaymentMethod.PIX,
+        ProofType.DIGITAL_SLIP,
+        STORED_KEY,
+        NOW,
+        IDEMPOTENCY_KEY,
+        REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
+      );
+      assignId(payment, PAYMENT_ID);
+
+      await service.approvePayment(INVOICE_ID, PAYMENT_ID, REVIEWER_ID);
+      await service.reversePayment(INVOICE_ID, PAYMENT_ID, 'Correção', SUBMITTER_ID);
+
+      expect(cashbox.assertOpen).not.toHaveBeenCalled();
+      expect(payment.status).toBe(PaymentStatus.REVERSED);
+    });
   });
 
   describe('direct cash settlement and reversal', () => {
@@ -590,6 +620,28 @@ describe('BillingService', () => {
         }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
+
+    it.each([
+      ['a primitive driver error', 'storage offline' as unknown as Error],
+      [
+        'an unrelated database constraint',
+        Object.assign(new Error('other constraint'), { constraint: 'CHK_other_constraint' }),
+      ],
+    ])(
+      'preserves %s instead of translating it to a cashbox conflict',
+      async (_scenario, driver) => {
+        const failure = new QueryFailedError('UPDATE payment_transactions', [], driver);
+        updateWithLock.mockRejectedValueOnce(failure);
+
+        await expect(
+          service.settleCash(INVOICE_ID, {
+            idempotencyKey: IDEMPOTENCY_KEY,
+            amountCents: 100_00,
+            settledByUserId: SUBMITTER_ID,
+          }),
+        ).rejects.toBe(failure);
+      },
+    );
 
     it('approves cash immediately and reverses it without deleting the ledger entry', async () => {
       const settled = await service.settleCash(INVOICE_ID, {
@@ -666,6 +718,28 @@ describe('BillingService', () => {
 
       expect(contract.status).toBe(ContractStatus.ACTIVE);
       expect(contractRepository.save).toHaveBeenCalledWith(contract);
+    });
+
+    it('does not inspect the contract until the invoice is fully paid', async () => {
+      const contractRepository = {
+        findOneBy: jest.fn(),
+        save: jest.fn(),
+      };
+      service = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        contractRepository as unknown as Repository<Contract>,
+      );
+
+      const result = await service.settleCash(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        amountCents: 25_00,
+        settledByUserId: SUBMITTER_ID,
+      });
+
+      expect(result.status).toBe(InvoiceStatus.PARTIALLY_PAID);
+      expect(contractRepository.findOneBy).not.toHaveBeenCalled();
     });
 
     it('reports a missing invoice for settlement and reversal', async () => {

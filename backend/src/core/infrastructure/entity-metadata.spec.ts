@@ -55,4 +55,18 @@ describe('TypeORM relation metadata', () => {
       'payment-side',
     );
   });
+
+  it("resolves the status_changed_at column's default value factory", () => {
+    const column = getMetadataArgsStorage()
+      .filterColumns(Contract)
+      .find((metadata) => metadata.options.name === 'status_changed_at');
+
+    expect(column).toBeDefined();
+    const defaultFactory: unknown = column?.options.default;
+    const isDefaultFactory = (value: unknown): value is () => unknown =>
+      typeof value === 'function';
+    expect(isDefaultFactory(defaultFactory)).toBe(true);
+    if (!isDefaultFactory(defaultFactory)) return;
+    expect(defaultFactory()).toBe('now()');
+  });
 });

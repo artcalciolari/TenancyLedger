@@ -3,6 +3,10 @@ import { ValidationError } from '../../core/domain/errors/validation.error';
 import { DashboardService } from './dashboard.service';
 
 describe('DashboardService', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('normaliza os agregados e mantém os três conceitos financeiros disjuntos', async () => {
     const query = jest
       .fn()
@@ -228,6 +232,59 @@ describe('DashboardService', () => {
       byBuilding: [],
       daily: [],
     });
+  });
+
+  it('uses the current civil date when the summary reference is omitted', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-20T02:30:00.000Z'));
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new DashboardService({ query } as unknown as DataSource);
+
+    const result = await service.getSummary();
+
+    expect(result.asOf).toBe('2026-07-19');
+    expect(query).toHaveBeenNthCalledWith(1, expect.any(String), ['2026-07-19']);
+    expect(query).toHaveBeenCalledTimes(3);
+  });
+
+  it('sorts properties and building groups deterministically regardless of insertion order', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          eventDate: '2026-07-10',
+          kind: 'RECEIVED',
+          amountCents: 100,
+          propertyUnitId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
+          buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+          buildingName: 'Edifício Sol',
+          neighborhood: 'Jardins',
+          unitNumber: '101',
+        },
+        {
+          eventDate: '2026-07-10',
+          kind: 'RECEIVED',
+          amountCents: 200,
+          propertyUnitId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+          buildingId: null,
+          buildingName: null,
+          neighborhood: 'Centro',
+          unitNumber: '2',
+        },
+      ]);
+    const service = new DashboardService({ query } as unknown as DataSource);
+
+    const result = await service.getSummary('2026-07-12');
+
+    expect(result.financial.byProperty.map((property) => property.propertyUnitId)).toEqual([
+      '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+      'a1594607-7840-4f91-a6ab-c844013d3df5',
+    ]);
+    expect(result.financial.byBuilding.map((building) => building.buildingId)).toEqual([
+      '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+      null,
+    ]);
   });
 
   it('rejeita datas malformadas ou período invertido antes de consultar o banco', async () => {

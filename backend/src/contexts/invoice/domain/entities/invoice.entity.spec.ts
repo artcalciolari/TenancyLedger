@@ -130,7 +130,6 @@ describe('Invoice payment state machine', () => {
       'Erro de lançamento',
       new Date('2026-07-10T13:00:00.000Z'),
       REVIEWER_ID,
-      '2026-07-10',
     );
 
     expect(payment.status).toBe(PaymentStatus.REVERSED);

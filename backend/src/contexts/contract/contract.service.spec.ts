@@ -153,6 +153,20 @@ describe('ContractService', () => {
       expect(save).toHaveBeenCalledWith(result);
     });
 
+    it('normalizes an omitted duration for a month-to-month contract', async () => {
+      const result = await service.create({
+        ...input,
+        durationInMonths: undefined,
+        contractType: ContractType.MONTH_TO_MONTH,
+      });
+
+      expect(result).toMatchObject({
+        contractType: ContractType.MONTH_TO_MONTH,
+        durationInMonths: null,
+        endDate: null,
+      });
+    });
+
     it('rejects a missing tenant before checking overlap or saving', async () => {
       tenantExistsBy.mockResolvedValue(false);
 
@@ -541,5 +555,11 @@ describe('ContractService', () => {
         '2026-08-15',
       ).badges,
     ).toEqual([]);
+  });
+
+  it('fails explicitly when activation is used without the invoice repository', () => {
+    expect(() => service.activate(CONTRACT_ID)).toThrow(
+      'O repositório de faturas é obrigatório para ativar um contrato.',
+    );
   });
 });

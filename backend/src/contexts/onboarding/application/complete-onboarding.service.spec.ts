@@ -241,6 +241,17 @@ describe('CompleteOnboardingService', () => {
     expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
   });
 
+  it('keeps the completion successful even if cleaning up the draft photo object fails', async () => {
+    currentDraft = draft();
+    currentDraft.photoStorageKey = DRAFT_PHOTO_KEY;
+    deleteObject.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    const result = await service.complete(DRAFT_ID, USER_ID, false);
+
+    expect(result.tenantId).toBe(TENANT_ID);
+    expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
+  });
+
   it('completes without a photo when the draft never had one', async () => {
     await service.complete(DRAFT_ID, USER_ID, false);
 
@@ -267,6 +278,27 @@ describe('CompleteOnboardingService', () => {
 
     expect(deleteObject).toHaveBeenCalledWith(PROMOTED_PHOTO_KEY);
     expect(deleteObject).not.toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
+  });
+
+  it('preserves the original error even if cleaning up the promoted photo object fails', async () => {
+    currentDraft = draft();
+    currentDraft.photoStorageKey = DRAFT_PHOTO_KEY;
+    const invoiceSaveError = new Error('invoice persistence failed');
+    save.mockImplementation((entity: unknown) => {
+      if (entity instanceof Invoice) return Promise.reject(invoiceSaveError);
+      if (entity instanceof Tenant && !entity.id) {
+        Object.defineProperty(entity, 'id', { value: TENANT_ID, configurable: true });
+      }
+      if (entity instanceof Contract && !entity.id) {
+        Object.defineProperty(entity, 'id', { value: CONTRACT_ID, configurable: true });
+      }
+      return Promise.resolve(entity);
+    });
+    deleteObject.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await expect(service.complete(DRAFT_ID, USER_ID, false)).rejects.toBe(invoiceSaveError);
+
+    expect(deleteObject).toHaveBeenCalledWith(PROMOTED_PHOTO_KEY);
   });
 
   it('leaves the draft uncompleted and skips cleanup when the promotion call itself fails', async () => {

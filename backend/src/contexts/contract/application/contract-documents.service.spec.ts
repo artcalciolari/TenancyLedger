@@ -407,6 +407,18 @@ describe('ContractDocumentsService', () => {
     expect(deleteObject).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves the original error even if orphan cleanup fails after generation', async () => {
+    const persistenceError = new Error('database unavailable');
+    managerSave.mockImplementation((entity: unknown) => {
+      if (entity instanceof ContractDocument) return Promise.reject(persistenceError);
+      return Promise.resolve(entity);
+    });
+    deleteObject.mockRejectedValue(new Error('storage unavailable'));
+
+    await expect(service.generate(CONTRACT_ID, USER_ID)).rejects.toBe(persistenceError);
+    expect(deleteObject).toHaveBeenCalledTimes(1);
+  });
+
   it('lists every stored version with short-lived private URLs', async () => {
     const first = persistedDocument();
     const second = persistedDocument({

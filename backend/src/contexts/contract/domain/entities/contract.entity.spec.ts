@@ -296,4 +296,50 @@ describe('Contract', () => {
     expect(contract.status).toBe(ContractStatus.CANCELLED);
     expect(() => contract.markSigned()).toThrow(ContractStateError);
   });
+
+  it('rejects values that bypass compile-time contract creation types', () => {
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        150_000,
+        12,
+        true,
+        18,
+        'UNKNOWN' as ContractType,
+      ),
+    ).toThrow(new ValidationError('O tipo do contrato é inválido.'));
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        150_000,
+        12,
+        'yes' as unknown as boolean,
+      ),
+    ).toThrow(new ValidationError('A indicação de renovação deve ser booleana.'));
+  });
+
+  it('rejects cancellation and termination from incompatible lifecycle states', () => {
+    const active = createContract();
+    const pending = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 150_000);
+
+    expect(() => active.cancel('Desistência')).toThrow(ContractStateError);
+    expect(() => pending.terminate('Entrega das chaves')).toThrow(ContractStateError);
+  });
+
+  it('does not report occupation after the fixed-term end date', () => {
+    const contract = createContract(1);
+
+    expect(contract.isOccupyingOn('2026-02-01')).toBe(false);
+  });
+
+  it('rejects an invalid lifecycle timestamp without mutating the contract', () => {
+    const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 150_000);
+
+    expect(() => contract.markSigned(new Date(Number.NaN))).toThrow(ValidationError);
+    expect(contract.status).toBe(ContractStatus.PENDING_SIGNATURE);
+  });
 });

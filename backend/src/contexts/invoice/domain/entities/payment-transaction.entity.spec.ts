@@ -260,4 +260,41 @@ describe('PaymentTransaction', () => {
     expect(transaction.reviewedByUserId).toBe(REVIEWER_ID);
     expect(() => transaction.approve(REVIEWED_AT, REVIEWER_ID)).toThrow(PaymentStateError);
   });
+
+  it('reverses an approved payment with an isolated timestamp', () => {
+    const transaction = createTransaction();
+    transaction.approve(REVIEWED_AT, REVIEWER_ID);
+    const reversedAt = new Date('2026-07-10T14:00:00.000Z');
+
+    transaction.reverse('  lançamento duplicado  ', reversedAt, SUBMITTER_ID);
+    reversedAt.setUTCFullYear(2030);
+    const exposedDate = transaction.reversedAt;
+    exposedDate?.setUTCFullYear(2031);
+
+    expect(transaction.status).toBe(PaymentStatus.REVERSED);
+    expect(transaction.reversalReason).toBe('lançamento duplicado');
+    expect(transaction.reversedAt?.toISOString()).toBe('2026-07-10T14:00:00.000Z');
+  });
+
+  it('rejects reversal before approval', () => {
+    const transaction = createTransaction();
+
+    expect(() =>
+      transaction.reverse('Correção', new Date('2026-07-10T14:00:00.000Z'), REVIEWER_ID),
+    ).toThrow(PaymentStateError);
+    expect(transaction.reversedAt).toBeNull();
+  });
+
+  it.each([
+    ['an empty reason', '', new Date('2026-07-10T14:00:00.000Z')],
+    ['a long reason', 'x'.repeat(501), new Date('2026-07-10T14:00:00.000Z')],
+    ['an invalid timestamp', 'Correção', new Date(Number.NaN)],
+    ['a timestamp before review', 'Correção', new Date('2026-07-10T12:30:00.000Z')],
+  ])('rejects reversal with %s', (_scenario, reason, reversedAt) => {
+    const transaction = createTransaction();
+    transaction.approve(REVIEWED_AT, REVIEWER_ID);
+
+    expect(() => transaction.reverse(reason, reversedAt, SUBMITTER_ID)).toThrow(ValidationError);
+    expect(transaction.status).toBe(PaymentStatus.APPROVED);
+  });
 });

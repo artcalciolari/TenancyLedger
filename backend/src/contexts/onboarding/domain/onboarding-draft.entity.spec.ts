@@ -79,4 +79,13 @@ describe('OnboardingDraft', () => {
     expect(draft.status).toBe(OnboardingDraftStatus.DISCARDED);
     expect(() => draft.updatePayload({})).toThrow(OnboardingDraftNotEditableError);
   });
+
+  it('rejects a photo key outside the draft-owned storage prefix', () => {
+    const draft = OnboardingDraft.create({}, USER_ID);
+
+    expect(() => draft.setPhotoStorageKey('documents/tenant-photos/photo.jpg')).toThrow(
+      new ValidationError('Chave de armazenamento da foto do rascunho inválida.'),
+    );
+    expect(draft.photoStorageKey).toBeNull();
+  });
 });

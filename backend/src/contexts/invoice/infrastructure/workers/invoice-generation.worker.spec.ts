@@ -196,6 +196,49 @@ describe('InvoiceGenerationWorker', () => {
     });
   });
 
+  it('clamps an early monthly due day to the occupancy period and remains idempotent', async () => {
+    const value = Contract.create(
+      TENANT_ID,
+      PROPERTY_ID,
+      '2026-07-18',
+      123_45,
+      null,
+      true,
+      10,
+      ContractType.MONTH_TO_MONTH,
+    );
+    Object.defineProperty(value, 'id', { value: CONTRACT_ID });
+    const invoices = new FakeInvoiceRepository();
+    const worker = createWorker(invoices, [value]);
+
+    const first = await worker.generateUpcomingInvoices();
+    const second = await worker.generateUpcomingInvoices();
+
+    expect(first).toMatchObject({ created: 1, existing: 0 });
+    expect(second).toMatchObject({ created: 0, existing: 1 });
+    expect([...invoices.stored.values()][0]?.dueDate).toBe('2026-07-18');
+  });
+
+  it('skips a monthly due date outside the configured window', async () => {
+    const value = Contract.create(
+      TENANT_ID,
+      PROPERTY_ID,
+      '2026-07-18',
+      123_45,
+      null,
+      true,
+      28,
+      ContractType.MONTH_TO_MONTH,
+    );
+    Object.defineProperty(value, 'id', { value: CONTRACT_ID });
+    const invoices = new FakeInvoiceRepository();
+
+    const result = await createWorker(invoices, [value]).generateUpcomingInvoices();
+
+    expect(result).toMatchObject({ created: 0, existing: 0 });
+    expect(invoices.stored.size).toBe(0);
+  });
+
   it('does not create an invoice whose due date is outside the configured window', async () => {
     const value = Contract.create(TENANT_ID, PROPERTY_ID, '2026-01-01', 123_45, 24, true, 20);
     Object.defineProperty(value, 'id', { value: CONTRACT_ID });

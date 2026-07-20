@@ -163,6 +163,18 @@ describe('OnboardingDraftService', () => {
     expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
   });
 
+  it('keeps the discard successful even if removing the temporary photo object fails', async () => {
+    const current = draft();
+    current.setPhotoStorageKey(DRAFT_PHOTO_KEY);
+    repository.findOne.mockResolvedValue(current);
+    deleteObject.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await expect(service.discard(DRAFT_ID, USER_ID, false)).resolves.toBeUndefined();
+
+    expect(current.status).toBe(OnboardingDraftStatus.DISCARDED);
+    expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
+  });
+
   it('uploads a photo, associates it with the draft, and cleans up the previous object', async () => {
     const current = draft();
     current.setPhotoStorageKey(
@@ -186,6 +198,24 @@ describe('OnboardingDraftService', () => {
     expect(deleteObject).toHaveBeenCalledWith(previousKey);
   });
 
+  it('keeps the upload successful even if cleaning up the previous photo object fails', async () => {
+    const current = draft();
+    current.setPhotoStorageKey(
+      `documents/onboarding-draft-photos/${DRAFT_ID}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png`,
+    );
+    const previousKey = current.photoStorageKey;
+    repository.findOne.mockResolvedValue(current);
+    deleteObject.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    const result = await service.uploadPhoto(DRAFT_ID, USER_ID, false, {
+      contentType: 'image/jpeg',
+      body: Buffer.from('photo'),
+    });
+
+    expect(result.photoStorageKey).toBe(DRAFT_PHOTO_KEY);
+    expect(deleteObject).toHaveBeenCalledWith(previousKey);
+  });
+
   it('removes the uploaded object if persisting the draft photo reference fails', async () => {
     const completed = draft();
     completed.markCompleted();
@@ -200,10 +230,37 @@ describe('OnboardingDraftService', () => {
     expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
   });
 
+  it('preserves the original error even if orphan cleanup fails after a failed photo upload', async () => {
+    const completed = draft();
+    completed.markCompleted();
+    findOne.mockResolvedValue(completed);
+    deleteObject.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await expect(
+      service.uploadPhoto(DRAFT_ID, USER_ID, false, {
+        contentType: 'image/jpeg',
+        body: Buffer.from('photo'),
+      }),
+    ).rejects.toBeInstanceOf(OnboardingDraftNotEditableError);
+    expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
+  });
+
   it('removes an associated photo from a draft', async () => {
     const current = draft();
     current.setPhotoStorageKey(DRAFT_PHOTO_KEY);
     repository.findOne.mockResolvedValue(current);
+
+    const result = await service.removePhoto(DRAFT_ID, USER_ID, false);
+
+    expect(result.photoStorageKey).toBeNull();
+    expect(deleteObject).toHaveBeenCalledWith(DRAFT_PHOTO_KEY);
+  });
+
+  it('keeps the removal successful even if deleting the photo object fails', async () => {
+    const current = draft();
+    current.setPhotoStorageKey(DRAFT_PHOTO_KEY);
+    repository.findOne.mockResolvedValue(current);
+    deleteObject.mockRejectedValueOnce(new Error('storage unavailable'));
 
     const result = await service.removePhoto(DRAFT_ID, USER_ID, false);
 

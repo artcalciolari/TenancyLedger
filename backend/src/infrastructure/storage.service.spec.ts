@@ -256,6 +256,23 @@ describe('StorageService', () => {
       });
     });
 
+    it('requests server-side encryption for private documents when enabled', async () => {
+      send.mockResolvedValue({});
+      configGet.mockImplementation((key: string, fallback?: unknown) =>
+        key === 'STORAGE_SSE_ENABLED' ? true : fallback,
+      );
+
+      await service.uploadDocument({
+        folder: 'tenant-photos',
+        ownerId: invoiceId,
+        contentType: 'image/jpeg',
+        body: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+      });
+
+      const command = send.mock.calls[0]?.[0] as PutObjectCommand;
+      expect(command.input.ServerSideEncryption).toBe('AES256');
+    });
+
     it.each([
       [
         'HEIC',
@@ -425,6 +442,15 @@ describe('StorageService', () => {
       expect((command as GetObjectCommand).input.ResponseContentDisposition).toBe('inline');
     });
 
+    it('uses the default expiry when presigning a private document', async () => {
+      jest.mocked(getSignedUrl).mockResolvedValue('https://signed.example/document');
+
+      await service.createDocumentReadUrl(storedDocumentKey);
+
+      const [, , options] = jest.mocked(getSignedUrl).mock.calls[0] ?? [];
+      expect(options).toEqual({ expiresIn: 300 });
+    });
+
     it.each([
       ['an unrelated key', 'secrets/photo.jpg', 300],
       ['a traversal key', `documents/tenant-photos/${invoiceId}/../photo.jpg`, 300],
@@ -569,6 +595,18 @@ describe('StorageService', () => {
         MetadataDirective: 'REPLACE',
         Metadata: { ownerId: tenantId, documentFolder: 'tenant-photos' },
       });
+    });
+
+    it('requests server-side encryption when promoting a draft photo', async () => {
+      send.mockResolvedValue({});
+      configGet.mockImplementation((key: string, fallback?: unknown) =>
+        key === 'STORAGE_SSE_ENABLED' ? true : fallback,
+      );
+
+      await service.promoteDraftPhotoToTenant(storedDraftPhotoKey, tenantId);
+
+      const command = send.mock.calls[0]?.[0] as CopyObjectCommand;
+      expect(command.input.ServerSideEncryption).toBe('AES256');
     });
 
     it('rejects promoting a key outside the onboarding draft photos folder', async () => {
