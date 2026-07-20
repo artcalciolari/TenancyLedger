@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TENANT_CIVIL_STATUSES } from '../../api/contract';
+import { normalizeBrazilianMobilePhone } from '../../lib/validation/phone';
 
 export const createTenantSchema = z.object({
   name: z
@@ -27,9 +28,10 @@ export const createTenantSchema = z.object({
   mobilePhone: z
     .string()
     .trim()
-    .min(10, 'Informe um telefone com DDD.')
-    .max(20, 'O telefone deve ter no máximo 20 caracteres.')
-    .regex(/^\+?[\d ()-]+$/, 'Informe um telefone válido.'),
+    .transform(normalizeBrazilianMobilePhone)
+    .refine((value) => /^[1-9]{2}9\d{8}$/.test(value), {
+      message: 'Informe um celular brasileiro válido com DDD.',
+    }),
 });
 
 export type CreateTenantForm = z.infer<typeof createTenantSchema>;

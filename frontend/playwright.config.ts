@@ -5,6 +5,8 @@ const integrationBrowser = process.env.E2E_FULLSTACK_BROWSER ?? 'chromium';
 const mockedTestIgnore = ['**/integration/**', '**/visual/**'];
 const reportDirectory = process.env.PLAYWRIGHT_HTML_OUTPUT_DIR ?? 'playwright-report';
 const resultsDirectory = process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'test-results';
+const frontendPort = process.env.PLAYWRIGHT_PORT ?? '5173';
+const frontendUrl = `http://127.0.0.1:${frontendPort}`;
 
 const integrationDevice =
   integrationBrowser === 'firefox'
@@ -24,7 +26,7 @@ export default defineConfig({
     : 'list',
   outputDir: resultsDirectory,
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: frontendUrl,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -41,6 +43,14 @@ export default defineConfig({
       name: 'mobile-webkit',
       testIgnore: mockedTestIgnore,
       use: { ...devices['iPhone 15'] },
+    },
+    {
+      name: 'ipad',
+      testIgnore: mockedTestIgnore,
+      use: {
+        ...devices['iPad (gen 7) landscape'],
+        viewport: { width: 1024, height: 768 },
+      },
     },
     {
       name: 'visual-chromium-linux',
@@ -66,8 +76,8 @@ export default defineConfig({
   ],
   snapshotPathTemplate: '{testDir}/{testFileDir}/__screenshots__/{arg}{ext}',
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
-    url: 'http://127.0.0.1:5173/login',
+    command: `npm run dev -- --host 127.0.0.1 --port ${frontendPort}`,
+    url: `${frontendUrl}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

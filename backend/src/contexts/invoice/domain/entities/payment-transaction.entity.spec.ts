@@ -80,6 +80,46 @@ describe('PaymentTransaction', () => {
     expect(() => createTransaction()).not.toThrow();
   });
 
+  it('creates a direct cash settlement already approved by the same actor', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    const transaction = PaymentTransaction.createDirectSettlement(
+      invoice,
+      100_00,
+      PaymentMethod.CASH,
+      SUBMITTED_AT,
+      IDEMPOTENCY_KEY,
+      REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
+    );
+
+    expect(transaction).toMatchObject({
+      status: PaymentStatus.APPROVED,
+      method: PaymentMethod.CASH,
+      isDirectSettlement: true,
+      submittedByUserId: SUBMITTER_ID,
+      reviewedByUserId: SUBMITTER_ID,
+      reversalReason: null,
+      reversedByUserId: null,
+    });
+    expect(transaction.reviewedAt).toEqual(SUBMITTED_AT);
+  });
+
+  it('rejects a non-cash direct settlement', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+    expect(() =>
+      PaymentTransaction.createDirectSettlement(
+        invoice,
+        100_00,
+        PaymentMethod.PIX,
+        SUBMITTED_AT,
+        IDEMPOTENCY_KEY,
+        REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
+      ),
+    ).toThrow(ValidationError);
+  });
+
   it.each([
     {
       scenario: 'zero amount',
@@ -219,5 +259,42 @@ describe('PaymentTransaction', () => {
     expect(transaction.rejectionReason).toBe('Comprovante ilegível');
     expect(transaction.reviewedByUserId).toBe(REVIEWER_ID);
     expect(() => transaction.approve(REVIEWED_AT, REVIEWER_ID)).toThrow(PaymentStateError);
+  });
+
+  it('reverses an approved payment with an isolated timestamp', () => {
+    const transaction = createTransaction();
+    transaction.approve(REVIEWED_AT, REVIEWER_ID);
+    const reversedAt = new Date('2026-07-10T14:00:00.000Z');
+
+    transaction.reverse('  lançamento duplicado  ', reversedAt, SUBMITTER_ID);
+    reversedAt.setUTCFullYear(2030);
+    const exposedDate = transaction.reversedAt;
+    exposedDate?.setUTCFullYear(2031);
+
+    expect(transaction.status).toBe(PaymentStatus.REVERSED);
+    expect(transaction.reversalReason).toBe('lançamento duplicado');
+    expect(transaction.reversedAt?.toISOString()).toBe('2026-07-10T14:00:00.000Z');
+  });
+
+  it('rejects reversal before approval', () => {
+    const transaction = createTransaction();
+
+    expect(() =>
+      transaction.reverse('Correção', new Date('2026-07-10T14:00:00.000Z'), REVIEWER_ID),
+    ).toThrow(PaymentStateError);
+    expect(transaction.reversedAt).toBeNull();
+  });
+
+  it.each([
+    ['an empty reason', '', new Date('2026-07-10T14:00:00.000Z')],
+    ['a long reason', 'x'.repeat(501), new Date('2026-07-10T14:00:00.000Z')],
+    ['an invalid timestamp', 'Correção', new Date(Number.NaN)],
+    ['a timestamp before review', 'Correção', new Date('2026-07-10T12:30:00.000Z')],
+  ])('rejects reversal with %s', (_scenario, reason, reversedAt) => {
+    const transaction = createTransaction();
+    transaction.approve(REVIEWED_AT, REVIEWER_ID);
+
+    expect(() => transaction.reverse(reason, reversedAt, SUBMITTER_ID)).toThrow(ValidationError);
+    expect(transaction.status).toBe(PaymentStatus.APPROVED);
   });
 });

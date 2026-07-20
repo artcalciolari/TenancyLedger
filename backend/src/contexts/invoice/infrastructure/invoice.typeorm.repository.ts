@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Invoice } from '../domain/entities/invoice.entity';
 import { PaymentStatus, PaymentTransaction } from '../domain/entities/payment-transaction.entity';
 import { Contract } from '../../contract/domain/entities/contract.entity';
@@ -225,7 +225,7 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
 
   async updateWithLock(
     id: string,
-    update: (invoice: Invoice) => void | Promise<void>,
+    update: (invoice: Invoice, manager?: EntityManager) => void | Promise<void>,
     transactionKey?: string,
   ): Promise<Invoice | null> {
     return this.repository.manager.transaction(async (manager) => {
@@ -244,7 +244,7 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
         .where('invoice.id = :id', { id })
         .getOne();
       if (!invoice) return null;
-      await update(invoice);
+      await update(invoice, manager);
       return manager.save(invoice);
     });
   }

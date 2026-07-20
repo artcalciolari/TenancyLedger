@@ -13,6 +13,7 @@ import {
 import { ConflictError } from '../../../../core/domain/errors/conflict.error';
 import { ValidationError } from '../../../../core/domain/errors/validation.error';
 import { Contract } from '../../../contract/domain/entities/contract.entity';
+import { calendarPeriodFrom } from '../../../../core/domain/calendar-period';
 import {
   PaymentMethod,
   PaymentStatus,
@@ -31,13 +32,15 @@ export enum InvoiceStatus {
 export class InvoiceStateError extends ConflictError {}
 
 @Entity('invoices')
-@Unique('UQ_invoices_contract_competence', ['_contractId', '_competence'])
+@Unique('UQ_invoices_contract_period_start', ['_contractId', '_periodStart'])
 @Check('CHK_invoices_total_positive', 'total_value_cents > 0')
 @Check('CHK_invoices_competence_format', "competence ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'")
 @Check(
   'CHK_invoices_due_date_competence',
   'EXTRACT(YEAR FROM due_date) = substring(competence from 1 for 4)::integer AND EXTRACT(MONTH FROM due_date) = substring(competence from 6 for 2)::integer',
 )
+@Check('CHK_invoices_period', 'period_end >= period_start')
+@Check('CHK_invoices_period_competence', "competence = to_char(period_start, 'YYYY-MM')")
 @Index('IDX_invoices_contract_id', ['_contractId'])
 export class Invoice {
   static readonly MAX_MONEY_CENTS = 2_147_483_647;
@@ -61,6 +64,12 @@ export class Invoice {
 
   @Column({ name: 'due_date', type: 'date' })
   private _dueDate!: string;
+
+  @Column({ name: 'period_start', type: 'date' })
+  private _periodStart!: string;
+
+  @Column({ name: 'period_end', type: 'date' })
+  private _periodEnd!: string;
 
   @Column({
     name: 'status',
@@ -90,6 +99,8 @@ export class Invoice {
     competence: string,
     totalValueCents: number,
     dueDate: string,
+    periodStart?: string,
+    periodEnd?: string,
   ): Invoice {
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(contractId)
@@ -113,11 +124,25 @@ export class Invoice {
       throw new ValidationError('A data de vencimento deve pertencer à competência da fatura.');
     }
 
+    const defaultPeriod = calendarPeriodFrom(`${competence}-01`);
+    const resolvedPeriodStart = periodStart ?? defaultPeriod.start;
+    const resolvedPeriodEnd = periodEnd ?? defaultPeriod.end;
+    Invoice.assertDate(resolvedPeriodStart, 'início do período');
+    Invoice.assertDate(resolvedPeriodEnd, 'fim do período');
+    if (resolvedPeriodEnd < resolvedPeriodStart) {
+      throw new ValidationError('O fim do período da fatura não pode anteceder o início.');
+    }
+    if (resolvedPeriodStart.slice(0, 7) !== competence) {
+      throw new ValidationError('A competência deve corresponder ao início do período da fatura.');
+    }
+
     const invoice = new Invoice();
     invoice._contractId = contractId;
     invoice._competence = competence;
     invoice._totalValueCents = totalValueCents;
     invoice._dueDate = dueDate;
+    invoice._periodStart = resolvedPeriodStart;
+    invoice._periodEnd = resolvedPeriodEnd;
     invoice._status = InvoiceStatus.OPEN;
     invoice._transactions = [];
     return invoice;
@@ -148,7 +173,9 @@ export class Invoice {
     }
 
     const reservedCents = this._transactions
-      .filter((transaction) => transaction.status !== PaymentStatus.REJECTED)
+      .filter((transaction) =>
+        [PaymentStatus.SUBMITTED, PaymentStatus.APPROVED].includes(transaction.status),
+      )
       .reduce((sum, transaction) => sum + transaction.amountCents, 0);
     if (amountCents > this._totalValueCents - reservedCents) {
       throw new InvoiceStateError('O pagamento excede o saldo disponível da fatura.');
@@ -166,6 +193,50 @@ export class Invoice {
       submittedByUserId,
     );
     const effectiveStatusAsOf = statusAsOf ?? submittedAt.toISOString().slice(0, 10);
+    Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
+    this._transactions.push(transaction);
+    this.recalculateStatus(effectiveStatusAsOf);
+    return transaction;
+  }
+
+  settleCash(
+    amountCents: number,
+    settledAt: Date,
+    idempotencyKey: string,
+    requestFingerprint: string,
+    settledByUserId: string,
+    statusAsOf?: string,
+  ): PaymentTransaction {
+    if (this._status === InvoiceStatus.PAID) {
+      throw new InvoiceStateError('Não é possível quitar em dinheiro uma fatura já paga.');
+    }
+    if (
+      !Number.isSafeInteger(amountCents) ||
+      amountCents <= 0 ||
+      amountCents > Invoice.MAX_MONEY_CENTS
+    ) {
+      throw new ValidationError(
+        'O valor do pagamento em centavos deve ser um inteiro positivo seguro.',
+      );
+    }
+    const reservedCents = this._transactions
+      .filter((transaction) =>
+        [PaymentStatus.SUBMITTED, PaymentStatus.APPROVED].includes(transaction.status),
+      )
+      .reduce((sum, transaction) => sum + transaction.amountCents, 0);
+    if (amountCents > this._totalValueCents - reservedCents) {
+      throw new InvoiceStateError('O pagamento excede o saldo disponível da fatura.');
+    }
+    const transaction = PaymentTransaction.createDirectSettlement(
+      this,
+      amountCents,
+      PaymentMethod.CASH,
+      settledAt,
+      idempotencyKey,
+      requestFingerprint,
+      settledByUserId,
+    );
+    const effectiveStatusAsOf = statusAsOf ?? settledAt.toISOString().slice(0, 10);
     Invoice.assertDate(effectiveStatusAsOf, 'referência da fatura');
     this._transactions.push(transaction);
     this.recalculateStatus(effectiveStatusAsOf);
@@ -220,6 +291,20 @@ export class Invoice {
     const transaction = this.findPayment(paymentId);
     transaction.reject(reason, reviewedAt, reviewedByUserId);
     this.recalculateStatus(effectiveStatusAsOf);
+    return transaction;
+  }
+
+  reversePayment(
+    paymentId: string,
+    reason: string,
+    reversedAt: Date,
+    reversedByUserId: string,
+    statusAsOf = reversedAt.toISOString().slice(0, 10),
+  ): PaymentTransaction {
+    const transaction = this.findPayment(paymentId);
+    transaction.reverse(reason, reversedAt, reversedByUserId);
+    Invoice.assertDate(statusAsOf, 'referência da fatura');
+    this.recalculateStatus(statusAsOf);
     return transaction;
   }
 
@@ -289,6 +374,12 @@ export class Invoice {
   }
   get dueDate(): string {
     return this._dueDate;
+  }
+  get periodStart(): string {
+    return this._periodStart;
+  }
+  get periodEnd(): string {
+    return this._periodEnd;
   }
   get status(): InvoiceStatus {
     return this._status;

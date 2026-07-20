@@ -317,7 +317,8 @@ export function ReviewPaymentsPage() {
                         <Box sx={{ flex: '1 1 200px', minWidth: 180 }}>
                           <Typography
                             sx={{
-                              fontFamily: '"Newsreader", Georgia, serif',
+                              fontFamily: brand.fontDisplay,
+                              fontVariantNumeric: 'oldstyle-nums',
                               fontSize: '1.35rem',
                               fontWeight: 500,
                               color: brand.textPrimary,

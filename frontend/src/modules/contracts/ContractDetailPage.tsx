@@ -1,9 +1,11 @@
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
+import LocalAtmOutlinedIcon from '@mui/icons-material/LocalAtmOutlined';
 import { Alert, Box, Button, Card, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
+import type { InvoiceView } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { StatusChip } from '../../components/data-display/StatusChip';
@@ -14,11 +16,14 @@ import { formatCivilDate, formatDateTime } from '../../lib/dates/dates';
 import { formatCents } from '../../lib/money/money';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
+import { invoicesApi } from '../invoices/api';
+import { SettleCashDialog } from '../invoices/SettleCashDialog';
 import { propertiesApi } from '../properties/api';
 import { unitTypeLabel } from '../properties/labels';
 import { tenantsApi } from '../tenants/api';
 import { civilStatusLabel } from '../tenants/labels';
 import { useContract } from './hooks';
+import { ContractDocumentsSection } from './ContractDocumentsSection';
 import { RenewContractDialog } from './RenewContractDialog';
 
 const uppercaseLabelSx = {
@@ -50,6 +55,7 @@ export function ContractDetailPage() {
   const contract = useContract(contractId);
   const { session } = useAuth();
   const [renewOpen, setRenewOpen] = useState(false);
+  const [settleInvoice, setSettleInvoice] = useState<InvoiceView | null>(null);
   const [renewedEndDate, setRenewedEndDate] = useState<string | null>(null);
   const tenantId = contract.data?.tenantId ?? '';
   const propertyUnitId = contract.data?.propertyUnitId ?? '';
@@ -63,19 +69,32 @@ export function ContractDetailPage() {
     queryFn: () => propertiesApi.get(propertyUnitId),
     enabled: Boolean(propertyUnitId),
   });
+  const invoices = useQuery({
+    queryKey: ['invoices', { contractId, onboardingPayment: true }],
+    queryFn: () => invoicesApi.list({ page: 1, limit: 20, contractId }),
+    enabled: Boolean(contractId),
+  });
 
   if (contract.isPending) return <LoadingState label="Carregando contrato…" />;
   if (contract.isError) {
     return <ProblemAlert error={contract.error} onRetry={() => void contract.refetch()} />;
   }
 
+  const mayManage = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
   const mayRenew = Boolean(
-    session &&
-    hasRole(session.user.role, MANAGEMENT_ROLES) &&
+    mayManage &&
     contract.data.isRenewable &&
     contract.data.status !== 'TERMINATED' &&
+    contract.data.durationInMonths !== null &&
     contract.data.durationInMonths < 600,
   );
+  const payableInvoice = invoices.data?.data
+    .filter(
+      (invoice) =>
+        invoice.outstandingAmountCents > 0 &&
+        ['OPEN', 'PARTIALLY_PAID', 'OVERDUE'].includes(invoice.status),
+    )
+    .sort((left, right) => left.dueDate.localeCompare(right.dueDate))[0];
 
   return (
     <>
@@ -111,11 +130,22 @@ export function ContractDetailPage() {
           </Typography>
           <StatusChip status={contract.data.status} />
         </Stack>
-        {mayRenew && (
-          <Button onClick={() => setRenewOpen(true)} sx={{ flexShrink: 0 }}>
-            Renovar contrato
-          </Button>
-        )}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          {mayRenew && (
+            <Button variant="outlined" onClick={() => setRenewOpen(true)} sx={{ flexShrink: 0 }}>
+              Renovar contrato
+            </Button>
+          )}
+          {mayManage && contract.data.status === 'PAYMENT_PENDING' && payableInvoice && (
+            <Button
+              startIcon={<LocalAtmOutlinedIcon />}
+              onClick={() => setSettleInvoice(payableInvoice)}
+              sx={{ flexShrink: 0 }}
+            >
+              Registrar 1º pagamento em dinheiro
+            </Button>
+          )}
+        </Stack>
       </Stack>
       <Stack spacing={2}>
         {renewedEndDate && (
@@ -123,8 +153,13 @@ export function ContractDetailPage() {
             Contrato renovado. A nova data final confirmada é {formatCivilDate(renewedEndDate)}.
           </Alert>
         )}
-        {!contract.data.isRenewable && (
+        {!contract.data.isRenewable && contract.data.contractType !== 'MONTH_TO_MONTH' && (
           <Alert severity="info">Este contrato foi criado sem permissão de renovação.</Alert>
+        )}
+        {contract.data.contractType === 'MONTH_TO_MONTH' && (
+          <Alert severity="info">
+            Contrato mensal sem prazo final. A renovação acompanha os períodos pagos.
+          </Alert>
         )}
         <Card sx={{ p: { xs: 2.25, sm: 2.75 } }}>
           <Box
@@ -141,11 +176,17 @@ export function ContractDetailPage() {
             <DetailField label="Data de entrada">
               {formatCivilDate(contract.data.moveInDate)}
             </DetailField>
-            <DetailField label="Data final">{formatCivilDate(contract.data.endDate)}</DetailField>
+            <DetailField label="Data final">
+              {contract.data.endDate ? formatCivilDate(contract.data.endDate) : 'Sem prazo final'}
+            </DetailField>
             <DetailField label="Aluguel mensal">
               {formatCents(contract.data.monthlyBaseValueCents)}
             </DetailField>
-            <DetailField label="Duração">{contract.data.durationInMonths} meses</DetailField>
+            <DetailField label="Duração">
+              {contract.data.durationInMonths === null
+                ? 'Mensal contínuo'
+                : `${contract.data.durationInMonths} meses`}
+            </DetailField>
             <DetailField label="Dia de cobrança">Dia {contract.data.billingDay}</DetailField>
             <DetailField label="Renovável">{contract.data.isRenewable ? 'Sim' : 'Não'}</DetailField>
             <DetailField label="Criado em">{formatDateTime(contract.data.createdAt)}</DetailField>
@@ -278,13 +319,35 @@ export function ContractDetailPage() {
             )}
           </Card>
         </Box>
+        {mayManage && (
+          <ContractDocumentsSection
+            contractId={contract.data.id}
+            mayManage
+            canPreview={contract.data.contractType === 'MONTH_TO_MONTH'}
+          />
+        )}
       </Stack>
       {mayRenew && (
         <RenewContractDialog
-          contract={contract.data}
+          contract={{
+            id: contract.data.id,
+            durationInMonths: contract.data.durationInMonths ?? 0,
+          }}
           open={renewOpen}
           onClose={() => setRenewOpen(false)}
           onRenewed={(renewed) => setRenewedEndDate(renewed.endDate)}
+        />
+      )}
+      {settleInvoice && (
+        <SettleCashDialog
+          key={settleInvoice.id}
+          invoice={settleInvoice}
+          open
+          onClose={() => setSettleInvoice(null)}
+          onSettled={() => {
+            void contract.refetch();
+            void invoices.refetch();
+          }}
         />
       )}
     </>

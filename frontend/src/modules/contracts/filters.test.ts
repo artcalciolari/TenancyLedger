@@ -40,6 +40,31 @@ describe('parseContractFilters', () => {
     expect(filters.q).toHaveLength(120);
     expect(filters.moveInFrom).toBeUndefined();
   });
+
+  it('ativa somente badges conhecidos', () => {
+    expect(parseContractFilters(new URLSearchParams({ badge: 'RENEWAL_DUE' })).badge).toBe(
+      'RENEWAL_DUE',
+    );
+    expect(parseContractFilters(new URLSearchParams({ badge: 'UNKNOWN' })).badge).toBeUndefined();
+  });
+
+  it('lê renewalAttention apenas quando explicitamente true', () => {
+    expect(
+      parseContractFilters(new URLSearchParams({ renewalAttention: 'true' })).renewalAttention,
+    ).toBe(true);
+    expect(
+      parseContractFilters(new URLSearchParams({ renewalAttention: 'false' })).renewalAttention,
+    ).toBeUndefined();
+    expect(parseContractFilters(new URLSearchParams()).renewalAttention).toBeUndefined();
+  });
+
+  it('combina renewalAttention com badge para a interseção natural dos filtros', () => {
+    const filters = parseContractFilters(
+      new URLSearchParams({ renewalAttention: 'true', badge: 'PAYMENT_OVERDUE' }),
+    );
+    expect(filters.renewalAttention).toBe(true);
+    expect(filters.badge).toBe('PAYMENT_OVERDUE');
+  });
 });
 
 describe('isUuid', () => {

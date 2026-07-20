@@ -3,42 +3,47 @@ import { createTheme } from '@mui/material/styles';
 const focusColor = '#3178b8';
 
 /**
- * Brand tokens outside the MUI palette (sidebar ink, tints, hairlines) — see
- * docs/design/design-handoff-tenancy-ledger-redesign/README.md "Sistema de Design".
+ * Tokens da direção "Livro-Razão": tinta verde-negra, verde-garrafa, porcelana,
+ * latão em fio e o vermelho de margem contábil. Ver
+ * docs/design/design-handoff-tenancy-ledger-redesign/README.md e a proposta aprovada.
  */
 export const brand = {
-  pageBg: '#F3F1EA',
+  pageBg: '#FAFAF6',
   surface: '#FFFFFF',
-  surfaceSubtle: '#FBFAF6',
-  sidebarBg: '#16242B',
-  sidebarBorder: 'rgba(255,255,255,0.07)',
-  sidebarItemActiveBg: 'rgba(255,255,255,0.08)',
-  sidebarItemInactiveFg: '#AEBBBD',
-  sidebarIconInactive: '#7C8C90',
-  sidebarIconActive: '#79C2C7',
-  sidebarGroupLabel: '#8A9AA0',
-  sidebarFooterMuted: '#8D9B9E',
-  accent: '#0E6E78',
-  accentDark: '#0B565E',
-  accentTint: '#E4EFF0',
-  accentBright: '#79C2C7',
-  ocre: '#B9822F',
-  textPrimary: '#1C2A30',
-  textSecondary: '#5E6E73',
-  textTertiary: '#8A969A',
-  borderCard: '#EBE6D8',
-  borderInput: '#E4DFD2',
-  borderRow: '#F1EEE4',
-  cardShadow: '0 1px 2px rgba(20,36,43,0.03), 0 10px 26px -18px rgba(20,36,43,0.18)',
-  buttonShadow: '0 8px 18px -8px rgba(14,110,120,0.5)',
+  surfaceSubtle: '#F7F6F0',
+  sidebarBg: '#16211C',
+  sidebarBorder: 'rgba(242,241,234,0.12)',
+  sidebarItemActiveBg: 'rgba(255,255,255,0.05)',
+  sidebarItemInactiveFg: '#B9C0B7',
+  sidebarIconInactive: '#77837C',
+  sidebarIconActive: '#E8E7DF',
+  sidebarGroupLabel: '#8B968D',
+  sidebarFooterMuted: '#8B968D',
+  accent: '#175045',
+  accentDark: '#103A32',
+  accentTint: '#E7EEEB',
+  accentBright: '#7FB8A6',
+  latao: '#A98C4B',
+  razao: '#B03A2E',
+  razaoTint: '#F7E9E6',
+  textPrimary: '#1B2620',
+  textSecondary: '#4C5A53',
+  textTertiary: '#79837D',
+  borderCard: '#E6E3D8',
+  borderInput: '#DDD9CC',
+  borderRow: '#EFEDE4',
+  cardShadow: '0 1px 2px rgba(16,26,20,0.04)',
+  buttonShadow: '0 1px 2px rgba(16,26,20,0.16)',
+  fontDisplay: '"Fraunces Variable", Georgia, serif',
+  fontMono: '"IBM Plex Mono", ui-monospace, monospace',
 } as const;
 
 export const statusTones = {
-  success: { bg: '#E7F1EA', fg: '#1F5E3C', dot: '#2F7D53' },
-  neutral: { bg: '#ECEDEA', fg: '#4B5A5F', dot: '#7C8C90' },
-  info: { bg: '#E4EFF0', fg: '#0B565E', dot: '#0E6E78' },
-  warning: { bg: '#F6EEDA', fg: '#855812', dot: '#B0771C' },
-  error: { bg: '#F7E7E4', fg: '#973129', dot: '#B4443C' },
+  success: { bg: '#E9F0EB', fg: '#2E6B4F', dot: '#3B7A5D' },
+  neutral: { bg: '#EDECE6', fg: '#4C5A53', dot: '#79837D' },
+  info: { bg: '#E7EEEB', fg: '#175045', dot: '#1F6152' },
+  warning: { bg: '#F5EEDC', fg: '#8A6116', dot: '#A67A1F' },
+  error: { bg: '#F7E9E6', fg: '#9C3327', dot: '#B03A2E' },
 } as const;
 
 export type StatusTone = keyof typeof statusTones;
@@ -46,6 +51,10 @@ export type StatusTone = keyof typeof statusTones;
 export function createAppTheme() {
   return createTheme({
     cssVariables: true,
+    breakpoints: {
+      // iPad em portrait usa a composição compacta; a partir de md (landscape), desktop.
+      values: { xs: 0, sm: 600, md: 900, lg: 1200, xl: 1536 },
+    },
     palette: {
       mode: 'light',
       primary: { main: brand.accent, dark: brand.accentDark, light: brand.accentBright },
@@ -59,27 +68,33 @@ export function createAppTheme() {
       divider: brand.borderCard,
     },
     typography: {
-      fontFamily: '"Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif',
+      fontFamily: '"Archivo Variable", ui-sans-serif, system-ui, -apple-system, sans-serif',
       h1: {
-        fontFamily: '"Newsreader", Georgia, serif',
-        fontSize: 'clamp(1.75rem, 3vw, 2.1rem)',
-        fontWeight: 500,
-        letterSpacing: '-0.01em',
-        lineHeight: 1.2,
+        fontFamily: brand.fontDisplay,
+        fontSize: 'clamp(1.75rem, 3vw, 2.15rem)',
+        fontWeight: 540,
+        letterSpacing: '-0.015em',
+        lineHeight: 1.15,
       },
-      h2: { fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.3 },
-      button: { textTransform: 'none', fontWeight: 650 },
+      h2: { fontSize: '1.02rem', fontWeight: 650, lineHeight: 1.3 },
+      button: { textTransform: 'none', fontWeight: 600 },
     },
-    shape: { borderRadius: 12 },
+    shape: { borderRadius: 10 },
     components: {
       MuiButtonBase: {
         defaultProps: { disableRipple: false },
-        styleOverrides: { root: { minWidth: 44, minHeight: 44 } },
+        styleOverrides: {
+          root: {
+            minWidth: 44,
+            minHeight: 44,
+            touchAction: 'manipulation',
+          },
+        },
       },
       MuiButton: {
         defaultProps: { variant: 'contained' },
         styleOverrides: {
-          root: { borderRadius: 11 },
+          root: { borderRadius: 8, letterSpacing: '0.01em' },
           contained: {
             boxShadow: brand.buttonShadow,
             '&:hover': { boxShadow: brand.buttonShadow },
@@ -88,7 +103,7 @@ export function createAppTheme() {
       },
       MuiInputBase: { styleOverrides: { root: { minHeight: 44 } } },
       MuiTextField: { defaultProps: { size: 'small', fullWidth: true } },
-      MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 11 } } },
+      MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 8 } } },
       MuiLink: {
         styleOverrides: {
           root: {
@@ -103,17 +118,17 @@ export function createAppTheme() {
       MuiCard: {
         defaultProps: { variant: 'outlined' },
         styleOverrides: {
-          root: { borderRadius: 16, borderColor: brand.borderCard, boxShadow: brand.cardShadow },
+          root: { borderRadius: 10, borderColor: brand.borderCard, boxShadow: brand.cardShadow },
         },
       },
-      MuiChip: { styleOverrides: { root: { borderRadius: 8, fontWeight: 600 } } },
+      MuiChip: { styleOverrides: { root: { borderRadius: 4, fontWeight: 600 } } },
       MuiTableCell: {
         styleOverrides: {
           head: {
             textTransform: 'uppercase',
-            fontSize: '0.72rem',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
+            fontSize: '0.7rem',
+            fontWeight: 650,
+            letterSpacing: '0.09em',
             color: brand.textTertiary,
             backgroundColor: brand.surfaceSubtle,
           },

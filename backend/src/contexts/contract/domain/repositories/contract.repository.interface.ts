@@ -1,10 +1,12 @@
-import { Contract, ContractStatus } from '../entities/contract.entity';
+import { Contract, ContractBadge, ContractStatus } from '../entities/contract.entity';
 
 export const CONTRACT_REPOSITORY_TOKEN = Symbol('CONTRACT_REPOSITORY_TOKEN');
 
 export interface ContractFilterOptions {
   asOf: string;
   status?: ContractStatus;
+  badge?: ContractBadge;
+  renewalAttention?: boolean;
   tenantId?: string;
   propertyUnitId?: string;
   q?: string;
@@ -35,7 +37,7 @@ export interface IContractRepository {
   hasOverlap(
     propertyUnitId: string,
     startDate: string,
-    endDate: string,
+    endDate: string | null,
     excludeId?: string,
   ): Promise<boolean>;
   findActiveInPeriod(startDate: string, endDate: string): Promise<Contract[]>;

@@ -12,5 +12,7 @@ export const queryKeys = {
   invoice: (id: string) => ['invoice', id] as const,
   paymentReview: (filters: object) => ['payments', 'review', filters] as const,
   dashboard: ['dashboard'] as const,
+  cashClosings: ['cash-closings'] as const,
+  cashClosing: (date: string) => ['cash-closing', date] as const,
   notifications: ['notifications'] as const,
 };

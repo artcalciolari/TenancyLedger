@@ -7,6 +7,7 @@ const ids = {
   viewer: '10000000-0000-4000-8000-000000000003',
   tenant: '20000000-0000-4000-8000-000000000001',
   property: '30000000-0000-4000-8000-000000000001',
+  onboardingProperty: '30000000-0000-4000-8000-000000000002',
   contract: '40000000-0000-4000-8000-000000000001',
   openInvoice: '50000000-0000-4000-8000-000000000001',
   reviewInvoice: '50000000-0000-4000-8000-000000000002',
@@ -71,9 +72,11 @@ async function seed(): Promise<void> {
     await manager.query(
       `
         INSERT INTO property_units (id, neighborhood, type, unit_number, created_at)
-        VALUES ($1, 'Bairro Seed E2E', 'APARTMENT', 'E2E-101', '2026-01-01T10:01:00Z')
+        VALUES
+          ($1, 'Bairro Seed E2E', 'APARTMENT', 'E2E-101', '2026-01-01T10:01:00Z'),
+          ($2, 'Onboarding E2E', 'ROOM', 'E2E-ONB-01', '2026-01-01T10:01:30Z')
       `,
-      [ids.property],
+      [ids.property, ids.onboardingProperty],
     );
 
     await manager.query(
@@ -81,10 +84,12 @@ async function seed(): Promise<void> {
         INSERT INTO contracts
           (id, tenant_id, property_unit_id, move_in_date, end_date,
            monthly_base_value_cents, duration_in_months, billing_day,
-           is_renewable, status, created_at, updated_at)
+           is_renewable, contract_type, status, status_reason, status_changed_at,
+           created_at, updated_at)
         VALUES
           ($1, $2, $3, '2099-01-01', '2100-12-31', 250000, 24, 10,
-           true, 'ACTIVE', '2026-01-01T10:02:00Z', '2026-01-01T10:02:00Z')
+           true, 'FIXED_TERM', 'ACTIVE', NULL, '2026-01-01T10:02:00Z',
+           '2026-01-01T10:02:00Z', '2026-01-01T10:02:00Z')
       `,
       [ids.contract, ids.tenant, ids.property],
     );
@@ -92,11 +97,12 @@ async function seed(): Promise<void> {
     await manager.query(
       `
         INSERT INTO invoices
-          (id, contract_id, competence, total_value_cents, due_date, status, created_at, updated_at)
+          (id, contract_id, competence, period_start, period_end,
+           total_value_cents, due_date, status, created_at, updated_at)
         VALUES
-          ($1, $3, '2099-01', 250000, '2099-01-10', 'OPEN',
+          ($1, $3, '2099-01', '2099-01-01', '2099-01-31', 250000, '2099-01-10', 'OPEN',
            '2026-01-01T10:03:00Z', '2026-01-01T10:03:00Z'),
-          ($2, $3, '2099-02', 250000, '2099-02-10', 'UNDER_REVIEW',
+          ($2, $3, '2099-02', '2099-02-01', '2099-02-28', 250000, '2099-02-10', 'UNDER_REVIEW',
            '2026-01-01T10:04:00Z', '2026-01-01T10:04:00Z')
       `,
       [ids.openInvoice, ids.reviewInvoice, ids.contract],
@@ -107,11 +113,12 @@ async function seed(): Promise<void> {
         INSERT INTO payment_transactions
           (id, invoice_id, amount_cents, submitted_at, proof_reference, method,
            proof_type, status, reviewed_at, rejection_reason, idempotency_key,
-           request_fingerprint, submitted_by_user_id, reviewed_by_user_id)
+           request_fingerprint, submitted_by_user_id, reviewed_by_user_id,
+           is_direct_settlement, reversal_reason, reversed_at, reversed_by_user_id)
         VALUES
           ($1, $2, 50000, '2026-01-01T10:05:00Z', NULL, 'CASH', NULL,
            'SUBMITTED', NULL, NULL, 'seed-review-payment-0001',
-           repeat('a', 64), $3, NULL)
+           repeat('a', 64), $3, NULL, false, NULL, NULL, NULL)
       `,
       [ids.reviewPayment, ids.reviewInvoice, ids.manager],
     );
@@ -123,6 +130,7 @@ async function seed(): Promise<void> {
       users: ['admin.e2e@example.test', 'manager.e2e@example.test', 'viewer.e2e@example.test'],
       openInvoiceId: ids.openInvoice,
       reviewInvoiceId: ids.reviewInvoice,
+      onboardingPropertyId: ids.onboardingProperty,
     }),
   );
 }

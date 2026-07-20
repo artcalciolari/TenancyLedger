@@ -1,4 +1,5 @@
 import type {
+  ContractDocumentView as ApiContractDocumentView,
   ContractListFilters,
   ContractView,
   CreateContractInput,
@@ -7,8 +8,16 @@ import type {
 } from '../../api/contract';
 import { executeOpenApi, openApiClient } from '../../api/openapi-client';
 
+export type { ContractBadge } from '../../api/contract';
+
+export type ContractApiFilters = ContractListFilters;
+
+export type ContractLifecycleView = ContractView;
+
+export type ContractDocumentView = ApiContractDocumentView;
+
 export const contractsApi = {
-  list: (filters: ContractListFilters): Promise<Paginated<ContractView>> =>
+  list: (filters: ContractApiFilters): Promise<Paginated<ContractLifecycleView>> =>
     executeOpenApi(
       openApiClient.GET('/contracts', {
         params: {
@@ -23,11 +32,13 @@ export const contractsApi = {
             moveInTo: filters.moveInTo,
             endFrom: filters.endFrom,
             endTo: filters.endTo,
+            badge: filters.badge,
+            renewalAttention: filters.renewalAttention,
           },
         },
       }),
     ),
-  get: (id: string): Promise<ContractView> =>
+  get: (id: string): Promise<ContractLifecycleView> =>
     executeOpenApi(openApiClient.GET('/contracts/{id}', { params: { path: { id } } })),
   create: (input: CreateContractInput): Promise<ContractView> =>
     executeOpenApi(openApiClient.POST('/contracts', { body: input })),
@@ -51,8 +62,40 @@ export const contractsApi = {
             moveInTo: filters.moveInTo,
             endFrom: filters.endFrom,
             endTo: filters.endTo,
+            badge: filters.badge,
+            renewalAttention: filters.renewalAttention,
           },
         },
       }),
     ),
+  previewDocument(id: string): Promise<Blob> {
+    return executeOpenApi(
+      openApiClient.GET('/contracts/{id}/document/preview', {
+        params: { path: { id } },
+        parseAs: 'blob',
+      }),
+    );
+  },
+  listDocuments(id: string): Promise<ContractDocumentView[]> {
+    return executeOpenApi(
+      openApiClient.GET('/contracts/{id}/documents', { params: { path: { id } } }),
+    );
+  },
+  generateDocument(id: string): Promise<ContractDocumentView> {
+    return executeOpenApi(
+      openApiClient.POST('/contracts/{id}/documents/generate', { params: { path: { id } } }),
+    );
+  },
+  uploadSignedDocument(id: string, file: File): Promise<ContractDocumentView> {
+    const form = new FormData();
+    form.set('kind', 'SIGNED');
+    form.set('document', file, file.name);
+    return executeOpenApi(
+      openApiClient.POST('/contracts/{id}/documents', {
+        params: { path: { id } },
+        body: { document: file.name, kind: 'SIGNED' },
+        bodySerializer: () => form,
+      }),
+    );
+  },
 };

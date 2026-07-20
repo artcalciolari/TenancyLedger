@@ -50,6 +50,78 @@ async function mockApi(page: Page): Promise<void> {
   await page.route('**/api/dashboard/summary', (route) =>
     json(route, {
       asOf: '2026-07-13',
+      period: {
+        from: '2026-07-01',
+        to: '2026-07-13',
+        forecastThrough: '2026-08-12',
+      },
+      financial: {
+        receivedCents: 1_250_000,
+        confirmedReceivableCents: 2_175_000,
+        forecastRenewalsCents: 900_000,
+        byProperty: [
+          {
+            propertyUnitId: '30000000-0000-4000-8000-000000000001',
+            buildingId: '60000000-0000-4000-8000-000000000001',
+            buildingName: 'Residencial Aurora',
+            neighborhood: 'Jardins',
+            unitNumber: '101-A',
+            receivedCents: 750_000,
+            confirmedReceivableCents: 1_275_000,
+            forecastRenewalsCents: 450_000,
+          },
+          {
+            propertyUnitId: '30000000-0000-4000-8000-000000000002',
+            buildingId: null,
+            buildingName: null,
+            neighborhood: 'Centro',
+            unitNumber: '52',
+            receivedCents: 500_000,
+            confirmedReceivableCents: 900_000,
+            forecastRenewalsCents: 450_000,
+          },
+        ],
+        byBuilding: [
+          {
+            buildingId: '60000000-0000-4000-8000-000000000001',
+            buildingName: 'Residencial Aurora',
+            neighborhood: 'Jardins',
+            propertyUnitCount: 1,
+            receivedCents: 750_000,
+            confirmedReceivableCents: 1_275_000,
+            forecastRenewalsCents: 450_000,
+          },
+          {
+            buildingId: null,
+            buildingName: null,
+            neighborhood: 'Centro',
+            propertyUnitCount: 1,
+            receivedCents: 500_000,
+            confirmedReceivableCents: 900_000,
+            forecastRenewalsCents: 450_000,
+          },
+        ],
+        daily: [
+          {
+            date: '2026-07-05',
+            receivedCents: 400_000,
+            confirmedReceivableCents: 800_000,
+            forecastRenewalsCents: 0,
+          },
+          {
+            date: '2026-07-10',
+            receivedCents: 850_000,
+            confirmedReceivableCents: 1_375_000,
+            forecastRenewalsCents: 0,
+          },
+          {
+            date: '2026-08-01',
+            receivedCents: 0,
+            confirmedReceivableCents: 0,
+            forecastRenewalsCents: 900_000,
+          },
+        ],
+      },
       contracts: { total: 18, active: 14, expired: 3, terminated: 1, expiringNext30Days: 2 },
       invoices: {
         total: 42,
@@ -166,7 +238,7 @@ test('login', async ({ page }) => {
 test('dashboard', async ({ page }) => {
   await login(page);
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
-  await expect(page.getByText('R$ 21.750,00')).toBeVisible();
+  await expect(page.getByText('R$ 12.500,00')).toBeVisible();
   await expect(page).toHaveScreenshot('dashboard.png', screenshotOptions);
 });
 

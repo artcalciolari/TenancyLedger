@@ -3,9 +3,14 @@ import {
   type ContractListFilters,
   type ContractStatus,
 } from '../../api/contract';
+import type { ContractBadge } from './api';
 import { isUuidV4 } from '../../lib/identifiers/uuid';
 
 const allowedLimits = new Set([20, 50, 100]);
+
+export interface ContractPageFilters extends ContractListFilters {
+  badge?: ContractBadge;
+}
 
 function positiveInteger(value: string | null, fallback: number): number {
   const parsed = Number(value);
@@ -29,7 +34,7 @@ function civilDate(value: string | null): string | undefined {
     : undefined;
 }
 
-export function parseContractFilters(search: URLSearchParams): ContractListFilters {
+export function parseContractFilters(search: URLSearchParams): ContractPageFilters {
   const status = search.get('status');
   const limit = positiveInteger(search.get('limit'), 20);
   const tenantId = search.get('tenantId');
@@ -47,6 +52,12 @@ export function parseContractFilters(search: URLSearchParams): ContractListFilte
     moveInTo: civilDate(search.get('moveInTo')),
     endFrom: civilDate(search.get('endFrom')),
     endTo: civilDate(search.get('endTo')),
+    ...(search.get('badge') === 'RENEWAL_DUE'
+      ? { badge: 'RENEWAL_DUE' as const }
+      : search.get('badge') === 'PAYMENT_OVERDUE'
+        ? { badge: 'PAYMENT_OVERDUE' as const }
+        : {}),
+    ...(search.get('renewalAttention') === 'true' ? { renewalAttention: true as const } : {}),
   };
 }
 

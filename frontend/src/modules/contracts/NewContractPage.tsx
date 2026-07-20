@@ -81,6 +81,7 @@ export function NewContractPage() {
       return;
     }
     const contract = await createContract.mutateAsync({
+      contractType: 'FIXED_TERM',
       tenantId: values.tenantId,
       propertyUnitId: values.propertyUnitId,
       moveInDate: values.moveInDate,

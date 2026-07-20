@@ -17,12 +17,16 @@ import {
   InvoiceGenerationWorker,
   SystemClock,
 } from './infrastructure/workers/invoice-generation.worker';
+import { ReceiptModule } from '../receipt/receipt.module';
+import { CashboxModule } from '../cashbox/cashbox.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Invoice, PaymentTransaction, Contract, Tenant, PropertyUnit]),
     ScheduleModule.forRoot(),
     ContractModule,
+    ReceiptModule,
+    CashboxModule,
   ],
   controllers: [BillingController, PaymentReviewController],
   providers: [

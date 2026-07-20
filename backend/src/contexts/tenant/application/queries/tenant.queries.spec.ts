@@ -15,6 +15,7 @@ describe('TenantQueries', () => {
     civilStatus: TenantCivilStatus.SINGLE,
     email: 'maria@example.com',
     mobilePhone: '11987654321',
+    hasPhoto: true,
   };
 
   beforeEach(() => {
@@ -57,6 +58,7 @@ describe('TenantQueries', () => {
       ['tenant.civilStatus', 'civilStatus'],
       ['tenant.email', 'email'],
       ['tenant.mobilePhone', 'mobilePhone'],
+      ['(tenant.photoStorageKey IS NOT NULL)', 'hasPhoto'],
     ]);
     expect(queryBuilder.orderBy.mock.calls).toEqual([['tenant.createdAt', 'DESC']]);
     expect(queryBuilder.addOrderBy.mock.calls).toEqual([['tenant.id', 'ASC']]);
@@ -111,6 +113,10 @@ describe('TenantQueries', () => {
     expect(queryBuilder.where.mock.calls).toEqual([['tenant.id = :id', { id: tenantView.id }]]);
     expect(queryBuilder.getRawOne.mock.calls).toHaveLength(1);
     expect(queryBuilder.addSelect.mock.calls).toContainEqual(['tenant.mobilePhone', 'mobilePhone']);
+    expect(queryBuilder.addSelect.mock.calls).toContainEqual([
+      '(tenant.photoStorageKey IS NOT NULL)',
+      'hasPhoto',
+    ]);
   });
 
   it('normaliza resultado ausente de findById para null', async () => {

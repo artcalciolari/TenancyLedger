@@ -13,6 +13,8 @@ export enum NotificationType {
   PAYMENT_SUBMITTED = 'PAYMENT_SUBMITTED',
   PAYMENT_APPROVED = 'PAYMENT_APPROVED',
   PAYMENT_REJECTED = 'PAYMENT_REJECTED',
+  RENEWAL_DUE = 'RENEWAL_DUE',
+  PAYMENT_OVERDUE = 'PAYMENT_OVERDUE',
 }
 
 @Entity('notifications')
@@ -20,9 +22,13 @@ export enum NotificationType {
 @Index('IDX_notifications_user_unread', ['userId', 'createdAt'], {
   where: 'read_at IS NULL',
 })
+@Index('UQ_notifications_user_deduplication', ['userId', 'deduplicationKey'], {
+  unique: true,
+  where: 'deduplication_key IS NOT NULL',
+})
 @Check(
   'CHK_notifications_type',
-  "type IN ('PAYMENT_SUBMITTED', 'PAYMENT_APPROVED', 'PAYMENT_REJECTED')",
+  "type IN ('PAYMENT_SUBMITTED', 'PAYMENT_APPROVED', 'PAYMENT_REJECTED', 'RENEWAL_DUE', 'PAYMENT_OVERDUE')",
 )
 @Check(
   'CHK_notifications_content',
@@ -57,6 +63,15 @@ export class Notification {
 
   @Column({ name: 'read_at', type: 'timestamptz', nullable: true })
   readAt!: Date | null;
+
+  @Column({
+    name: 'deduplication_key',
+    type: 'varchar',
+    length: 160,
+    nullable: true,
+    select: false,
+  })
+  deduplicationKey!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

@@ -9,6 +9,7 @@ import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import {
   Box,
@@ -61,6 +62,12 @@ const navigationGroups: NavigationGroup[] = [
         roles: MANAGEMENT_ROLES,
         showReviewBadge: true,
       },
+      {
+        label: 'Fechamento de caixa',
+        to: '/cashbox',
+        icon: <PointOfSaleOutlinedIcon />,
+        roles: MANAGEMENT_ROLES,
+      },
     ],
   },
   {
@@ -89,6 +96,7 @@ const pageMeta: Record<string, { title: string; crumb: string }> = {
   '/dashboard': { title: 'Visão geral', crumb: 'Painel' },
   '/invoices': { title: 'Faturas', crumb: 'Operação' },
   '/payments/review': { title: 'Revisão de pagamentos', crumb: 'Operação' },
+  '/cashbox': { title: 'Fechamento de caixa', crumb: 'Operação' },
   '/contracts': { title: 'Contratos', crumb: 'Cadastros' },
   '/contracts/new': { title: 'Novo contrato', crumb: 'Cadastros · Contratos' },
   '/tenants': { title: 'Locatários', crumb: 'Cadastros' },
@@ -170,18 +178,23 @@ export function AppShell() {
         sx={{ alignItems: 'center', height: topbarHeight, px: 2.75, flexShrink: 0 }}
       >
         <Box
+          aria-hidden
           sx={{
-            width: 34,
-            height: 34,
-            borderRadius: '9px',
-            bgcolor: 'primary.main',
+            width: 36,
+            height: 36,
+            borderRadius: '4px',
+            border: `1px solid ${brand.latao}`,
+            color: brand.latao,
+            fontFamily: brand.fontDisplay,
+            fontWeight: 560,
+            fontSize: '1.05rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <ApartmentOutlinedIcon sx={{ color: '#fff', fontSize: 21 }} />
+          TL
         </Box>
         <Typography
           sx={{ fontSize: '1.02rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}
@@ -243,7 +256,10 @@ export function AppShell() {
                     '&:hover': {
                       bgcolor: selected ? brand.sidebarItemActiveBg : 'rgba(255,255,255,0.04)',
                     },
-                    '&:focus-visible': { outline: '3px solid #79C2C7', outlineOffset: 2 },
+                    '&:focus-visible': {
+                      outline: `3px solid ${brand.accentBright}`,
+                      outlineOffset: 2,
+                    },
                   }}
                 >
                   <Box
@@ -253,9 +269,8 @@ export function AppShell() {
                       top: '50%',
                       transform: 'translateY(-50%)',
                       width: 3,
-                      height: 22,
-                      borderRadius: '0 3px 3px 0',
-                      bgcolor: selected ? brand.accentBright : 'transparent',
+                      height: 24,
+                      bgcolor: selected ? brand.razao : 'transparent',
                     }}
                   />
                   <Box
@@ -283,11 +298,11 @@ export function AppShell() {
                         minWidth: 20,
                         height: 20,
                         px: 0.75,
-                        borderRadius: '10px',
-                        bgcolor: brand.ocre,
-                        color: '#fff',
+                        borderRadius: '3px',
+                        border: `1px solid ${brand.latao}`,
+                        color: brand.latao,
+                        fontFamily: brand.fontMono,
                         fontSize: '0.72rem',
-                        fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -425,7 +440,7 @@ export function AppShell() {
           alignItems: 'center',
           gap: 1,
           px: { xs: 2, sm: 3, lg: 5 },
-          bgcolor: 'rgba(243,241,234,0.85)',
+          bgcolor: 'rgba(250,250,246,0.85)',
           backdropFilter: 'blur(8px)',
           borderBottom: `1px solid ${brand.borderInput}`,
           zIndex: theme.zIndex.appBar,

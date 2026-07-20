@@ -54,6 +54,7 @@ describe('PropertyService', () => {
   let findByLocation: jest.MockedFunction<IPropertyRepository['findByLocation']>;
   let findByBuildingUnit: jest.MockedFunction<IPropertyRepository['findByBuildingUnit']>;
   let list: jest.MockedFunction<IPropertyRepository['list']>;
+  let listAvailable: jest.MockedFunction<IPropertyRepository['listAvailable']>;
   let getView: jest.MockedFunction<IPropertyRepository['getView']>;
 
   beforeEach(() => {
@@ -62,6 +63,7 @@ describe('PropertyService', () => {
     findByLocation = jest.fn().mockResolvedValue(null);
     findByBuildingUnit = jest.fn().mockResolvedValue(null);
     list = jest.fn().mockResolvedValue({ items: [], total: 0 });
+    listAvailable = jest.fn().mockResolvedValue([]);
     getView = jest.fn().mockResolvedValue(null);
     repository = {
       save,
@@ -69,6 +71,7 @@ describe('PropertyService', () => {
       findByLocation,
       findByBuildingUnit,
       list,
+      listAvailable,
       getView,
     };
     buildingRepository = {
@@ -370,6 +373,42 @@ describe('PropertyService', () => {
       const [call] = list.mock.calls;
       expect(call?.[0]).toMatchObject({ page: 1, limit: 20 });
       expect(call?.[0].asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('listAvailable', () => {
+    it('uses the requested date and maps available units as unoccupied', async () => {
+      const property = persistedProperty(BUILDING_ID);
+      listAvailable.mockResolvedValue([withOccupancy(property, 'Edifício Aurora', false)]);
+
+      await expect(
+        service.listAvailable({
+          date: '2026-07-18',
+          neighborhood: 'Jardim',
+          type: UnitType.APARTMENT,
+          buildingId: BUILDING_ID,
+        }),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          id: PROPERTY_ID,
+          buildingId: BUILDING_ID,
+          buildingName: 'Edifício Aurora',
+          occupied: false,
+        }),
+      ]);
+      expect(listAvailable).toHaveBeenCalledWith({
+        date: '2026-07-18',
+        neighborhood: 'Jardim',
+        type: UnitType.APARTMENT,
+        buildingId: BUILDING_ID,
+      });
+    });
+
+    it('defaults availability to the current civil date', async () => {
+      await service.listAvailable();
+
+      const [call] = listAvailable.mock.calls;
+      expect(call?.[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
 

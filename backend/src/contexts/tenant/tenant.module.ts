@@ -7,9 +7,12 @@ import { CreateTenantUseCase } from './application/use-cases/create-tenant.use-c
 import { TenantQueries } from './application/queries/tenant.queries';
 import { TenantController } from './infrastructure/http/controllers/tenant.controller';
 import { UpdateTenantUseCase } from './application/use-cases/update-tenant.use-case';
+import { TenantReference } from './domain/entities/tenant-reference.entity';
+import { TenantPhotoUseCase } from './application/use-cases/tenant-photo.use-case';
+import { TenantReferencesUseCase } from './application/use-cases/tenant-references.use-case';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tenant])],
+  imports: [TypeOrmModule.forFeature([Tenant, TenantReference])],
   controllers: [TenantController],
   providers: [
     {
@@ -18,8 +21,10 @@ import { UpdateTenantUseCase } from './application/use-cases/update-tenant.use-c
     },
     CreateTenantUseCase,
     UpdateTenantUseCase,
+    TenantPhotoUseCase,
+    TenantReferencesUseCase,
     TenantQueries,
   ],
-  exports: [CreateTenantUseCase, UpdateTenantUseCase, TenantQueries],
+  exports: [CreateTenantUseCase, UpdateTenantUseCase, TenantQueries, TenantReferencesUseCase],
 })
 export class TenantModule {}

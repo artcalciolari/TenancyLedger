@@ -1,5 +1,5 @@
 import { ValidationError } from '../../../../core/domain/errors/validation.error';
-import { Contract, ContractStateError, ContractStatus } from './contract.entity';
+import { Contract, ContractStateError, ContractStatus, ContractType } from './contract.entity';
 
 const TENANT_ID = 'c16a5325-1d5c-49c5-a5cb-452e75a72c75';
 const PROPERTY_ID = 'f04b6434-28f1-49a7-99aa-e49624bc68b9';
@@ -212,5 +212,134 @@ describe('Contract', () => {
 
     expect(() => contract.markExpired(value)).toThrow(ValidationError);
     expect(() => contract.isActiveOn(value)).toThrow(ValidationError);
+  });
+
+  it('creates an open-ended month-to-month contract', () => {
+    const contract = Contract.create(
+      TENANT_ID,
+      PROPERTY_ID,
+      '2026-07-18',
+      150_000,
+      null,
+      true,
+      undefined,
+      ContractType.MONTH_TO_MONTH,
+    );
+
+    expect(contract).toMatchObject({
+      contractType: ContractType.MONTH_TO_MONTH,
+      durationInMonths: null,
+      endDate: null,
+      billingDay: 18,
+      status: ContractStatus.ACTIVE,
+    });
+    contract.markExpired('2126-01-01');
+    expect(contract.status).toBe(ContractStatus.ACTIVE);
+    expect(contract.isActiveOn('2126-01-01')).toBe(true);
+    expect(() => contract.renew(1)).toThrow(ContractStateError);
+  });
+
+  it('rejects incoherent type and duration combinations', () => {
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        150_000,
+        12,
+        true,
+        18,
+        ContractType.MONTH_TO_MONTH,
+      ),
+    ).toThrow(ValidationError);
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        150_000,
+        null,
+        true,
+        18,
+        ContractType.FIXED_TERM,
+      ),
+    ).toThrow(ValidationError);
+  });
+
+  it('follows the signature, payment, ending and termination lifecycle', () => {
+    const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 150_000);
+    const signedAt = new Date('2026-07-18T12:00:00.000Z');
+    const activatedAt = new Date('2026-07-18T13:00:00.000Z');
+
+    expect(contract.status).toBe(ContractStatus.PENDING_SIGNATURE);
+    expect(contract.isOccupyingOn('2026-07-18')).toBe(true);
+    contract.markSigned(signedAt);
+    expect(contract.status).toBe(ContractStatus.PAYMENT_PENDING);
+    contract.activate(activatedAt);
+    expect(contract.statusChangedAt).toEqual(activatedAt);
+    contract.scheduleEnding(' Mudança do inquilino ');
+    expect(contract).toMatchObject({
+      status: ContractStatus.ENDING,
+      statusReason: 'Mudança do inquilino',
+    });
+    contract.terminate('Entrega das chaves');
+    expect(contract.status).toBe(ContractStatus.TERMINATED);
+    expect(contract.isOccupyingOn('2026-07-19')).toBe(false);
+  });
+
+  it('cancels a pre-active contract and rejects invalid transitions', () => {
+    const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 150_000);
+
+    expect(() => contract.activate()).toThrow(ContractStateError);
+    expect(() => contract.cancel('   ')).toThrow(ValidationError);
+    contract.cancel('Desistência antes da assinatura');
+    expect(contract.status).toBe(ContractStatus.CANCELLED);
+    expect(() => contract.markSigned()).toThrow(ContractStateError);
+  });
+
+  it('rejects values that bypass compile-time contract creation types', () => {
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        150_000,
+        12,
+        true,
+        18,
+        'UNKNOWN' as ContractType,
+      ),
+    ).toThrow(new ValidationError('O tipo do contrato é inválido.'));
+    expect(() =>
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        150_000,
+        12,
+        'yes' as unknown as boolean,
+      ),
+    ).toThrow(new ValidationError('A indicação de renovação deve ser booleana.'));
+  });
+
+  it('rejects cancellation and termination from incompatible lifecycle states', () => {
+    const active = createContract();
+    const pending = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 150_000);
+
+    expect(() => active.cancel('Desistência')).toThrow(ContractStateError);
+    expect(() => pending.terminate('Entrega das chaves')).toThrow(ContractStateError);
+  });
+
+  it('does not report occupation after the fixed-term end date', () => {
+    const contract = createContract(1);
+
+    expect(contract.isOccupyingOn('2026-02-01')).toBe(false);
+  });
+
+  it('rejects an invalid lifecycle timestamp without mutating the contract', () => {
+    const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 150_000);
+
+    expect(() => contract.markSigned(new Date(Number.NaN))).toThrow(ValidationError);
+    expect(contract.status).toBe(ContractStatus.PENDING_SIGNATURE);
   });
 });

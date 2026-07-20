@@ -12,6 +12,7 @@ const tenant: TenantView = {
   civilStatus: 'SINGLE',
   email: 'maria@example.com',
   mobilePhone: '11987654321',
+  hasPhoto: false,
 };
 
 function renderDialog() {

@@ -12,6 +12,7 @@ describe('TenantResponseDto', () => {
     civilStatus: TenantCivilStatus.SINGLE,
     email: 'maria@example.com',
     mobilePhone: '11987654321',
+    hasPhoto: true,
   };
 
   it('não expõe RG nem dados de contato completos quando nenhum papel é informado', () => {
@@ -25,6 +26,7 @@ describe('TenantResponseDto', () => {
       civilStatus: TenantCivilStatus.SINGLE,
       email: 'm***@example.com',
       mobilePhone: '(**) *****-4321',
+      hasPhoto: true,
     });
     expect(response).not.toHaveProperty('rg');
     expect(JSON.stringify(response)).not.toContain('52998224725');

@@ -99,6 +99,16 @@ const UsersPage = lazy(() =>
 const NewUserPage = lazy(() =>
   import('../../modules/users/NewUserPage').then((module) => ({ default: module.NewUserPage })),
 );
+const OnboardingWizard = lazy(() =>
+  import('../../modules/onboarding/OnboardingWizard').then((module) => ({
+    default: module.OnboardingWizard,
+  })),
+);
+const CashboxPage = lazy(() =>
+  import('../../modules/cashbox/CashboxPage').then((module) => ({
+    default: module.CashboxPage,
+  })),
+);
 
 const managementRoles = ['ADMIN', 'MANAGER'] as const;
 
@@ -110,6 +120,15 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <AuthLayout>{page(<LoginPage />)}</AuthLayout>,
+    errorElement: <RouteErrorPage />,
+  },
+  {
+    path: '/onboarding',
+    element: (
+      <RequireAuth>
+        <RequireRole roles={managementRoles}>{page(<OnboardingWizard />)}</RequireRole>
+      </RequireAuth>
+    ),
     errorElement: <RouteErrorPage />,
   },
   {
@@ -137,6 +156,10 @@ export const router = createBrowserRouter([
       {
         path: 'payments/review',
         element: <RequireRole roles={managementRoles}>{page(<ReviewPaymentsPage />)}</RequireRole>,
+      },
+      {
+        path: 'cashbox',
+        element: <RequireRole roles={managementRoles}>{page(<CashboxPage />)}</RequireRole>,
       },
       {
         path: 'contracts',

@@ -9,30 +9,56 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  addCalendarMonths,
+  addCivilDays,
+  assertCivilDate,
+} from '../../../../core/domain/calendar-period';
 import { ConflictError } from '../../../../core/domain/errors/conflict.error';
 import { ValidationError } from '../../../../core/domain/errors/validation.error';
 import { PropertyUnit } from '../../../property/domain/property-unit.entity';
 import { Tenant } from '../../../tenant/domain/entities/tenant.entity';
 
+export enum ContractType {
+  FIXED_TERM = 'FIXED_TERM',
+  MONTH_TO_MONTH = 'MONTH_TO_MONTH',
+}
+
 export enum ContractStatus {
+  PENDING_SIGNATURE = 'PENDING_SIGNATURE',
+  PAYMENT_PENDING = 'PAYMENT_PENDING',
   ACTIVE = 'ACTIVE',
+  ENDING = 'ENDING',
   EXPIRED = 'EXPIRED',
   TERMINATED = 'TERMINATED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum ContractBadge {
+  RENEWAL_DUE = 'RENEWAL_DUE',
+  PAYMENT_OVERDUE = 'PAYMENT_OVERDUE',
 }
 
 export class ContractStateError extends ConflictError {}
 
 @Entity('contracts')
 @Check('CHK_contracts_monthly_value_positive', 'monthly_base_value_cents > 0')
-@Check('CHK_contracts_duration_positive', 'duration_in_months > 0')
+@Check('CHK_contracts_duration_positive', 'duration_in_months IS NULL OR duration_in_months > 0')
 @Check('CHK_contracts_billing_day', 'billing_day BETWEEN 1 AND 28')
-@Check('CHK_contracts_valid_period', 'end_date >= move_in_date')
-@Check('CHK_contracts_duration_range', 'duration_in_months BETWEEN 1 AND 600')
+@Check('CHK_contracts_valid_period', 'end_date IS NULL OR end_date >= move_in_date')
+@Check(
+  'CHK_contracts_duration_range',
+  'duration_in_months IS NULL OR duration_in_months BETWEEN 1 AND 600',
+)
+@Check(
+  'CHK_contracts_type_period',
+  "(contract_type = 'FIXED_TERM' AND end_date IS NOT NULL AND duration_in_months IS NOT NULL) OR (contract_type = 'MONTH_TO_MONTH' AND end_date IS NULL AND duration_in_months IS NULL)",
+)
 @Index('IDX_contracts_tenant_id', ['_tenantId'])
 @Index('IDX_contracts_property_unit_id', ['_propertyUnitId'])
 @Exclusion(
   'EX_contracts_no_overlapping_period',
-  `("property_unit_id" WITH =, daterange("move_in_date", "end_date", '[]') WITH &&) WHERE ("status" <> 'TERMINATED'::"contract_status")`,
+  `("property_unit_id" WITH =, daterange("move_in_date", COALESCE("end_date", 'infinity'::date), '[]') WITH &&) WHERE ("status" NOT IN ('TERMINATED'::"contract_status", 'CANCELLED'::"contract_status"))`,
 )
 export class Contract {
   static readonly MAX_MONEY_CENTS = 2_147_483_647;
@@ -59,20 +85,29 @@ export class Contract {
   @Column({ name: 'move_in_date', type: 'date' })
   private _moveInDate!: string;
 
-  @Column({ name: 'end_date', type: 'date' })
-  private _endDate!: string;
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  private _endDate!: string | null;
 
   @Column({ name: 'monthly_base_value_cents', type: 'integer' })
   private _monthlyBaseValueCents!: number;
 
-  @Column({ name: 'duration_in_months', type: 'integer' })
-  private _durationInMonths!: number;
+  @Column({ name: 'duration_in_months', type: 'integer', nullable: true })
+  private _durationInMonths!: number | null;
 
   @Column({ name: 'billing_day', type: 'smallint' })
   private _billingDay!: number;
 
   @Column({ name: 'is_renewable', type: 'boolean' })
   private _isRenewable!: boolean;
+
+  @Column({
+    name: 'contract_type',
+    type: 'enum',
+    enum: ContractType,
+    enumName: 'contract_type',
+    default: ContractType.FIXED_TERM,
+  })
+  private _contractType!: ContractType;
 
   @Column({
     name: 'status',
@@ -82,6 +117,12 @@ export class Contract {
     default: ContractStatus.ACTIVE,
   })
   private _status!: ContractStatus;
+
+  @Column({ name: 'status_reason', type: 'varchar', length: 500, nullable: true })
+  private _statusReason!: string | null;
+
+  @Column({ name: 'status_changed_at', type: 'timestamptz', default: () => 'now()' })
+  private _statusChangedAt!: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   readonly createdAt!: Date;
@@ -96,15 +137,73 @@ export class Contract {
     propertyUnitId: string,
     moveInDate: string,
     monthlyBaseValueCents: number,
-    durationInMonths: number,
+    durationInMonths: number | null,
     isRenewable: boolean,
     billingDay?: number,
+    contractType = ContractType.FIXED_TERM,
+  ): Contract {
+    return Contract.createWithStatus(
+      tenantId,
+      propertyUnitId,
+      moveInDate,
+      monthlyBaseValueCents,
+      durationInMonths,
+      isRenewable,
+      billingDay,
+      contractType,
+      ContractStatus.ACTIVE,
+    );
+  }
+
+  static createPendingSignature(
+    tenantId: string,
+    propertyUnitId: string,
+    moveInDate: string,
+    monthlyBaseValueCents: number,
+    billingDay?: number,
+  ): Contract {
+    return Contract.createWithStatus(
+      tenantId,
+      propertyUnitId,
+      moveInDate,
+      monthlyBaseValueCents,
+      null,
+      true,
+      billingDay,
+      ContractType.MONTH_TO_MONTH,
+      ContractStatus.PENDING_SIGNATURE,
+    );
+  }
+
+  private static createWithStatus(
+    tenantId: string,
+    propertyUnitId: string,
+    moveInDate: string,
+    monthlyBaseValueCents: number,
+    durationInMonths: number | null,
+    isRenewable: boolean,
+    billingDay: number | undefined,
+    contractType: ContractType,
+    status: ContractStatus,
   ): Contract {
     Contract.assertUuid(tenantId, 'inquilino');
     Contract.assertUuid(propertyUnitId, 'unidade imobiliária');
     Contract.assertDate(moveInDate, 'data de entrada');
     Contract.assertPositiveInteger(monthlyBaseValueCents, 'valor base mensal em centavos');
-    Contract.assertDuration(durationInMonths);
+    if (!Object.values(ContractType).includes(contractType)) {
+      throw new ValidationError('O tipo do contrato é inválido.');
+    }
+    if (contractType === ContractType.FIXED_TERM) {
+      if (durationInMonths === null) {
+        throw new ValidationError('Contratos com prazo fixo exigem duração em meses.');
+      }
+      Contract.assertDuration(durationInMonths);
+    } else if (durationInMonths !== null) {
+      throw new ValidationError('Contratos mensais não possuem duração fixa.');
+    }
+    if (typeof isRenewable !== 'boolean') {
+      throw new ValidationError('A indicação de renovação deve ser booleana.');
+    }
 
     const resolvedBillingDay = billingDay ?? Math.min(Number(moveInDate.slice(8, 10)), 28);
     if (
@@ -120,42 +219,98 @@ export class Contract {
     contract._propertyUnitId = propertyUnitId;
     contract._moveInDate = moveInDate;
     contract._durationInMonths = durationInMonths;
-    contract._endDate = Contract.calculateEndDate(moveInDate, durationInMonths);
+    contract._endDate =
+      contractType === ContractType.FIXED_TERM
+        ? Contract.calculateEndDate(moveInDate, durationInMonths as number)
+        : null;
     contract._monthlyBaseValueCents = monthlyBaseValueCents;
     contract._billingDay = resolvedBillingDay;
     contract._isRenewable = isRenewable;
-    contract._status = ContractStatus.ACTIVE;
+    contract._contractType = contractType;
+    contract._status = status;
+    contract._statusReason = null;
+    contract._statusChangedAt = new Date();
     return contract;
   }
 
   renew(extraMonths: number): void {
+    if (this._contractType === ContractType.MONTH_TO_MONTH) {
+      throw new ContractStateError('Contratos mensais já se renovam automaticamente.');
+    }
     Contract.assertDuration(extraMonths, 'A renovação');
     if (!this._isRenewable) {
       throw new ContractStateError('Este contrato não permite renovação.');
     }
-    if (this._status === ContractStatus.TERMINATED) {
-      throw new ContractStateError('Um contrato encerrado não pode ser renovado.');
+    if (![ContractStatus.ACTIVE, ContractStatus.EXPIRED].includes(this._status)) {
+      throw new ContractStateError('O estado atual do contrato não permite renovação.');
     }
-    if (this._durationInMonths + extraMonths > 600) {
+    const currentDuration = this._durationInMonths as number;
+    if (currentDuration + extraMonths > 600) {
       throw new ValidationError('A vigência total do contrato não pode exceder 600 meses.');
     }
 
-    this._durationInMonths += extraMonths;
+    this._durationInMonths = currentDuration + extraMonths;
     this._endDate = Contract.calculateEndDate(this._moveInDate, this._durationInMonths);
-    this._status = ContractStatus.ACTIVE;
+    this.changeStatus(ContractStatus.ACTIVE, null);
+  }
+
+  markSigned(changedAt = new Date()): void {
+    this.assertStatus(ContractStatus.PENDING_SIGNATURE, 'assinado');
+    this.changeStatus(ContractStatus.PAYMENT_PENDING, null, changedAt);
+  }
+
+  activate(changedAt = new Date()): void {
+    this.assertStatus(ContractStatus.PAYMENT_PENDING, 'ativado');
+    this.changeStatus(ContractStatus.ACTIVE, null, changedAt);
+  }
+
+  scheduleEnding(reason: string, changedAt = new Date()): void {
+    this.assertStatus(ContractStatus.ACTIVE, 'programado para encerramento');
+    this.changeStatus(ContractStatus.ENDING, Contract.requiredReason(reason), changedAt);
+  }
+
+  cancel(reason: string, changedAt = new Date()): void {
+    if (
+      ![ContractStatus.PENDING_SIGNATURE, ContractStatus.PAYMENT_PENDING].includes(this._status)
+    ) {
+      throw new ContractStateError('Somente um contrato ainda não ativo pode ser cancelado.');
+    }
+    this.changeStatus(ContractStatus.CANCELLED, Contract.requiredReason(reason), changedAt);
+  }
+
+  terminate(reason: string, changedAt = new Date()): void {
+    if (![ContractStatus.ACTIVE, ContractStatus.ENDING].includes(this._status)) {
+      throw new ContractStateError('O estado atual do contrato não permite encerramento.');
+    }
+    this.changeStatus(ContractStatus.TERMINATED, Contract.requiredReason(reason), changedAt);
   }
 
   markExpired(asOf: string): void {
     Contract.assertDate(asOf, 'data de referência');
-    if (this._status === ContractStatus.ACTIVE && this._endDate < asOf) {
-      this._status = ContractStatus.EXPIRED;
+    if (this._contractType === ContractType.MONTH_TO_MONTH) return;
+    if (
+      [ContractStatus.ACTIVE, ContractStatus.ENDING].includes(this._status) &&
+      (this._endDate as string) < asOf
+    ) {
+      this.changeStatus(ContractStatus.EXPIRED, null);
     }
   }
 
   isActiveOn(date: string): boolean {
     Contract.assertDate(date, 'data de referência');
     return (
-      this._status === ContractStatus.ACTIVE && this._moveInDate <= date && this._endDate >= date
+      [ContractStatus.ACTIVE, ContractStatus.ENDING].includes(this._status) &&
+      this._moveInDate <= date &&
+      (this._endDate === null || this._endDate >= date)
+    );
+  }
+
+  isOccupyingOn(date: string): boolean {
+    Contract.assertDate(date, 'data de referência');
+    return (
+      ![ContractStatus.TERMINATED, ContractStatus.CANCELLED].includes(this._status) &&
+      this._moveInDate <= date &&
+      (this._endDate === null || this._endDate >= date)
     );
   }
 
@@ -169,16 +324,34 @@ export class Contract {
   static calculateEndDate(moveInDate: string, durationInMonths: number): string {
     Contract.assertDate(moveInDate, 'data de entrada');
     Contract.assertDuration(durationInMonths);
-    const year = Number(moveInDate.slice(0, 4));
-    const month = Number(moveInDate.slice(5, 7));
-    const day = Number(moveInDate.slice(8, 10));
-    const absoluteMonth = year * 12 + (month - 1) + durationInMonths;
-    const targetYear = Math.floor(absoluteMonth / 12);
-    const targetMonth = absoluteMonth % 12;
-    const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
-    const exclusive = new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay)));
-    exclusive.setUTCDate(exclusive.getUTCDate() - 1);
-    return exclusive.toISOString().slice(0, 10);
+    return addCivilDays(addCalendarMonths(moveInDate, durationInMonths), -1);
+  }
+
+  private assertStatus(expected: ContractStatus, action: string): void {
+    if (this._status !== expected) {
+      throw new ContractStateError(`Somente um contrato ${expected} pode ser ${action}.`);
+    }
+  }
+
+  private changeStatus(
+    status: ContractStatus,
+    reason: string | null,
+    changedAt = new Date(),
+  ): void {
+    if (!(changedAt instanceof Date) || Number.isNaN(changedAt.getTime())) {
+      throw new ValidationError('A data da mudança de status do contrato é inválida.');
+    }
+    this._status = status;
+    this._statusReason = reason;
+    this._statusChangedAt = new Date(changedAt);
+  }
+
+  private static requiredReason(value: string): string {
+    const normalized = value?.trim();
+    if (!normalized || normalized.length > 500) {
+      throw new ValidationError('O motivo deve conter entre 1 e 500 caracteres.');
+    }
+    return normalized;
   }
 
   private static assertUuid(value: string, field: string): void {
@@ -188,20 +361,7 @@ export class Contract {
   }
 
   private static assertDate(value: string, field: string): void {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      throw new ValidationError(`A ${field} deve estar no formato AAAA-MM-DD.`);
-    }
-    const year = Number(value.slice(0, 4));
-    const month = Number(value.slice(5, 7));
-    const day = Number(value.slice(8, 10));
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-    if (
-      parsed.getUTCFullYear() !== year ||
-      parsed.getUTCMonth() !== month - 1 ||
-      parsed.getUTCDate() !== day
-    ) {
-      throw new ValidationError(`A ${field} é inválida.`);
-    }
+    assertCivilDate(value, field);
   }
 
   private static assertPositiveInteger(value: number, field: string): void {
@@ -227,13 +387,13 @@ export class Contract {
   get moveInDate(): string {
     return this._moveInDate;
   }
-  get endDate(): string {
+  get endDate(): string | null {
     return this._endDate;
   }
   get monthlyBaseValueCents(): number {
     return this._monthlyBaseValueCents;
   }
-  get durationInMonths(): number {
+  get durationInMonths(): number | null {
     return this._durationInMonths;
   }
   get billingDay(): number {
@@ -242,7 +402,16 @@ export class Contract {
   get isRenewable(): boolean {
     return this._isRenewable;
   }
+  get contractType(): ContractType {
+    return this._contractType;
+  }
   get status(): ContractStatus {
     return this._status;
+  }
+  get statusReason(): string | null {
+    return this._statusReason;
+  }
+  get statusChangedAt(): Date {
+    return new Date(this._statusChangedAt);
   }
 }

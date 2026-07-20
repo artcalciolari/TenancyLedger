@@ -46,6 +46,31 @@ describe('Invoice payment state machine', () => {
     expect(invoice.totalValueCents).toBe(150_00);
     expect(invoice.approvedAmountCents).toBe(0);
     expect(invoice.outstandingAmountCents).toBe(150_00);
+    expect(invoice.periodStart).toBe('2026-07-01');
+    expect(invoice.periodEnd).toBe('2026-07-31');
+  });
+
+  it('stores an inclusive month-to-month coverage period', () => {
+    const invoice = Invoice.create(
+      CONTRACT_ID,
+      '2026-07',
+      150_00,
+      '2026-07-18',
+      '2026-07-18',
+      '2026-08-17',
+    );
+
+    expect(invoice.periodStart).toBe('2026-07-18');
+    expect(invoice.periodEnd).toBe('2026-08-17');
+  });
+
+  it.each([
+    ['end before start', '2026-07', '2026-07-18', '2026-07-17'],
+    ['competence mismatch', '2026-07', '2026-08-01', '2026-08-31'],
+  ])('rejects an invalid coverage period: %s', (_scenario, competence, start, end) => {
+    expect(() => Invoice.create(CONTRACT_ID, competence, 150_00, '2026-07-15', start, end)).toThrow(
+      ValidationError,
+    );
   });
 
   it('moves SUBMITTED -> APPROVED and counts only approved payments', () => {
@@ -72,6 +97,84 @@ describe('Invoice payment state machine', () => {
     expect(invoice.approvedAmountCents).toBe(50_00);
     expect(invoice.outstandingAmountCents).toBe(100_00);
     expect(invoice.status).toBe(InvoiceStatus.PARTIALLY_PAID);
+  });
+
+  it('settles cash directly and restores the invoice balance after reversal', () => {
+    const invoice = Invoice.create(
+      CONTRACT_ID,
+      '2026-07',
+      100_00,
+      '2026-07-15',
+      '2026-07-10',
+      '2026-08-09',
+    );
+    const payment = invoice.settleCash(
+      100_00,
+      NOW,
+      IDEMPOTENCY_KEY,
+      REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
+      '2026-07-10',
+    );
+    assignId(payment, 'cb7b6dfd-b0c2-4414-a45a-a2cd467308f6');
+
+    expect(payment).toMatchObject({
+      status: PaymentStatus.APPROVED,
+      isDirectSettlement: true,
+      reviewedByUserId: SUBMITTER_ID,
+    });
+    expect(invoice.status).toBe(InvoiceStatus.PAID);
+
+    invoice.reversePayment(
+      payment.id,
+      'Erro de lançamento',
+      new Date('2026-07-10T13:00:00.000Z'),
+      REVIEWER_ID,
+    );
+
+    expect(payment.status).toBe(PaymentStatus.REVERSED);
+    expect(payment.reversalReason).toBe('Erro de lançamento');
+    expect(invoice.approvedAmountCents).toBe(0);
+    expect(invoice.outstandingAmountCents).toBe(100_00);
+    expect(invoice.status).toBe(InvoiceStatus.OPEN);
+  });
+
+  it.each([0, 0.5, Invoice.MAX_MONEY_CENTS + 1])(
+    'rejects invalid direct cash amount %s',
+    (amountCents) => {
+      const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+      expect(() =>
+        invoice.settleCash(amountCents, NOW, IDEMPOTENCY_KEY, REQUEST_FINGERPRINT, SUBMITTER_ID),
+      ).toThrow(ValidationError);
+    },
+  );
+
+  it('rejects direct settlement of an already paid invoice', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    invoice.settleCash(100_00, NOW, IDEMPOTENCY_KEY, REQUEST_FINGERPRINT, SUBMITTER_ID);
+
+    expect(() =>
+      invoice.settleCash(1, NOW, SECOND_IDEMPOTENCY_KEY, 'b'.repeat(64), SUBMITTER_ID),
+    ).toThrow(InvoiceStateError);
+  });
+
+  it('prevents direct cash from exceeding the balance reserved by submitted payments', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    invoice.submitPayment(
+      80_00,
+      PaymentMethod.CASH,
+      null,
+      undefined,
+      NOW,
+      IDEMPOTENCY_KEY,
+      REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
+    );
+
+    expect(() =>
+      invoice.settleCash(21_00, NOW, SECOND_IDEMPOTENCY_KEY, 'b'.repeat(64), SUBMITTER_ID),
+    ).toThrow(InvoiceStateError);
   });
 
   it('moves SUBMITTED -> REJECTED without changing the approved amount', () => {

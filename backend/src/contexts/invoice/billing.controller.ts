@@ -59,6 +59,7 @@ import {
   InvoiceResponseDto,
   PaginatedInvoicesResponseDto,
   PaymentProofUrlResponseDto,
+  CashSettlementResponseDto,
 } from './billing-response.dto';
 import {
   ApiConflictProblem,
@@ -66,6 +67,7 @@ import {
   ApiProtected,
   ApiUnprocessableProblem,
 } from '../../core/infrastructure/http/openapi.decorators';
+import { ReceiptService } from '../receipt/application/receipt.service';
 
 const IdempotencyKey = createParamDecorator(
   (_data: unknown, context: ExecutionContext): string | undefined =>
@@ -186,11 +188,30 @@ export class RejectPaymentDto {
   reason!: string;
 }
 
+export class SettleCashDto {
+  @ApiProperty({ minimum: 1, maximum: Invoice.MAX_MONEY_CENTS, example: 150000 })
+  @IsInt()
+  @Min(1)
+  @Max(Invoice.MAX_MONEY_CENTS)
+  amountCents!: number;
+}
+
+export class ReversePaymentDto {
+  @ApiProperty({ minLength: 1, maxLength: 500, example: 'Lançamento em caixa incorreto.' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+}
+
 @ApiProtected()
 @ApiTags('Faturas e pagamentos')
 @Controller('invoices')
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly receiptService: ReceiptService,
+  ) {}
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
@@ -308,6 +329,38 @@ export class BillingController {
     return this.billingService.toDetailedView(invoice);
   }
 
+  @Post(':id/settle-cash')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiOperation({ summary: 'Registrar pagamento em dinheiro com aprovação direta' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiCreatedResponse({ type: CashSettlementResponseDto })
+  @ApiNotFoundProblem('Fatura não encontrada.')
+  @ApiConflictProblem('Chave de idempotência reutilizada ou saldo insuficiente.')
+  @ApiUnprocessableProblem()
+  async settleCash(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: SettleCashDto,
+    @IdempotencyKey() idempotencyKey?: string,
+  ): Promise<CashSettlementResponseDto> {
+    const invoice = await this.billingService.settleCash(id, {
+      ...dto,
+      idempotencyKey,
+      settledByUserId: actor.id,
+    });
+    const payment = invoice.findPaymentByIdempotencyKey(idempotencyKey as string);
+    const receipt = await this.receiptService.getByPayment(payment?.id ?? '');
+    return {
+      invoice: await this.billingService.toDetailedView(invoice),
+      receiptId: receipt.id,
+    };
+  }
+
   @Get(':invoiceId/payments/:paymentId/proof')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
   @ApiOperation({ summary: 'Gerar URL temporária de um comprovante' })
@@ -362,5 +415,25 @@ export class BillingController {
       actor.id,
     );
     return this.billingService.toDetailedView(invoice);
+  }
+
+  @Patch(':invoiceId/payments/:paymentId/reverse')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Estornar pagamento aprovado sem apagar o lançamento' })
+  @ApiParam({ name: 'invoiceId', format: 'uuid' })
+  @ApiParam({ name: 'paymentId', format: 'uuid' })
+  @ApiOkResponse({ type: InvoiceResponseDto })
+  @ApiNotFoundProblem('Fatura não encontrada.')
+  @ApiConflictProblem('Somente pagamentos aprovados podem ser estornados.')
+  @ApiUnprocessableProblem()
+  async reversePayment(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('invoiceId', new ParseUUIDPipe({ version: '4' })) invoiceId: string,
+    @Param('paymentId', new ParseUUIDPipe({ version: '4' })) paymentId: string,
+    @Body() dto: ReversePaymentDto,
+  ): Promise<InvoiceResponseDto> {
+    return this.billingService.toDetailedView(
+      await this.billingService.reversePayment(invoiceId, paymentId, dto.reason, actor.id),
+    );
   }
 }

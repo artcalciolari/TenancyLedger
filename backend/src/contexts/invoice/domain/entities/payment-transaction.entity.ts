@@ -18,6 +18,7 @@ export enum PaymentStatus {
   SUBMITTED = 'SUBMITTED',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  REVERSED = 'REVERSED',
 }
 
 export enum PaymentMethod {
@@ -47,7 +48,15 @@ export class PaymentIdempotencyConflictError extends ConflictError {}
 )
 @Check(
   'CHK_payment_transactions_review_state',
-  "(status = 'SUBMITTED'::payment_status AND reviewed_at IS NULL AND rejection_reason IS NULL) OR (status = 'APPROVED'::payment_status AND reviewed_at IS NOT NULL AND rejection_reason IS NULL) OR (status = 'REJECTED'::payment_status AND reviewed_at IS NOT NULL AND rejection_reason IS NOT NULL AND char_length(trim(rejection_reason)) > 0)",
+  "(status::text = 'SUBMITTED' AND reviewed_at IS NULL AND rejection_reason IS NULL AND reversed_at IS NULL AND reversal_reason IS NULL AND reversed_by_user_id IS NULL) OR (status::text = 'APPROVED' AND reviewed_at IS NOT NULL AND rejection_reason IS NULL AND reversed_at IS NULL AND reversal_reason IS NULL AND reversed_by_user_id IS NULL) OR (status::text = 'REJECTED' AND reviewed_at IS NOT NULL AND rejection_reason IS NOT NULL AND char_length(trim(rejection_reason)) > 0 AND reversed_at IS NULL AND reversal_reason IS NULL AND reversed_by_user_id IS NULL) OR (status::text = 'REVERSED' AND reviewed_at IS NOT NULL AND rejection_reason IS NULL AND reversed_at IS NOT NULL AND reversal_reason IS NOT NULL AND char_length(trim(reversal_reason)) > 0 AND reversed_by_user_id IS NOT NULL)",
+)
+@Check(
+  'CHK_payment_transactions_direct_settlement',
+  "NOT is_direct_settlement OR (method::text = 'CASH' AND status::text IN ('APPROVED', 'REVERSED') AND submitted_by_user_id IS NOT NULL AND reviewed_by_user_id = submitted_by_user_id)",
+)
+@Check(
+  'CHK_payment_transactions_distinct_actors',
+  'reviewed_by_user_id IS NULL OR submitted_by_user_id IS NULL OR reviewed_by_user_id <> submitted_by_user_id OR is_direct_settlement',
 )
 export class PaymentTransaction {
   @PrimaryGeneratedColumn('uuid')
@@ -96,6 +105,15 @@ export class PaymentTransaction {
   @Column({ name: 'rejection_reason', type: 'varchar', length: 500, nullable: true })
   private _rejectionReason!: string | null;
 
+  @Column({ name: 'is_direct_settlement', type: 'boolean', default: false })
+  private _isDirectSettlement!: boolean;
+
+  @Column({ name: 'reversal_reason', type: 'varchar', length: 500, nullable: true })
+  private _reversalReason!: string | null;
+
+  @Column({ name: 'reversed_at', type: 'timestamptz', nullable: true })
+  private _reversedAt!: Date | null;
+
   @Column({ name: 'idempotency_key', type: 'varchar', length: 128 })
   private _idempotencyKey!: string;
 
@@ -117,6 +135,14 @@ export class PaymentTransaction {
     onUpdate: 'RESTRICT',
   })
   private _reviewedByUserId!: string | null;
+
+  @Column({ name: 'reversed_by_user_id', type: 'uuid', nullable: true })
+  @ForeignKey(() => User, {
+    name: 'FK_payment_transactions_reversed_by_user',
+    onDelete: 'RESTRICT',
+    onUpdate: 'RESTRICT',
+  })
+  private _reversedByUserId!: string | null;
 
   private constructor() {}
 
@@ -175,10 +201,44 @@ export class PaymentTransaction {
     transaction._status = PaymentStatus.SUBMITTED;
     transaction._reviewedAt = null;
     transaction._rejectionReason = null;
+    transaction._isDirectSettlement = false;
+    transaction._reversalReason = null;
+    transaction._reversedAt = null;
     transaction._idempotencyKey = idempotencyKey;
     transaction._requestFingerprint = requestFingerprint;
     transaction._submittedByUserId = submittedByUserId;
     transaction._reviewedByUserId = null;
+    transaction._reversedByUserId = null;
+    return transaction;
+  }
+
+  static createDirectSettlement(
+    invoice: Invoice,
+    amountCents: number,
+    method: PaymentMethod,
+    settledAt: Date,
+    idempotencyKey: string,
+    requestFingerprint: string,
+    settledByUserId: string,
+  ): PaymentTransaction {
+    if (method !== PaymentMethod.CASH) {
+      throw new ValidationError('A liquidação direta só pode ser realizada em dinheiro.');
+    }
+    const transaction = PaymentTransaction.create(
+      invoice,
+      amountCents,
+      method,
+      null,
+      undefined,
+      settledAt,
+      idempotencyKey,
+      requestFingerprint,
+      settledByUserId,
+    );
+    transaction._status = PaymentStatus.APPROVED;
+    transaction._reviewedAt = new Date(settledAt);
+    transaction._reviewedByUserId = settledByUserId;
+    transaction._isDirectSettlement = true;
     return transaction;
   }
 
@@ -208,6 +268,29 @@ export class PaymentTransaction {
     this._reviewedAt = new Date(reviewedAt);
     this._reviewedByUserId = reviewedByUserId;
     this._rejectionReason = normalizedReason;
+  }
+
+  reverse(reason: string, reversedAt: Date, reversedByUserId: string): void {
+    if (this._status !== PaymentStatus.APPROVED) {
+      throw new PaymentStateError('Somente um pagamento aprovado pode ser estornado.');
+    }
+    const normalizedReason = reason?.trim();
+    if (!normalizedReason || normalizedReason.length > 500) {
+      throw new ValidationError('O motivo do estorno deve conter entre 1 e 500 caracteres.');
+    }
+    if (
+      !(reversedAt instanceof Date) ||
+      Number.isNaN(reversedAt.getTime()) ||
+      !this._reviewedAt ||
+      reversedAt < this._reviewedAt
+    ) {
+      throw new ValidationError('A data do estorno é inválida.');
+    }
+    PaymentTransaction.assertUserId(reversedByUserId, 'estorno');
+    this._status = PaymentStatus.REVERSED;
+    this._reversalReason = normalizedReason;
+    this._reversedAt = new Date(reversedAt);
+    this._reversedByUserId = reversedByUserId;
   }
 
   private assertCanReview(reviewedAt: Date, reviewedByUserId: string): void {
@@ -257,6 +340,15 @@ export class PaymentTransaction {
   get rejectionReason(): string | null {
     return this._rejectionReason;
   }
+  get isDirectSettlement(): boolean {
+    return this._isDirectSettlement;
+  }
+  get reversalReason(): string | null {
+    return this._reversalReason;
+  }
+  get reversedAt(): Date | null {
+    return this._reversedAt ? new Date(this._reversedAt) : null;
+  }
   get idempotencyKey(): string {
     return this._idempotencyKey;
   }
@@ -268,5 +360,8 @@ export class PaymentTransaction {
   }
   get reviewedByUserId(): string | null {
     return this._reviewedByUserId;
+  }
+  get reversedByUserId(): string | null {
+    return this._reversedByUserId;
   }
 }

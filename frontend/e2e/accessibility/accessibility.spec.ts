@@ -1,9 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-async function openMobileMenuIfNeeded(page: Page, testInfo: TestInfo): Promise<void> {
-  if (!testInfo.project.name.startsWith('mobile-')) return;
-  await page.getByRole('button', { name: 'Abrir menu' }).click();
+async function openMobileMenuIfNeeded(page: Page, target: Locator): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
+  if (await target.isVisible()) return;
+
+  const openMenuButton = page.getByRole('button', { name: 'Abrir menu' });
+  await expect(openMenuButton).toBeVisible();
+  await openMenuButton.click();
+  await expect(target).toBeVisible();
 }
 
 function accessToken(): string {
@@ -68,6 +73,15 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       contentType: 'application/json',
       body: JSON.stringify({
         asOf: '2026-07-12',
+        period: { from: '2026-07-01', to: '2026-07-12', forecastThrough: '2026-08-11' },
+        financial: {
+          receivedCents: 0,
+          confirmedReceivableCents: 0,
+          forecastRenewalsCents: 0,
+          byProperty: [],
+          byBuilding: [],
+          daily: [],
+        },
         contracts: { total: 0, active: 0, expired: 0, terminated: 0, expiringNext30Days: 0 },
         invoices: {
           total: 0,
@@ -106,16 +120,15 @@ test('login não possui violações WCAG AA', async ({ page }) => {
   expect(await wcagViolations(page)).toEqual([]);
 });
 
-test('shell autenticado e estado vazio não possuem violações WCAG AA', async ({
-  page,
-}, testInfo) => {
+test('shell autenticado e estado vazio não possuem violações WCAG AA', async ({ page }) => {
   await mockAuthenticatedApi(page);
   await page.goto('/login');
   await page.getByLabel('E-mail').fill('admin@example.test');
   await page.getByLabel('Senha', { exact: true }).fill('Strong-test-password-123!');
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await openMobileMenuIfNeeded(page, testInfo);
-  await page.getByRole('link', { name: 'Faturas' }).click();
+  const invoicesLink = page.getByRole('link', { name: 'Faturas' });
+  await openMobileMenuIfNeeded(page, invoicesLink);
+  await invoicesLink.click();
   await expect(page.getByRole('heading', { name: 'Faturas', exact: true })).toBeVisible();
 
   expect(await wcagViolations(page)).toEqual([]);

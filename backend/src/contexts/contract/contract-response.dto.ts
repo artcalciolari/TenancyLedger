@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/infrastructure/http/openapi.dto';
-import { ContractStatus } from './domain/entities/contract.entity';
+import { ContractBadge, ContractStatus, ContractType } from './domain/entities/contract.entity';
 import { TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
 import { UnitType } from '../property/domain/property-unit.entity';
 
@@ -45,14 +45,14 @@ export class ContractResponseDto {
   @ApiProperty({ type: String, format: 'date', example: '2026-07-01' })
   moveInDate!: string;
 
-  @ApiProperty({ type: String, format: 'date', example: '2027-06-30' })
-  endDate!: string;
+  @ApiProperty({ type: String, format: 'date', example: '2027-06-30', nullable: true })
+  endDate!: string | null;
 
   @ApiProperty({ type: Number, minimum: 1, maximum: 2147483647, example: 150000 })
   monthlyBaseValueCents!: number;
 
-  @ApiProperty({ minimum: 1, maximum: 600, example: 12 })
-  durationInMonths!: number;
+  @ApiProperty({ type: Number, minimum: 1, maximum: 600, example: 12, nullable: true })
+  durationInMonths!: number | null;
 
   @ApiProperty({ minimum: 1, maximum: 28, example: 10 })
   billingDay!: number;
@@ -60,8 +60,26 @@ export class ContractResponseDto {
   @ApiProperty()
   isRenewable!: boolean;
 
+  @ApiProperty({ enum: ContractType, enumName: 'ContractType' })
+  contractType!: ContractType;
+
   @ApiProperty({ enum: ContractStatus, enumName: 'ContractStatus' })
   status!: ContractStatus;
+
+  @ApiProperty({ type: String, maxLength: 500, nullable: true })
+  statusReason!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  statusChangedAt!: Date;
+
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  paidThroughDate!: string | null;
+
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  nextRenewalDate!: string | null;
+
+  @ApiProperty({ enum: ContractBadge, enumName: 'ContractBadge', isArray: true })
+  badges!: ContractBadge[];
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: Date;

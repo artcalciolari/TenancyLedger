@@ -1,9 +1,12 @@
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import AutorenewOutlinedIcon from '@mui/icons-material/AutorenewOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   Badge,
   Box,
   Button,
   CircularProgress,
+  Chip,
   Divider,
   IconButton,
   ListItemText,
@@ -19,6 +22,7 @@ import { useNavigate } from 'react-router';
 import { queryKeys } from '../../api/query-keys';
 import { formatDateTime } from '../../lib/dates/dates';
 import { notificationsApi } from './api';
+import { isRenewalNotification, notificationDestination } from './presentation';
 
 export function NotificationsMenu() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -41,10 +45,15 @@ export function NotificationsMenu() {
   const unread = notifications.data?.unreadCount ?? 0;
 
   const open = (event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget);
-  const goToNotification = (id: string, resourceId: string, readAt: string | null) => {
+  const goToNotification = (
+    id: string,
+    resourceId: string,
+    resourceType: string,
+    readAt: string | null,
+  ) => {
     if (!readAt) markRead.mutate(id);
     setAnchor(null);
-    void navigate(`/invoices/${resourceId}`);
+    void navigate(notificationDestination({ resourceId, resourceType }));
   };
 
   return (
@@ -98,27 +107,65 @@ export function NotificationsMenu() {
             Nenhuma notificação.
           </Typography>
         ) : (
-          notifications.data.data.map((notification) => (
-            <MenuItem
-              key={notification.id}
-              onClick={() =>
-                goToNotification(notification.id, notification.resourceId, notification.readAt)
-              }
-              sx={{
-                alignItems: 'flex-start',
-                bgcolor: notification.readAt ? undefined : 'action.hover',
-                whiteSpace: 'normal',
-              }}
-            >
-              <ListItemText
-                primary={notification.title}
-                secondary={`${notification.message} · ${formatDateTime(notification.createdAt)}`}
-                slotProps={{
-                  primary: { sx: { fontWeight: notification.readAt ? 500 : 750 } },
+          notifications.data.data.map((notification) => {
+            const notificationType: string = notification.type;
+            const renewalAlert = isRenewalNotification(notificationType);
+            return (
+              <MenuItem
+                key={notification.id}
+                onClick={() =>
+                  goToNotification(
+                    notification.id,
+                    notification.resourceId,
+                    notification.resourceType,
+                    notification.readAt,
+                  )
+                }
+                sx={{
+                  alignItems: 'flex-start',
+                  bgcolor: notification.readAt ? undefined : 'action.hover',
+                  whiteSpace: 'normal',
+                  borderLeft: renewalAlert ? 3 : 0,
+                  borderLeftColor:
+                    notificationType === 'PAYMENT_OVERDUE' ? 'error.main' : 'warning.main',
                 }}
-              />
-            </MenuItem>
-          ))
+              >
+                {renewalAlert && (
+                  <Box
+                    sx={{
+                      color: notificationType === 'PAYMENT_OVERDUE' ? 'error.main' : 'warning.dark',
+                      mr: 1.25,
+                      mt: 0.75,
+                    }}
+                  >
+                    {notificationType === 'PAYMENT_OVERDUE' ? (
+                      <WarningAmberOutlinedIcon fontSize="small" />
+                    ) : (
+                      <AutorenewOutlinedIcon fontSize="small" />
+                    )}
+                  </Box>
+                )}
+                <ListItemText
+                  primary={
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <Typography sx={{ fontWeight: notification.readAt ? 500 : 750 }}>
+                        {notification.title}
+                      </Typography>
+                      {renewalAlert && (
+                        <Chip
+                          size="small"
+                          label={notificationType === 'PAYMENT_OVERDUE' ? 'Em atraso' : 'Renovação'}
+                          color={notificationType === 'PAYMENT_OVERDUE' ? 'error' : 'warning'}
+                          variant="outlined"
+                        />
+                      )}
+                    </Stack>
+                  }
+                  secondary={`${notification.message} · ${formatDateTime(notification.createdAt)}`}
+                />
+              </MenuItem>
+            );
+          })
         )}
       </Menu>
     </>
