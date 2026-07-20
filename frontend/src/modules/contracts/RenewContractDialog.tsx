@@ -18,7 +18,7 @@ import { useRenewContract } from './hooks';
 import { renewContractSchema, type RenewContractForm } from './schemas';
 
 interface RenewContractDialogProps {
-  contract: ContractView;
+  contract: Pick<ContractView, 'id'> & { durationInMonths: number };
   open: boolean;
   onClose: () => void;
   onRenewed: (contract: ContractView) => void;

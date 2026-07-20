@@ -6,8 +6,8 @@ describe('createAppTheme', () => {
     const theme = createAppTheme();
 
     expect(theme.palette.mode).toBe('light');
-    expect(theme.palette.background.default).toBe('#F3F1EA');
-    expect(theme.palette.primary.main).toBe('#0E6E78');
+    expect(theme.palette.background.default).toBe('#FAFAF6');
+    expect(theme.palette.primary.main).toBe('#175045');
   });
 
   it('mantém alvos interativos e campos com ao menos 44 px', () => {

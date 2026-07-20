@@ -1,4 +1,5 @@
 import type {
+  CashSettlementView,
   InvoiceListFilters,
   InvoiceView,
   Paginated,
@@ -9,6 +10,8 @@ import type {
   SubmitPaymentInput,
 } from '../../api/contract';
 import { executeOpenApi, openApiClient } from '../../api/openapi-client';
+
+export type SettleCashResult = CashSettlementView;
 
 export const invoicesApi = {
   list(filters: InvoiceListFilters): Promise<Paginated<InvoiceView>> {
@@ -103,6 +106,14 @@ export const invoicesApi = {
     return executeOpenApi(
       openApiClient.GET('/invoices/{id}/payments/by-idempotency-key', {
         params: { path: { id }, header: { 'Idempotency-Key': idempotencyKey } },
+      }),
+    );
+  },
+  settleCash(id: string, amountCents: number, idempotencyKey: string): Promise<SettleCashResult> {
+    return executeOpenApi(
+      openApiClient.POST('/invoices/{id}/settle-cash', {
+        params: { path: { id }, header: { 'Idempotency-Key': idempotencyKey } },
+        body: { amountCents },
       }),
     );
   },

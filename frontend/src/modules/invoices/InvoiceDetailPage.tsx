@@ -25,7 +25,7 @@ import { Link as RouterLink, useParams } from 'react-router';
 import type { PaymentMethod } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand, statusTones } from '../../app/theme/theme';
-import { StatusChip } from '../../components/data-display/StatusChip';
+import { StatusChip, StatusStamp } from '../../components/data-display/StatusChip';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { LoadingState } from '../../components/feedback/QueryState';
 import { formatCivilDate, formatCompetence, formatDateTime } from '../../lib/dates/dates';
@@ -53,18 +53,21 @@ const paymentMethodVisuals: Record<
   CASH: { Icon: PaymentsOutlined, bg: brand.accentTint, fg: brand.accent },
 };
 
-const uppercaseLabelSx = {
-  fontSize: '0.78rem',
-  fontWeight: 600,
-  letterSpacing: '0.03em',
-  textTransform: 'uppercase' as const,
-};
-
 const heroValueSx = {
-  fontFamily: '"Newsreader", Georgia, serif',
+  fontFamily: brand.fontDisplay,
+  fontVariantNumeric: 'oldstyle-nums',
   fontSize: '1.9rem',
   fontWeight: 500,
+  letterSpacing: '-0.01em',
   mt: 1,
+};
+
+const stubLabelSx = {
+  fontSize: '0.66rem',
+  fontWeight: 600,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase' as const,
+  color: brand.textTertiary,
 };
 
 export function InvoiceDetailPage() {
@@ -135,37 +138,91 @@ export function InvoiceDetailPage() {
         )}
       </Stack>
 
-      <Box
+      <Card
         sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 2,
           mb: 3,
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          p: 0,
+          overflow: 'hidden',
         }}
       >
-        <Card sx={{ p: 2.5 }}>
-          <Typography sx={{ ...uppercaseLabelSx, color: brand.textTertiary }}>
-            Valor total
+        <Box
+          sx={{
+            flex: { md: '0 0 224px' },
+            p: 2.5,
+            borderRight: { md: `1px dashed ${brand.borderInput}` },
+            borderBottom: { xs: `1px dashed ${brand.borderInput}`, md: 0 },
+            background: {
+              md: [
+                `radial-gradient(circle at right 0px top 10px, ${brand.pageBg} 5px, transparent 5.5px)`,
+                `radial-gradient(circle at right 0px bottom 10px, ${brand.pageBg} 5px, transparent 5.5px)`,
+                brand.surface,
+              ].join(', '),
+            },
+          }}
+        >
+          <Typography
+            sx={{
+              fontFamily: brand.fontMono,
+              fontSize: '0.72rem',
+              letterSpacing: '0.04em',
+              color: brand.textTertiary,
+            }}
+          >
+            Nº {invoice.id.slice(0, 6).toUpperCase()} · {formatCompetence(invoice.competence)}
           </Typography>
-          <Typography sx={{ ...heroValueSx, color: brand.textPrimary }}>
-            {formatCents(invoice.totalValueCents)}
+          <Typography sx={{ ...stubLabelSx, mt: 1.75 }}>Imóvel</Typography>
+          <Typography sx={{ fontWeight: 600, fontSize: '0.92rem' }}>
+            {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
+            {invoice.contract.propertyUnit.unitNumber}
           </Typography>
-        </Card>
-        <Card sx={{ p: 2.5 }}>
-          <Typography sx={{ ...uppercaseLabelSx, color: brand.textTertiary }}>Aprovado</Typography>
-          <Typography sx={{ ...heroValueSx, color: statusTones.success.fg }}>
-            {formatCents(invoice.approvedAmountCents)}
+          <Typography sx={{ ...stubLabelSx, mt: 1.5 }}>Locatário</Typography>
+          <Typography sx={{ fontWeight: 600, fontSize: '0.92rem' }}>
+            {invoice.contract.tenant.name}
           </Typography>
-        </Card>
-        <Card sx={{ p: 2.5, bgcolor: brand.sidebarBg, borderColor: brand.sidebarBg }}>
-          <Typography sx={{ ...uppercaseLabelSx, color: 'rgba(255,255,255,0.6)' }}>
-            Saldo a pagar
-          </Typography>
-          <Typography sx={{ ...heroValueSx, color: '#fff' }}>
-            {formatCents(invoice.outstandingAmountCents)}
-          </Typography>
-        </Card>
-      </Box>
+        </Box>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1.2fr' },
+          }}
+        >
+          <Box sx={{ p: 2.5, borderLeft: { sm: 0 } }}>
+            <Typography sx={stubLabelSx}>Valor total</Typography>
+            <Typography sx={{ ...heroValueSx, color: brand.textPrimary }}>
+              {formatCents(invoice.totalValueCents)}
+            </Typography>
+          </Box>
+          <Box sx={{ p: 2.5, borderLeft: { sm: `1px solid ${brand.borderCard}` } }}>
+            <Typography sx={stubLabelSx}>Aprovado</Typography>
+            <Typography sx={{ ...heroValueSx, color: statusTones.success.fg }}>
+              {formatCents(invoice.approvedAmountCents)}
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              p: 2.5,
+              bgcolor: brand.sidebarBg,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Typography sx={{ ...stubLabelSx, color: brand.sidebarGroupLabel }}>
+              Saldo a pagar
+            </Typography>
+            <Typography sx={{ ...heroValueSx, color: '#fff' }}>
+              {formatCents(invoice.outstandingAmountCents)}
+            </Typography>
+            <Typography
+              sx={{ mt: 'auto', pt: 1, fontSize: '0.76rem', color: brand.sidebarGroupLabel }}
+            >
+              Vence em {formatCivilDate(invoice.dueDate)}
+            </Typography>
+          </Box>
+        </Box>
+      </Card>
 
       <Box
         sx={{
@@ -370,7 +427,8 @@ export function InvoiceDetailPage() {
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography
                       sx={{
-                        fontFamily: '"Newsreader", Georgia, serif',
+                        fontFamily: brand.fontDisplay,
+                        fontVariantNumeric: 'oldstyle-nums',
                         fontSize: '1.3rem',
                         fontWeight: 500,
                         color: brand.textPrimary,
@@ -396,7 +454,11 @@ export function InvoiceDetailPage() {
                     {payment.hasProof && (
                       <PaymentProofButton invoiceId={invoice.id} paymentId={payment.id} />
                     )}
-                    <StatusChip status={payment.status} />
+                    {payment.status === 'APPROVED' ? (
+                      <StatusStamp label="Pago" animate />
+                    ) : (
+                      <StatusChip status={payment.status} />
+                    )}
                   </Stack>
                 </Stack>
                 {showActions && (

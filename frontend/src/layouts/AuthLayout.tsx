@@ -1,5 +1,4 @@
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import { Box, Stack, Typography } from '@mui/material';
 import type { PropsWithChildren } from 'react';
 import { brand } from '../app/theme/theme';
@@ -25,41 +24,74 @@ export function AuthLayout({ children }: PropsWithChildren) {
         }}
       >
         <Box
+          component="svg"
+          aria-hidden
+          viewBox="0 0 400 400"
           sx={{
             position: 'absolute',
-            top: -120,
-            right: -120,
+            top: -130,
+            right: -130,
             width: 420,
             height: 420,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(47,166,160,0.18), transparent 70%)',
+            opacity: 0.1,
           }}
-        />
+        >
+          {Array.from({ length: 14 }, (_, ring) => (
+            <circle
+              key={ring}
+              cx="200"
+              cy="200"
+              r={30 + ring * 12}
+              fill="none"
+              stroke={brand.latao}
+              strokeWidth="0.8"
+            />
+          ))}
+        </Box>
         <Box
+          component="svg"
+          aria-hidden
+          viewBox="0 0 400 400"
           sx={{
             position: 'absolute',
-            bottom: -140,
-            left: -80,
-            width: 360,
-            height: 360,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(185,130,47,0.12), transparent 70%)',
+            bottom: -150,
+            left: -110,
+            width: 380,
+            height: 380,
+            opacity: 0.08,
           }}
-        />
+        >
+          {Array.from({ length: 12 }, (_, ring) => (
+            <circle
+              key={ring}
+              cx="200"
+              cy="200"
+              r={34 + ring * 13}
+              fill="none"
+              stroke={brand.accentBright}
+              strokeWidth="0.8"
+            />
+          ))}
+        </Box>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', position: 'relative' }}>
           <Box
+            aria-hidden
             sx={{
               width: 40,
               height: 40,
-              borderRadius: '11px',
-              bgcolor: 'primary.main',
+              borderRadius: '4px',
+              border: `1px solid ${brand.latao}`,
+              color: brand.latao,
+              fontFamily: brand.fontDisplay,
+              fontWeight: 560,
+              fontSize: '1.15rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            <ApartmentOutlinedIcon sx={{ color: '#fff', fontSize: 24 }} />
+            TL
           </Box>
           <Typography sx={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
             Tenancy Ledger
@@ -69,7 +101,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
           <Typography
             component="h1"
             sx={{
-              fontFamily: '"Newsreader", Georgia, serif',
+              fontFamily: brand.fontDisplay,
               fontSize: { xs: '2rem', md: '2.7rem' },
               lineHeight: 1.12,
               fontWeight: 500,
@@ -102,7 +134,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
             position: 'relative',
           }}
         >
-          <Box sx={{ width: 28, height: 2, bgcolor: brand.ocre, borderRadius: '2px' }} />
+          <Box sx={{ width: 28, height: 2, bgcolor: brand.latao }} />
           <LockOutlinedIcon sx={{ fontSize: 18 }} />
           <Typography sx={{ fontSize: 'inherit', color: 'inherit' }}>
             Acesso seguro e privado
@@ -123,7 +155,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
           <Typography
             component="h2"
             sx={{
-              fontFamily: '"Newsreader", Georgia, serif',
+              fontFamily: brand.fontDisplay,
               fontSize: '2rem',
               fontWeight: 500,
               color: brand.textPrimary,

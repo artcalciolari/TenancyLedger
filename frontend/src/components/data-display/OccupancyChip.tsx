@@ -9,22 +9,18 @@ function ToneChip({ tone, label }: { tone: StatusTone; label: string }) {
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 0.85,
-        height: 26,
-        px: 1.35,
-        borderRadius: '8px',
-        fontSize: '0.8rem',
+        height: 24,
+        px: 1,
+        borderRadius: '3px',
+        border: `1px solid ${palette.dot}80`,
+        fontSize: '0.7rem',
         fontWeight: 600,
-        bgcolor: palette.bg,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
         color: palette.fg,
         whiteSpace: 'nowrap',
       }}
     >
-      <Box
-        component="span"
-        aria-hidden
-        sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: palette.dot, flexShrink: 0 }}
-      />
       {label}
     </Box>
   );

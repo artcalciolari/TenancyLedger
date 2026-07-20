@@ -8,7 +8,7 @@ interface ListFilters {
 }
 type FilterKey<T extends ListFilters> = Exclude<keyof T, 'page' | 'limit'> & string;
 type FilterUpdate<T extends ListFilters> = Partial<
-  Record<keyof T & string, string | number | undefined>
+  Record<keyof T & string, string | number | boolean | undefined>
 >;
 interface FilterUpdateOptions {
   replace?: boolean;

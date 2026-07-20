@@ -13,7 +13,7 @@ const validTenant = {
 
 describe('createTenantSchema', () => {
   it('aceita o formato público do backend', () => {
-    expect(createTenantSchema.safeParse(validTenant).success).toBe(true);
+    expect(createTenantSchema.parse(validTenant).mobilePhone).toBe('11999999999');
   });
 
   it('rejeita CPF e RG fora do contrato', () => {
@@ -24,5 +24,11 @@ describe('createTenantSchema', () => {
 
   it('rejeita nome muito curto', () => {
     expect(createTenantSchema.safeParse({ ...validTenant, name: 'Jo' }).success).toBe(false);
+  });
+
+  it('rejeita telefone fixo no campo de celular', () => {
+    expect(
+      createTenantSchema.safeParse({ ...validTenant, mobilePhone: '+55 11 3333-4444' }).success,
+    ).toBe(false);
   });
 });

@@ -1,10 +1,5 @@
-import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined';
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
-import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
-import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import {
   Box,
   Card,
@@ -40,74 +35,52 @@ interface MetricCardProps {
   label: string;
   value: string | number;
   detail: string;
-  icon: ReactNode;
   tone?: StatusTone;
 }
 
-function MetricCard({ label, value, detail, icon, tone }: MetricCardProps) {
-  const dotColor = tone ? statusTones[tone].dot : brand.textTertiary;
-  const iconBg = tone ? statusTones[tone].bg : brand.accentTint;
-  const iconFg = tone ? statusTones[tone].fg : brand.accent;
+function MetricCard({ label, value, detail, tone }: MetricCardProps) {
+  const toneFg = tone ? statusTones[tone].fg : undefined;
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Stack
-          direction="row"
-          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}
+        <Typography
+          sx={{
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            letterSpacing: '0.11em',
+            textTransform: 'uppercase',
+            color: brand.textTertiary,
+          }}
         >
-          <Typography
-            sx={{
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              letterSpacing: '0.03em',
-              textTransform: 'uppercase',
-              color: brand.textTertiary,
-            }}
-          >
-            {label}
-          </Typography>
-          <Box
-            sx={{
-              width: 34,
-              height: 34,
-              borderRadius: '9px',
-              bgcolor: iconBg,
-              color: iconFg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              '& svg': { fontSize: 19 },
-            }}
-          >
-            {icon}
-          </Box>
-        </Stack>
+          {label}
+        </Typography>
         <Typography
           component="div"
           sx={{
-            fontFamily: '"Newsreader", Georgia, serif',
+            fontFamily: brand.fontDisplay,
+            fontVariantNumeric: 'oldstyle-nums',
             fontSize: '2.1rem',
             fontWeight: 500,
-            lineHeight: 1,
-            color: brand.textPrimary,
+            lineHeight: 1.1,
+            letterSpacing: '-0.01em',
+            color: toneFg ?? brand.textPrimary,
+            mt: 0.75,
+            pb: 1,
+            borderBottom: `1px solid ${tone ? `${statusTones[tone].dot}59` : brand.borderCard}`,
           }}
         >
           {value}
         </Typography>
-        <Stack direction="row" spacing={0.85} sx={{ alignItems: 'center', mt: 1.25 }}>
-          <Box
-            sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0 }}
-          />
-          <Typography
-            sx={{
-              fontSize: '0.82rem',
-              color: tone ? statusTones[tone].fg : brand.textSecondary,
-              fontWeight: tone ? 600 : 400,
-            }}
-          >
-            {detail}
-          </Typography>
-        </Stack>
+        <Typography
+          sx={{
+            fontSize: '0.82rem',
+            mt: 1,
+            color: toneFg ?? brand.textSecondary,
+            fontWeight: tone ? 600 : 400,
+          }}
+        >
+          {detail}
+        </Typography>
       </CardContent>
     </Card>
   );
@@ -128,7 +101,12 @@ function ListPanel({
         direction="row"
         sx={{ alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2, pb: 1.5 }}
       >
-        <Typography component="h2" variant="h2">
+        <Typography
+          component="h2"
+          variant="h2"
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}
+        >
+          <Box component="span" aria-hidden sx={{ width: 3, height: 14, bgcolor: brand.razao }} />
           {title}
         </Typography>
         {count && (
@@ -137,6 +115,106 @@ function ListPanel({
       </Stack>
       <Box sx={{ pb: 1 }}>{children}</Box>
     </Card>
+  );
+}
+
+function FinancialDailyChart({
+  points,
+}: {
+  points: {
+    date: string;
+    receivedCents: number;
+    confirmedReceivableCents: number;
+    forecastRenewalsCents: number;
+  }[];
+}) {
+  if (points.length === 0) {
+    return (
+      <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
+        Nenhum movimento no período.
+      </Typography>
+    );
+  }
+  const values = points.flatMap((point) => [
+    point.receivedCents,
+    point.confirmedReceivableCents,
+    point.forecastRenewalsCents,
+  ]);
+  const maximum = Math.max(...values, 1);
+  const x = (index: number) => 28 + (index * 664) / Math.max(points.length - 1, 1);
+  const y = (value: number) => 180 - (value / maximum) * 140;
+  const line = (field: 'receivedCents' | 'confirmedReceivableCents' | 'forecastRenewalsCents') =>
+    points.map((point, index) => `${x(index)},${y(point[field])}`).join(' ');
+  const legend = [
+    { label: 'Recebido', color: statusTones.success.dot },
+    { label: 'A receber', color: statusTones.warning.dot },
+    { label: 'Previsto', color: statusTones.info.dot },
+  ];
+
+  return (
+    <Box>
+      <Stack direction="row" spacing={2} sx={{ px: 2.5, pt: 0.5, flexWrap: 'wrap' }}>
+        {legend.map((item) => (
+          <Stack key={item.label} direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+            <Box sx={{ width: 18, height: 3, bgcolor: item.color }} />
+            <Typography sx={{ fontSize: '0.75rem', color: brand.textSecondary }}>
+              {item.label}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+      <Box
+        component="svg"
+        role="img"
+        aria-label="Série diária de valores recebidos, a receber e previstos"
+        viewBox="0 0 720 210"
+        sx={{ display: 'block', width: '100%', height: 220, px: 1 }}
+      >
+        <line x1="28" y1="180" x2="692" y2="180" stroke={brand.borderInput} />
+        <line x1="28" y1="110" x2="692" y2="110" stroke={brand.borderRow} strokeDasharray="4 5" />
+        <polyline
+          points={line('receivedCents')}
+          fill="none"
+          stroke={statusTones.success.dot}
+          strokeWidth="3"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <polyline
+          points={line('confirmedReceivableCents')}
+          fill="none"
+          stroke={statusTones.warning.dot}
+          strokeWidth="3"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <polyline
+          points={line('forecastRenewalsCents')}
+          fill="none"
+          stroke={statusTones.info.dot}
+          strokeWidth="3"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {points.map((point, index) => (
+          <circle
+            key={point.date}
+            cx={x(index)}
+            cy={y(point.receivedCents)}
+            r="3.5"
+            fill={statusTones.success.dot}
+          />
+        ))}
+        <text x="28" y="201" fill={brand.textTertiary} fontSize="11">
+          {formatCivilDate(points[0]!.date)}
+        </text>
+        {points.length > 1 && (
+          <text x="692" y="201" textAnchor="end" fill={brand.textTertiary} fontSize="11">
+            {formatCivilDate(points.at(-1)!.date)}
+          </text>
+        )}
+      </Box>
+    </Box>
   );
 }
 
@@ -169,27 +247,24 @@ export function DashboardPage() {
 
   const attentionItems = [
     data.invoices.overdueAmountCents > 0 && {
-      icon: <ScheduleOutlinedIcon />,
       tone: 'error' as const,
-      title: 'Faturas vencidas',
-      sub: `${formatCents(data.invoices.overdueAmountCents)} em atraso`,
+      amount: formatCents(data.invoices.overdueAmountCents),
+      what: 'em faturas vencidas',
       cta: 'Ver faturas',
       to: '/invoices?status=OVERDUE',
     },
     mayReview &&
       data.payments.submitted > 0 && {
-        icon: <FactCheckOutlinedIcon />,
         tone: 'warning' as const,
-        title: `${data.payments.submitted} pagamentos aguardando revisão`,
-        sub: `${data.invoices.underReview} faturas em análise`,
+        amount: data.payments.submitted,
+        what: `pagamentos aguardando revisão · ${data.invoices.underReview} faturas em análise`,
         cta: 'Abrir fila',
         to: '/payments/review',
       },
     data.contracts.expiringNext30Days > 0 && {
-      icon: <EventOutlinedIcon />,
       tone: 'info' as const,
-      title: `${data.contracts.expiringNext30Days} contratos vencem em 30 dias`,
-      sub: 'Renovação recomendada',
+      amount: data.contracts.expiringNext30Days,
+      what: 'contratos vencem em 30 dias',
       cta: 'Ver contratos',
       to: '/contracts',
     },
@@ -204,41 +279,132 @@ export function DashboardPage() {
         description={`Posição consolidada em ${formatCivilDate(data.asOf)}.`}
       />
       <Grid container spacing={2} sx={{ mb: 2.5 }}>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MetricCard
-            label="Contratos ativos"
-            value={data.contracts.active}
-            detail={`${data.contracts.expiringNext30Days} vencem nos próximos 30 dias`}
-            icon={<DescriptionOutlinedIcon />}
+            label="Recebido"
+            value={formatCents(data.financial.receivedCents)}
+            detail={`${formatCivilDate(data.period.from)} a ${formatCivilDate(data.period.to)}`}
+            tone="success"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MetricCard
-            label="Saldo em aberto"
-            value={formatCents(data.invoices.outstandingAmountCents)}
-            detail={`Distribuído em ${data.invoices.total} faturas`}
-            icon={<AccountBalanceWalletOutlinedIcon />}
+            label="A receber confirmado"
+            value={formatCents(data.financial.confirmedReceivableCents)}
+            detail="Faturas emitidas ainda em aberto"
+            tone={data.financial.confirmedReceivableCents > 0 ? 'warning' : undefined}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MetricCard
-            label="Valor vencido"
-            value={formatCents(data.invoices.overdueAmountCents)}
-            detail={
-              data.invoices.overdueAmountCents > 0 ? 'Precisa de atenção' : 'Nenhuma pendência'
-            }
-            icon={<ScheduleOutlinedIcon />}
-            tone={data.invoices.overdueAmountCents > 0 ? 'error' : undefined}
+            label="Renovações previstas"
+            value={formatCents(data.financial.forecastRenewalsCents)}
+            detail={`Projeção até ${formatCivilDate(data.period.forecastThrough)}`}
+            tone="info"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
-          <MetricCard
-            label="Em revisão"
-            value={data.payments.submitted}
-            detail={`${data.invoices.underReview} faturas em análise`}
-            icon={<FactCheckOutlinedIcon />}
-            tone={data.payments.submitted > 0 ? 'warning' : undefined}
-          />
+      </Grid>
+
+      <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <ListPanel title="Movimento por dia">
+            <FinancialDailyChart points={data.financial.daily} />
+          </ListPanel>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <ListPanel title="Resumo por prédio" count={`${data.financial.byBuilding.length} grupos`}>
+            {data.financial.byBuilding.length === 0 ? (
+              <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
+                Nenhum valor no período.
+              </Typography>
+            ) : (
+              <TableContainer sx={{ maxHeight: 300 }}>
+                <Table stickyHeader size="small" aria-label="Posição financeira por prédio">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Prédio</TableCell>
+                      <TableCell align="right">Recebido</TableCell>
+                      <TableCell align="right">A receber</TableCell>
+                      <TableCell align="right">Previsto</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.financial.byBuilding.map((building) => (
+                      <TableRow key={building.buildingId ?? `standalone-${building.neighborhood}`}>
+                        <TableCell>
+                          <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
+                            {building.buildingName ??
+                              `Imóveis sem prédio · ${building.neighborhood}`}
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
+                            {building.buildingName ? `${building.neighborhood} · ` : ''}
+                            {building.propertyUnitCount}{' '}
+                            {building.propertyUnitCount === 1 ? 'unidade' : 'unidades'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{formatCents(building.receivedCents)}</TableCell>
+                        <TableCell align="right">
+                          {formatCents(building.confirmedReceivableCents)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {formatCents(building.forecastRenewalsCents)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </ListPanel>
+        </Grid>
+        <Grid size={{ xs: 12 }}>
+          <ListPanel
+            title="Posição por imóvel"
+            count={`${data.financial.byProperty.length} imóveis`}
+          >
+            {data.financial.byProperty.length === 0 ? (
+              <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
+                Nenhum valor no período.
+              </Typography>
+            ) : (
+              <TableContainer sx={{ maxHeight: 300 }}>
+                <Table stickyHeader size="small" aria-label="Posição financeira por imóvel">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Imóvel</TableCell>
+                      <TableCell align="right">Recebido</TableCell>
+                      <TableCell align="right">A receber</TableCell>
+                      <TableCell align="right">Previsto</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.financial.byProperty.map((property) => (
+                      <TableRow key={property.propertyUnitId}>
+                        <TableCell>
+                          <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
+                            {property.buildingName ?? property.neighborhood} · Unid.{' '}
+                            {property.unitNumber}
+                          </Typography>
+                          {property.buildingName && (
+                            <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
+                              {property.neighborhood}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">{formatCents(property.receivedCents)}</TableCell>
+                        <TableCell align="right">
+                          {formatCents(property.confirmedReceivableCents)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {formatCents(property.forecastRenewalsCents)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </ListPanel>
         </Grid>
       </Grid>
 
@@ -250,52 +416,48 @@ export function DashboardPage() {
                 <Stack>
                   {attentionItems.map((item) => (
                     <Stack
-                      key={item.title}
+                      key={item.to}
                       component={RouterLink}
                       to={item.to}
                       direction="row"
                       spacing={1.75}
                       sx={{
-                        alignItems: 'center',
-                        px: 2,
-                        py: 1.4,
-                        mx: 1,
-                        borderRadius: '12px',
+                        alignItems: 'baseline',
+                        px: 2.25,
+                        py: 1.5,
+                        borderTop: `1px solid ${brand.borderRow}`,
                         textDecoration: 'none',
                         '&:hover': { bgcolor: brand.surfaceSubtle },
                       }}
                     >
-                      <Box
+                      <Typography
                         sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: '11px',
-                          flexShrink: 0,
-                          bgcolor: statusTones[item.tone].bg,
+                          fontFamily: brand.fontDisplay,
+                          fontVariantNumeric: 'oldstyle-nums',
+                          fontSize: '1.1rem',
+                          fontWeight: 560,
+                          whiteSpace: 'nowrap',
                           color: statusTones[item.tone].fg,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
                         }}
                       >
-                        {item.icon}
-                      </Box>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          sx={{ fontSize: '0.94rem', fontWeight: 600, color: brand.textPrimary }}
-                        >
-                          {item.title}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.83rem', color: brand.textSecondary }}>
-                          {item.sub}
-                        </Typography>
-                      </Box>
+                        {item.amount}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: '0.86rem',
+                          color: brand.textSecondary,
+                        }}
+                      >
+                        {item.what}
+                      </Typography>
                       <Stack
                         direction="row"
                         spacing={0.25}
                         sx={{ alignItems: 'center', color: 'primary.main', flexShrink: 0 }}
                       >
-                        <Typography sx={{ fontSize: '0.86rem', fontWeight: 600, color: 'inherit' }}>
+                        <Typography sx={{ fontSize: '0.84rem', fontWeight: 600, color: 'inherit' }}>
                           {item.cta}
                         </Typography>
                         <ChevronRightOutlinedIcon sx={{ fontSize: 18 }} />
@@ -373,7 +535,16 @@ export function DashboardPage() {
               borderBottom: `1px solid ${brand.borderCard}`,
             }}
           >
-            <Typography component="h2" variant="h2">
+            <Typography
+              component="h2"
+              variant="h2"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}
+            >
+              <Box
+                component="span"
+                aria-hidden
+                sx={{ width: 3, height: 14, bgcolor: brand.razao }}
+              />
               Faturas recentes
             </Typography>
             <Stack

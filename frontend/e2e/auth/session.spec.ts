@@ -1,8 +1,13 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-async function openMobileMenuIfNeeded(page: Page, testInfo: TestInfo): Promise<void> {
-  if (!testInfo.project.name.startsWith('mobile-')) return;
-  await page.getByRole('button', { name: 'Abrir menu' }).click();
+async function openMobileMenuIfNeeded(page: Page, target: Locator): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
+  if (await target.isVisible()) return;
+
+  const openMenuButton = page.getByRole('button', { name: 'Abrir menu' });
+  await expect(openMenuButton).toBeVisible();
+  await openMenuButton.click();
+  await expect(target).toBeVisible();
 }
 
 type Role = 'ADMIN' | 'MANAGER' | 'VIEWER';
@@ -71,17 +76,31 @@ async function mockSession(page: Page, role: Role) {
       contentType: 'application/json',
       body: JSON.stringify({
         asOf: '2026-07-12',
-        contracts: { total: 1, active: 1, expired: 0, expiringNext30Days: 0 },
+        period: { from: '2026-07-01', to: '2026-07-12', forecastThrough: '2026-08-11' },
+        financial: {
+          receivedCents: 0,
+          confirmedReceivableCents: 0,
+          forecastRenewalsCents: 0,
+          byProperty: [],
+          byBuilding: [],
+          daily: [],
+        },
+        contracts: {
+          total: 1,
+          active: 1,
+          expired: 0,
+          terminated: 0,
+          expiringNext30Days: 0,
+        },
         invoices: {
           total: 0,
           underReview: 0,
-          overdue: 0,
-          totalAmountCents: 0,
+          totalValueCents: 0,
           approvedAmountCents: 0,
           outstandingAmountCents: 0,
           overdueAmountCents: 0,
         },
-        payments: { submitted: 0, approved: 0, rejected: 0 },
+        payments: { submitted: 0 },
       }),
     }),
   );
@@ -110,10 +129,11 @@ async function login(page: Page, role: Role) {
   return state;
 }
 
-test('restaura a sessão administrativa durante a aba', async ({ page }, testInfo) => {
+test('restaura a sessão administrativa durante a aba', async ({ page }) => {
   await login(page, 'ADMIN');
-  await openMobileMenuIfNeeded(page, testInfo);
-  await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
+  const logoutButton = page.getByRole('button', { name: 'Sair' });
+  await openMobileMenuIfNeeded(page, logoutButton);
+  await expect(logoutButton).toBeVisible();
 
   await page.reload();
 
@@ -129,11 +149,12 @@ test('impede VIEWER de abrir a gestão de usuários', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Usuários' })).toHaveCount(0);
 });
 
-test('revoga o cookie e volta ao login ao sair', async ({ page }, testInfo) => {
+test('revoga o cookie e volta ao login ao sair', async ({ page }) => {
   const state = await login(page, 'ADMIN');
-  await openMobileMenuIfNeeded(page, testInfo);
+  const logoutButton = page.getByRole('button', { name: 'Sair' });
+  await openMobileMenuIfNeeded(page, logoutButton);
 
-  await page.getByRole('button', { name: 'Sair' }).click();
+  await logoutButton.click();
 
   await expect.poll(() => state.logoutRequests).toBe(1);
   await expect(page).toHaveURL(/\/login/);

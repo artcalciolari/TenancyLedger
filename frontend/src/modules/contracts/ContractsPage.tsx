@@ -25,7 +25,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
-import type { ContractListFilters, ContractStatus } from '../../api/contract';
+import type { ContractStatus } from '../../api/contract';
 import { brand } from '../../app/theme/theme';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
@@ -43,8 +43,9 @@ import { formatCents } from '../../lib/money/money';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
 import { contractsApi } from './api';
-import { isUuid, parseContractFilters } from './filters';
+import { isUuid, parseContractFilters, type ContractPageFilters } from './filters';
 import { useContracts } from './hooks';
+import type { ContractBadge, ContractLifecycleView } from './api';
 
 const statusChipOptions: { label: string; value: ContractStatus | undefined }[] = [
   { label: 'Todos', value: undefined },
@@ -53,7 +54,7 @@ const statusChipOptions: { label: string; value: ContractStatus | undefined }[] 
   { label: 'Encerrados', value: 'TERMINATED' },
 ];
 
-const contractSearchConfig: ListSearchConfig<ContractListFilters> = {
+const contractSearchConfig: ListSearchConfig<ContractPageFilters> = {
   filterKeys: [
     'status',
     'tenantId',
@@ -63,6 +64,8 @@ const contractSearchConfig: ListSearchConfig<ContractListFilters> = {
     'moveInTo',
     'endFrom',
     'endTo',
+    'badge',
+    'renewalAttention',
   ],
   parse: (searchParams, page, limit) => ({
     ...parseContractFilters(searchParams),
@@ -72,8 +75,30 @@ const contractSearchConfig: ListSearchConfig<ContractListFilters> = {
 };
 
 interface AdvancedFiltersFormProps {
-  filters: ContractListFilters;
+  filters: ContractPageFilters;
   onApply: (values: Record<string, string | undefined>) => void;
+}
+
+const badgeLabels: Record<ContractBadge, string> = {
+  RENEWAL_DUE: 'Renovação próxima',
+  PAYMENT_OVERDUE: 'Pagamento em atraso',
+};
+
+function RenewalBadges({ contract }: { contract: ContractLifecycleView }) {
+  if (!contract.badges?.length) return null;
+  return (
+    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
+      {contract.badges.map((badge) => (
+        <Chip
+          key={badge}
+          size="small"
+          label={badgeLabels[badge]}
+          color={badge === 'PAYMENT_OVERDUE' ? 'error' : 'warning'}
+          variant="outlined"
+        />
+      ))}
+    </Stack>
+  );
 }
 
 function formString(data: FormData, key: string): string {
@@ -173,6 +198,7 @@ export function ContractsPage() {
   const navigate = useNavigate();
   const listParams = useListSearchParams(contractSearchConfig);
   const { filters, hasFilters, searchParamsKey, updateFilters } = listParams;
+  const renewalFilterActive = filters.renewalAttention === true;
   const contracts = useContracts(filters);
   const { session } = useAuth();
   const theme = useTheme();
@@ -185,6 +211,7 @@ export function ContractsPage() {
     setLastSyncedQ(filters.q ?? '');
     setSearchDraft(filters.q ?? '');
   }
+  const rows = contracts.data?.data ?? [];
   const pageOutOfRange = useListPageRange(listParams, contracts.data?.meta.totalPages, {
     resetTo: 'last',
     preserveLimitParam: true,
@@ -207,10 +234,12 @@ export function ContractsPage() {
         description="Consulte vigências e condições das locações."
         action={mayCreate ? { label: 'Novo contrato', to: '/contracts/new' } : undefined}
       >
-        <CsvExportButton
-          exportCsv={() => contractsApi.exportCsv(filters)}
-          filename="contratos.csv"
-        />
+        {!renewalFilterActive && (
+          <CsvExportButton
+            exportCsv={() => contractsApi.exportCsv(filters)}
+            filename="contratos.csv"
+          />
+        )}
       </PageHeader>
       <Card sx={{ p: 2, mb: 2 }}>
         <Stack
@@ -256,13 +285,19 @@ export function ContractsPage() {
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 1.75 }}>
           {statusChipOptions.map((option) => {
-            const active = (filters.status ?? undefined) === option.value;
+            const active = !renewalFilterActive && (filters.status ?? undefined) === option.value;
             return (
               <Chip
                 key={option.label}
                 clickable
                 label={option.label}
-                onClick={() => updateFilters({ status: option.value })}
+                onClick={() =>
+                  updateFilters({
+                    status: option.value,
+                    badge: undefined,
+                    renewalAttention: undefined,
+                  })
+                }
                 variant={active ? 'filled' : 'outlined'}
                 sx={{
                   height: 34,
@@ -276,6 +311,19 @@ export function ContractsPage() {
               />
             );
           })}
+          <Chip
+            clickable
+            label="Renovações"
+            onClick={() =>
+              updateFilters({
+                renewalAttention: renewalFilterActive ? undefined : true,
+                status: renewalFilterActive ? filters.status : undefined,
+              })
+            }
+            variant={renewalFilterActive ? 'filled' : 'outlined'}
+            color={renewalFilterActive ? 'warning' : 'default'}
+            sx={{ height: 34, fontSize: '0.86rem', fontWeight: 600 }}
+          />
         </Stack>
         {advancedOpen && (
           <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${brand.borderRow}` }}>
@@ -291,7 +339,7 @@ export function ContractsPage() {
         <LoadingState label="Carregando contratos…" />
       ) : contracts.isError ? (
         <ProblemAlert error={contracts.error} onRetry={() => void contracts.refetch()} />
-      ) : contracts.data.data.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           title={hasFilters ? 'Nenhum contrato encontrado' : 'Nenhum contrato cadastrado'}
           description={hasFilters ? 'Ajuste ou limpe os filtros para tentar novamente.' : undefined}
@@ -300,7 +348,7 @@ export function ContractsPage() {
         <Card sx={{ p: 0 }}>
           {mobile ? (
             <Stack spacing={1.5} sx={{ p: 1.5 }}>
-              {contracts.data.data.map((contract) => (
+              {rows.map((contract) => (
                 <Card key={contract.id}>
                   <CardContent>
                     <Stack
@@ -317,11 +365,13 @@ export function ContractsPage() {
                       {contract.tenant.name} · CPF {contract.tenant.cpf}
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 1.25 }}>
-                      {formatCivilDate(contract.moveInDate)} a {formatCivilDate(contract.endDate)}
+                      {formatCivilDate(contract.moveInDate)} a{' '}
+                      {contract.endDate ? formatCivilDate(contract.endDate) : 'sem prazo final'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {formatCents(contract.monthlyBaseValueCents)} por mês
                     </Typography>
+                    <RenewalBadges contract={contract} />
                   </CardContent>
                   <CardActions>
                     <Button
@@ -349,7 +399,7 @@ export function ContractsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {contracts.data.data.map((contract) => (
+                  {rows.map((contract) => (
                     <TableRow
                       hover
                       key={contract.id}
@@ -376,9 +426,11 @@ export function ContractsPage() {
                         >
                           {contract.tenant.name} · CPF {contract.tenant.cpf}
                         </Typography>
+                        <RenewalBadges contract={contract} />
                       </TableCell>
                       <TableCell>
-                        {formatCivilDate(contract.moveInDate)} – {formatCivilDate(contract.endDate)}
+                        {formatCivilDate(contract.moveInDate)} –{' '}
+                        {contract.endDate ? formatCivilDate(contract.endDate) : 'Sem prazo final'}
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                         {formatCents(contract.monthlyBaseValueCents)}

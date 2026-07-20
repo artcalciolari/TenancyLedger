@@ -18,6 +18,7 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
   SUBMITTED: 'Enviado',
   APPROVED: 'Aprovado',
   REJECTED: 'Rejeitado',
+  REVERSED: 'Estornado',
 };
 
 export const proofTypeLabels: Record<ProofType, string> = {
