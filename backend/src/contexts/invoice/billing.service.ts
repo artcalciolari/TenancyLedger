@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -7,7 +8,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository, type EntityManager } from 'typeorm';
 import { createHash } from 'node:crypto';
 import { ValidationError } from '../../core/domain/errors/validation.error';
 import { StorageService } from '../../infrastructure/storage.service';
@@ -24,10 +25,13 @@ import type { PaymentReviewListOptions } from './domain/invoice.repository';
 import { CLOCK_TOKEN } from './infrastructure/workers/invoice-generation.worker';
 import type { Clock } from './infrastructure/workers/invoice-generation.worker';
 import { Contract, ContractStatus } from '../contract/domain/entities/contract.entity';
+import { canActivateContract } from '../contract/domain/contract-activation.policy';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
 import { PropertyUnit } from '../property/domain/property-unit.entity';
 import { TenantResponseDto } from '../tenant/infrastructure/http/dtos/tenant-response.dto';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
+import { ReceiptIssuerService } from '../receipt/application/receipt-issuer.service';
+import { CashboxService } from '../cashbox/cashbox.service';
 
 export interface ListInvoicesInput {
   page: number;
@@ -57,6 +61,12 @@ export interface SubmitPaymentInput {
   };
 }
 
+export interface SettleCashInput {
+  idempotencyKey?: string;
+  amountCents: number;
+  settledByUserId: string;
+}
+
 export interface PaymentView {
   id: string;
   amountCents: number;
@@ -69,6 +79,10 @@ export interface PaymentView {
   rejectionReason: string | null;
   submittedByUserId: string | null;
   reviewedByUserId: string | null;
+  isDirectSettlement: boolean;
+  reversalReason: string | null;
+  reversedAt: Date | null;
+  reversedByUserId: string | null;
 }
 
 export interface InvoiceContractSummary {
@@ -89,6 +103,8 @@ export interface InvoiceView {
   id: string;
   contractId: string;
   competence: string;
+  periodStart: string;
+  periodEnd: string;
   totalValueCents: number;
   approvedAmountCents: number;
   outstandingAmountCents: number;
@@ -147,6 +163,10 @@ export class BillingService {
     @Optional()
     @InjectRepository(PropertyUnit)
     private readonly properties?: Repository<PropertyUnit>,
+    @Optional()
+    private readonly cashbox?: CashboxService,
+    @Optional()
+    private readonly receiptIssuer?: ReceiptIssuerService,
   ) {}
 
   async getById(id: string): Promise<Invoice> {
@@ -226,6 +246,10 @@ export class BillingService {
             rejectionReason: item.rejectionReason,
             submittedByUserId: item.submittedByUserId,
             reviewedByUserId: item.reviewedByUserId,
+            isDirectSettlement: false,
+            reversalReason: null,
+            reversedAt: null,
+            reversedByUserId: null,
           },
           invoice: {
             id: item.invoiceId,
@@ -373,6 +397,61 @@ export class BillingService {
     }
   }
 
+  async settleCash(invoiceId: string, input: SettleCashInput): Promise<Invoice> {
+    PaymentTransaction.assertIdempotencyKey(input.idempotencyKey);
+    const idempotencyKey = input.idempotencyKey;
+    const requestFingerprint = createHash('sha256')
+      .update(JSON.stringify({ amountCents: input.amountCents, method: PaymentMethod.CASH }))
+      .digest('hex');
+    let storedReceiptKey: string | undefined;
+    let invoice: Invoice | null;
+    try {
+      invoice = await this.repository.updateWithLock(
+        invoiceId,
+        async (current, manager) => {
+          const previous = current.findPaymentByIdempotencyKey(idempotencyKey);
+          if (previous) {
+            if (
+              previous.requestFingerprint !== requestFingerprint ||
+              !previous.isDirectSettlement
+            ) {
+              throw new PaymentIdempotencyConflictError(
+                'A Idempotency-Key já foi usada nesta fatura com dados diferentes.',
+              );
+            }
+            return;
+          }
+          const settledAt = this.clock.now();
+          await this.cashbox?.assertOpen(civilDateInTimeZone(settledAt));
+          const payment = current.settleCash(
+            input.amountCents,
+            settledAt,
+            idempotencyKey,
+            requestFingerprint,
+            input.settledByUserId,
+            this.currentCivilDate(),
+          );
+          if (this.receiptIssuer && manager) {
+            await manager.save(current);
+          }
+          await this.activateInitialContract(current, manager);
+          if (this.receiptIssuer && manager) {
+            await this.receiptIssuer.issue(current, payment, manager, (key) => {
+              storedReceiptKey = key;
+            });
+          }
+        },
+        idempotencyKey,
+      );
+    } catch (error: unknown) {
+      await this.cleanupStoredReceipt(storedReceiptKey);
+      this.rethrowCashboxConflict(error);
+      throw error;
+    }
+    if (!invoice) throw new NotFoundException('Fatura não encontrada.');
+    return invoice;
+  }
+
   private static paymentFingerprint(input: SubmitPaymentInput): string {
     const proof = input.proof
       ? {
@@ -398,14 +477,31 @@ export class BillingService {
     paymentId: string,
     reviewedByUserId: string,
   ): Promise<Invoice> {
-    const invoice = await this.repository.updateWithLock(invoiceId, (current) => {
-      current.approvePayment(
-        paymentId,
-        this.clock.now(),
-        reviewedByUserId,
-        this.currentCivilDate(),
-      );
-    });
+    let storedReceiptKey: string | undefined;
+    let invoice: Invoice | null;
+    try {
+      invoice = await this.repository.updateWithLock(invoiceId, async (current, manager) => {
+        const candidate = current.transactions.find((payment) => payment.id === paymentId);
+        if (candidate?.method === PaymentMethod.CASH) {
+          await this.cashbox?.assertOpen(this.currentCivilDate());
+        }
+        const payment = current.approvePayment(
+          paymentId,
+          this.clock.now(),
+          reviewedByUserId,
+          this.currentCivilDate(),
+        );
+        if (this.receiptIssuer && manager) {
+          await this.receiptIssuer.issue(current, payment, manager, (key) => {
+            storedReceiptKey = key;
+          });
+        }
+      });
+    } catch (error: unknown) {
+      await this.cleanupStoredReceipt(storedReceiptKey);
+      this.rethrowCashboxConflict(error);
+      throw error;
+    }
     if (!invoice) throw new NotFoundException('Fatura não encontrada.');
     return invoice;
   }
@@ -425,6 +521,39 @@ export class BillingService {
         this.currentCivilDate(),
       );
     });
+    if (!invoice) throw new NotFoundException('Fatura não encontrada.');
+    return invoice;
+  }
+
+  async reversePayment(
+    invoiceId: string,
+    paymentId: string,
+    reason: string,
+    reversedByUserId: string,
+  ): Promise<Invoice> {
+    let invoice: Invoice | null;
+    try {
+      invoice = await this.repository.updateWithLock(invoiceId, async (current, manager) => {
+        const reversedAt = this.clock.now();
+        const candidate = current.transactions.find((payment) => payment.id === paymentId);
+        if (candidate?.method === PaymentMethod.CASH) {
+          await this.cashbox?.assertOpen(civilDateInTimeZone(candidate.reviewedAt ?? reversedAt));
+        }
+        current.reversePayment(
+          paymentId,
+          reason,
+          reversedAt,
+          reversedByUserId,
+          this.currentCivilDate(),
+        );
+        if (this.receiptIssuer && manager) {
+          await this.receiptIssuer.voidForPayment(paymentId, reason, reversedAt, manager);
+        }
+      });
+    } catch (error: unknown) {
+      this.rethrowCashboxConflict(error);
+      throw error;
+    }
     if (!invoice) throw new NotFoundException('Fatura não encontrada.');
     return invoice;
   }
@@ -452,6 +581,8 @@ export class BillingService {
       id: invoice.id,
       contractId: invoice.contractId,
       competence: invoice.competence,
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
       totalValueCents: invoice.totalValueCents,
       approvedAmountCents: invoice.approvedAmountCents,
       outstandingAmountCents: invoice.outstandingAmountCents,
@@ -477,6 +608,10 @@ export class BillingService {
       rejectionReason: payment.rejectionReason,
       submittedByUserId: payment.submittedByUserId,
       reviewedByUserId: payment.reviewedByUserId,
+      isDirectSettlement: payment.isDirectSettlement,
+      reversalReason: payment.reversalReason,
+      reversedAt: payment.reversedAt,
+      reversedByUserId: payment.reversedByUserId,
     };
   }
 
@@ -528,14 +663,50 @@ export class BillingService {
     return BillingService.toView(invoice, contract) as DetailedInvoiceView;
   }
 
-  private effectiveContractStatus(status: ContractStatus, endDate: string): ContractStatus {
-    return status !== ContractStatus.TERMINATED && endDate < this.currentCivilDate()
+  private effectiveContractStatus(status: ContractStatus, endDate: string | null): ContractStatus {
+    return status !== ContractStatus.TERMINATED &&
+      endDate !== null &&
+      endDate < this.currentCivilDate()
       ? ContractStatus.EXPIRED
       : status;
   }
 
+  private async activateInitialContract(invoice: Invoice, manager?: EntityManager): Promise<void> {
+    if (invoice.status !== InvoiceStatus.PAID) return;
+    const contract = manager
+      ? await manager.getRepository(Contract).findOne({
+          where: { id: invoice.contractId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : await this.contracts?.findOneBy({ id: invoice.contractId });
+    if (!contract || !canActivateContract(contract, invoice)) return;
+    contract.activate(this.clock.now());
+    if (manager) await manager.save(contract);
+    else await this.contracts?.save(contract);
+  }
+
   private currentCivilDate(): string {
     return civilDateInTimeZone(this.clock.now());
+  }
+
+  private async cleanupStoredReceipt(storageKey: string | undefined): Promise<void> {
+    if (!storageKey) return;
+    try {
+      await this.storage.deleteObject(storageKey);
+    } catch (error: unknown) {
+      this.logger.error('Could not remove an orphaned receipt document', error);
+    }
+  }
+
+  private rethrowCashboxConflict(error: unknown): void {
+    if (!(error instanceof QueryFailedError)) return;
+    const driverError: unknown = error.driverError;
+    if (typeof driverError !== 'object' || driverError === null) return;
+    if (Reflect.get(driverError, 'constraint') === 'CHK_cashbox_day_open') {
+      throw new ConflictException(
+        'O caixa deste dia está fechado. Reabra-o antes de registrar ou estornar dinheiro.',
+      );
+    }
   }
 
   private static csvCell(value: string | number | boolean | null | undefined): string {

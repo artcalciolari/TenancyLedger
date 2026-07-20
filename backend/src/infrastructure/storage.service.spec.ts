@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -19,6 +20,12 @@ const bucket = 'payment-proofs';
 const invoiceId = '550e8400-e29b-41d4-a716-446655440000';
 const storedKey =
   'payment-proofs/550e8400-e29b-41d4-a716-446655440000/123e4567-e89b-42d3-a456-426614174000.pdf';
+const storedDocumentKey =
+  'documents/tenant-photos/550e8400-e29b-41d4-a716-446655440000/123e4567-e89b-42d3-a456-426614174000.jpg';
+const draftId = '660e8400-e29b-41d4-a716-446655440111';
+const tenantId = '770e8400-e29b-41d4-a716-446655440222';
+const storedDraftPhotoKey =
+  'documents/onboarding-draft-photos/660e8400-e29b-41d4-a716-446655440111/123e4567-e89b-42d3-a456-426614174000.jpg';
 
 describe('StorageService', () => {
   let send: jest.MockedFunction<(command: unknown) => Promise<unknown>>;
@@ -224,6 +231,213 @@ describe('StorageService', () => {
     });
   });
 
+  describe('private documents', () => {
+    it('uploads a document below the private documents prefix', async () => {
+      send.mockResolvedValue({});
+
+      const result = await service.uploadDocument({
+        folder: 'tenant-photos',
+        ownerId: invoiceId,
+        contentType: 'image/jpeg',
+        body: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+      });
+
+      expect(result.key).toMatch(
+        new RegExp(`^documents/tenant-photos/${invoiceId}/[0-9a-f-]{36}\\.jpg$`, 'i'),
+      );
+      const command = send.mock.calls[0]?.[0] as PutObjectCommand;
+      expect(command.input).toMatchObject({
+        Bucket: bucket,
+        Key: result.key,
+        ContentType: 'image/jpeg',
+        ContentLength: 4,
+        Metadata: { ownerId: invoiceId, documentFolder: 'tenant-photos' },
+        ServerSideEncryption: undefined,
+      });
+    });
+
+    it.each([
+      [
+        'HEIC',
+        'image/heic',
+        Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]),
+        'heic',
+      ],
+      [
+        'HEIF',
+        'image/heif',
+        Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66, 0x31]),
+        'heif',
+      ],
+    ])(
+      'recognizes a valid %s document by magic bytes',
+      async (_label, contentType, body, extension) => {
+        send.mockResolvedValue({});
+
+        const result = await service.uploadDocument({
+          folder: 'tenant-photos',
+          ownerId: invoiceId,
+          contentType,
+          body,
+        });
+
+        expect(result.key).toMatch(new RegExp(`\\.${extension}$`));
+      },
+    );
+
+    it.each([
+      [
+        'an invalid folder',
+        {
+          folder: '../secrets',
+          ownerId: invoiceId,
+          contentType: 'application/pdf',
+          body: Buffer.from('%PDF-1.7'),
+        },
+      ],
+      [
+        'an invalid owner id',
+        {
+          folder: 'contract-documents',
+          ownerId: 'not-a-uuid',
+          contentType: 'application/pdf',
+          body: Buffer.from('%PDF-1.7'),
+        },
+      ],
+      [
+        'an unsupported MIME type',
+        {
+          folder: 'contract-documents',
+          ownerId: invoiceId,
+          contentType: 'text/plain',
+          body: Buffer.from('plain'),
+        },
+      ],
+      [
+        'a PDF in the tenant-photo folder',
+        {
+          folder: 'tenant-photos',
+          ownerId: invoiceId,
+          contentType: 'application/pdf',
+          body: Buffer.from('%PDF-1.7'),
+        },
+      ],
+      [
+        'an empty body',
+        {
+          folder: 'contract-documents',
+          ownerId: invoiceId,
+          contentType: 'application/pdf',
+          body: Buffer.alloc(0),
+        },
+      ],
+      [
+        'an oversized body',
+        {
+          folder: 'contract-documents',
+          ownerId: invoiceId,
+          contentType: 'application/pdf',
+          body: Buffer.alloc(10 * 1024 * 1024 + 1),
+        },
+      ],
+      [
+        'a MIME/signature mismatch',
+        {
+          folder: 'contract-documents',
+          ownerId: invoiceId,
+          contentType: 'image/png',
+          body: Buffer.from('%PDF-1.7'),
+        },
+      ],
+      [
+        'an unknown ISO media brand',
+        {
+          folder: 'tenant-photos',
+          ownerId: invoiceId,
+          contentType: 'image/heic',
+          body: Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]),
+        },
+      ],
+    ])('rejects %s before document storage', async (_label, input) => {
+      await expect(
+        service.uploadDocument(input as Parameters<StorageService['uploadDocument']>[0]),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('uploads a photo below the onboarding draft photos prefix', async () => {
+      send.mockResolvedValue({});
+
+      const result = await service.uploadDocument({
+        folder: 'onboarding-draft-photos',
+        ownerId: draftId,
+        contentType: 'image/jpeg',
+        body: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+      });
+
+      expect(result.key).toMatch(
+        new RegExp(`^documents/onboarding-draft-photos/${draftId}/[0-9a-f-]{36}\\.jpg$`, 'i'),
+      );
+      const command = send.mock.calls[0]?.[0] as PutObjectCommand;
+      expect(command.input).toMatchObject({
+        Bucket: bucket,
+        Key: result.key,
+        Metadata: { ownerId: draftId, documentFolder: 'onboarding-draft-photos' },
+      });
+    });
+
+    it('rejects a PDF uploaded to the onboarding draft photos folder', async () => {
+      await expect(
+        service.uploadDocument({
+          folder: 'onboarding-draft-photos',
+          ownerId: draftId,
+          contentType: 'application/pdf',
+          body: Buffer.from('%PDF-1.7'),
+        }),
+      ).rejects.toThrow(new BadRequestException('Unsupported onboarding draft photo content type'));
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('presigns a validated private document for no more than 900 seconds', async () => {
+      jest.mocked(getSignedUrl).mockResolvedValue('https://signed.example/document');
+
+      await expect(service.createDocumentReadUrl(storedDocumentKey, 900)).resolves.toBe(
+        'https://signed.example/document',
+      );
+
+      const [, command, options] = jest.mocked(getSignedUrl).mock.calls[0] ?? [];
+      expect(command).toBeInstanceOf(GetObjectCommand);
+      expect((command as GetObjectCommand).input).toEqual({
+        Bucket: bucket,
+        Key: storedDocumentKey,
+        ResponseContentDisposition: 'attachment',
+      });
+      expect(options).toEqual({ expiresIn: 900 });
+    });
+
+    it('can presign a private document for inline viewing and printing', async () => {
+      jest.mocked(getSignedUrl).mockResolvedValue('https://signed.example/document');
+
+      await service.createDocumentReadUrl(storedDocumentKey, 300, 'inline');
+
+      const [, command] = jest.mocked(getSignedUrl).mock.calls[0] ?? [];
+      expect(command).toBeInstanceOf(GetObjectCommand);
+      expect((command as GetObjectCommand).input.ResponseContentDisposition).toBe('inline');
+    });
+
+    it.each([
+      ['an unrelated key', 'secrets/photo.jpg', 300],
+      ['a traversal key', `documents/tenant-photos/${invoiceId}/../photo.jpg`, 300],
+      ['a zero expiry', storedDocumentKey, 0],
+      ['an expiry above the maximum', storedDocumentKey, 901],
+    ])('does not presign %s', async (_label, key, expiry) => {
+      await expect(service.createDocumentReadUrl(key, expiry)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(getSignedUrl).not.toHaveBeenCalled();
+    });
+  });
+
   describe('bucket lifecycle', () => {
     it('skips object-storage probes in the unit-test environment', async () => {
       configGet.mockImplementation((key: string, fallback?: unknown) =>
@@ -335,6 +549,43 @@ describe('StorageService', () => {
     });
   });
 
+  describe('promoteDraftPhotoToTenant', () => {
+    it('copies the draft photo into the tenant-photos prefix', async () => {
+      send.mockResolvedValue({});
+
+      const result = await service.promoteDraftPhotoToTenant(storedDraftPhotoKey, tenantId);
+
+      expect(result.bucket).toBe(bucket);
+      expect(result.key).toMatch(
+        new RegExp(`^documents/tenant-photos/${tenantId}/[0-9a-f-]{36}\\.jpg$`, 'i'),
+      );
+      expect(send).toHaveBeenCalledTimes(1);
+      const command = send.mock.calls[0]?.[0];
+      expect(command).toBeInstanceOf(CopyObjectCommand);
+      expect((command as CopyObjectCommand).input).toMatchObject({
+        Bucket: bucket,
+        Key: result.key,
+        CopySource: `${bucket}/${storedDraftPhotoKey}`,
+        MetadataDirective: 'REPLACE',
+        Metadata: { ownerId: tenantId, documentFolder: 'tenant-photos' },
+      });
+    });
+
+    it('rejects promoting a key outside the onboarding draft photos folder', async () => {
+      await expect(service.promoteDraftPhotoToTenant(storedDocumentKey, tenantId)).rejects.toThrow(
+        new BadRequestException('Invalid onboarding draft photo object key'),
+      );
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('rejects promoting to an invalid tenant id', async () => {
+      await expect(
+        service.promoteDraftPhotoToTenant(storedDraftPhotoKey, '../../other'),
+      ).rejects.toThrow(new BadRequestException('Tenant id must be a valid UUID'));
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deleteObject', () => {
     it('deletes a validated payment-proof key', async () => {
       send.mockResolvedValue({});
@@ -354,6 +605,24 @@ describe('StorageService', () => {
       await service.deleteObject('../../another-bucket/secret');
 
       expect(send).not.toHaveBeenCalled();
+    });
+
+    it('deletes a validated private document key', async () => {
+      send.mockResolvedValue({});
+
+      await service.deleteObject(storedDocumentKey);
+
+      const command = send.mock.calls[0]?.[0] as DeleteObjectCommand;
+      expect(command.input).toEqual({ Bucket: bucket, Key: storedDocumentKey });
+    });
+
+    it('deletes a validated onboarding draft photo key', async () => {
+      send.mockResolvedValue({});
+
+      await service.deleteObject(storedDraftPhotoKey);
+
+      const command = send.mock.calls[0]?.[0] as DeleteObjectCommand;
+      expect(command.input).toEqual({ Bucket: bucket, Key: storedDraftPhotoKey });
     });
   });
 });

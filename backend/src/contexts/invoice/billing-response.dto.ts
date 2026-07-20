@@ -44,11 +44,23 @@ export class PaymentResponseDto {
   @ApiProperty({ type: String, maxLength: 500, nullable: true })
   rejectionReason!: string | null;
 
+  @ApiProperty()
+  isDirectSettlement!: boolean;
+
+  @ApiProperty({ type: String, maxLength: 500, nullable: true })
+  reversalReason!: string | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  reversedAt!: Date | null;
+
   @ApiProperty({ type: String, format: 'uuid', nullable: true })
   submittedByUserId!: string | null;
 
   @ApiProperty({ type: String, format: 'uuid', nullable: true })
   reviewedByUserId!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  reversedByUserId!: string | null;
 }
 
 export class InvoiceContractSummaryDto {
@@ -75,6 +87,12 @@ export class InvoiceResponseDto {
 
   @ApiProperty({ pattern: '^\\d{4}-(0[1-9]|1[0-2])$', example: '2026-07' })
   competence!: string;
+
+  @ApiProperty({ type: String, format: 'date', example: '2026-07-18' })
+  periodStart!: string;
+
+  @ApiProperty({ type: String, format: 'date', example: '2026-08-17' })
+  periodEnd!: string;
 
   @ApiProperty({ minimum: 1, maximum: 2147483647, example: 150000 })
   totalValueCents!: number;
@@ -158,4 +176,12 @@ export class PaymentProofUrlResponseDto {
 
   @ApiProperty({ minimum: 1, example: 300 })
   expiresInSeconds!: number;
+}
+
+export class CashSettlementResponseDto {
+  @ApiProperty({ type: InvoiceResponseDto })
+  invoice!: InvoiceResponseDto;
+
+  @ApiProperty({ format: 'uuid' })
+  receiptId!: string;
 }

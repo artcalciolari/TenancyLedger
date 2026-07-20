@@ -1,5 +1,117 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class DashboardPeriodDto {
+  @ApiProperty({ type: String, format: 'date', description: 'Início do período de recebimentos.' })
+  from!: string;
+
+  @ApiProperty({ type: String, format: 'date', description: 'Fim do período de recebimentos.' })
+  to!: string;
+
+  @ApiProperty({
+    type: String,
+    format: 'date',
+    description: 'Limite inclusivo da projeção de renovações (data-base + 30 dias).',
+  })
+  forecastThrough!: string;
+}
+
+export class DashboardPropertyBreakdownDto {
+  @ApiProperty({ format: 'uuid' })
+  propertyUnitId!: string;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  buildingId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  buildingName!: string | null;
+
+  @ApiProperty()
+  neighborhood!: string;
+
+  @ApiProperty()
+  unitNumber!: string;
+
+  @ApiProperty({ minimum: 0 })
+  receivedCents!: number;
+
+  @ApiProperty({ minimum: 0 })
+  confirmedReceivableCents!: number;
+
+  @ApiProperty({ minimum: 0 })
+  forecastRenewalsCents!: number;
+}
+
+export class DashboardBuildingBreakdownDto {
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Nulo para o grupo de imóveis sem prédio do bairro informado.',
+  })
+  buildingId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  buildingName!: string | null;
+
+  @ApiProperty()
+  neighborhood!: string;
+
+  @ApiProperty({ minimum: 1 })
+  propertyUnitCount!: number;
+
+  @ApiProperty({ minimum: 0 })
+  receivedCents!: number;
+
+  @ApiProperty({ minimum: 0 })
+  confirmedReceivableCents!: number;
+
+  @ApiProperty({ minimum: 0 })
+  forecastRenewalsCents!: number;
+}
+
+export class DashboardDailyPointDto {
+  @ApiProperty({ type: String, format: 'date' })
+  date!: string;
+
+  @ApiProperty({ minimum: 0 })
+  receivedCents!: number;
+
+  @ApiProperty({ minimum: 0 })
+  confirmedReceivableCents!: number;
+
+  @ApiProperty({ minimum: 0 })
+  forecastRenewalsCents!: number;
+}
+
+export class DashboardFinancialSummaryDto {
+  @ApiProperty({ minimum: 0, description: 'Pagamentos aprovados e não estornados no período.' })
+  receivedCents!: number;
+
+  @ApiProperty({
+    minimum: 0,
+    description: 'Saldo de todas as faturas emitidas OPEN, PARTIALLY_PAID ou OVERDUE.',
+  })
+  confirmedReceivableCents!: number;
+
+  @ApiProperty({
+    minimum: 0,
+    description: 'Períodos mensais ainda não faturados, projetados nos próximos 30 dias.',
+  })
+  forecastRenewalsCents!: number;
+
+  @ApiProperty({ type: [DashboardPropertyBreakdownDto] })
+  byProperty!: DashboardPropertyBreakdownDto[];
+
+  @ApiProperty({
+    type: [DashboardBuildingBreakdownDto],
+    description: 'Totais por prédio; imóveis sem prédio são agrupados por bairro.',
+  })
+  byBuilding!: DashboardBuildingBreakdownDto[];
+
+  @ApiProperty({ type: [DashboardDailyPointDto] })
+  daily!: DashboardDailyPointDto[];
+}
+
 export class DashboardContractSummaryDto {
   @ApiProperty({ minimum: 0 })
   total!: number;
@@ -36,6 +148,13 @@ export class DashboardPaymentSummaryDto {
 export class DashboardSummaryResponseDto {
   @ApiProperty({ type: String, format: 'date' })
   asOf!: string;
+
+  @ApiProperty({ type: DashboardPeriodDto })
+  period!: DashboardPeriodDto;
+
+  @ApiProperty({ type: DashboardFinancialSummaryDto })
+  financial!: DashboardFinancialSummaryDto;
+
   @ApiProperty({ type: DashboardContractSummaryDto })
   contracts!: DashboardContractSummaryDto;
   @ApiProperty({ type: DashboardInvoiceSummaryDto })

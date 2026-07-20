@@ -21,6 +21,8 @@ import { ClientObservabilityModule } from './infrastructure/client-observability
 import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { StorageModule } from './infrastructure/storage.module';
 import { DashboardModule } from './contexts/dashboard/dashboard.module';
+import { OnboardingModule } from './contexts/onboarding/onboarding.module';
+import { CashboxModule } from './contexts/cashbox/cashbox.module';
 
 @Module({
   imports: [
@@ -87,6 +89,8 @@ import { DashboardModule } from './contexts/dashboard/dashboard.module';
     BillingModule,
     DashboardModule,
     NotificationModule,
+    OnboardingModule,
+    CashboxModule,
     StorageModule,
     ClientObservabilityModule,
     AuditModule,

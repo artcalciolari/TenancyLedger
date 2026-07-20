@@ -3,7 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { PropertyUnit } from '../../property/domain/property-unit.entity';
 import { Tenant } from '../../tenant/domain/entities/tenant.entity';
-import { Contract, ContractStatus } from '../domain/entities/contract.entity';
+import {
+  Contract,
+  ContractBadge,
+  ContractStatus,
+  ContractType,
+} from '../domain/entities/contract.entity';
 import {
   ContractListOptions,
   ContractFilterOptions,
@@ -61,8 +66,15 @@ export class ContractTypeOrmRepository implements IContractRepository {
     const result = await this.repository
       .createQueryBuilder()
       .update(Contract)
-      .set({ _status: ContractStatus.EXPIRED } as never)
-      .where('status = :active', { active: ContractStatus.ACTIVE })
+      .set({
+        _status: ContractStatus.EXPIRED,
+        _statusReason: null,
+        _statusChangedAt: () => 'CURRENT_TIMESTAMP',
+      } as never)
+      .where('status IN (:...expirableStatuses)', {
+        expirableStatuses: [ContractStatus.ACTIVE, ContractStatus.ENDING],
+      })
+      .andWhere('contract_type = :fixedTerm', { fixedTerm: ContractType.FIXED_TERM })
       .andWhere('end_date < :asOf', { asOf })
       .execute();
     return result.affected ?? 0;
@@ -74,6 +86,55 @@ export class ContractTypeOrmRepository implements IContractRepository {
       .leftJoin(Tenant, 'tenant', 'tenant.id = contract.tenant_id')
       .leftJoin(PropertyUnit, 'property', 'property.id = contract.property_unit_id');
     if (options.status) query.andWhere('contract.status = :status', { status: options.status });
+    if (options.badge === ContractBadge.RENEWAL_DUE) {
+      query
+        .andWhere("contract.contract_type = 'MONTH_TO_MONTH'")
+        .andWhere("contract.status = 'ACTIVE'")
+        .andWhere(
+          `EXISTS (
+            SELECT 1
+            FROM invoices renewal_invoice
+            WHERE renewal_invoice.contract_id = contract.id
+              AND renewal_invoice.status = 'PAID'
+            GROUP BY renewal_invoice.contract_id
+            HAVING (MAX(renewal_invoice.period_end) + 1) <= (:asOf::date + INTERVAL '3 days')::date
+          )`,
+          { asOf: options.asOf },
+        );
+    }
+    if (options.badge === ContractBadge.PAYMENT_OVERDUE) {
+      query.andWhere(
+        `EXISTS (
+          SELECT 1 FROM invoices overdue_invoice
+          WHERE overdue_invoice.contract_id = contract.id
+            AND overdue_invoice.status = 'OVERDUE'
+        )`,
+      );
+    }
+    if (options.renewalAttention) {
+      query.andWhere(
+        `(
+          (
+            contract.contract_type = 'MONTH_TO_MONTH'
+            AND contract.status = 'ACTIVE'
+            AND EXISTS (
+              SELECT 1
+              FROM invoices renewal_invoice
+              WHERE renewal_invoice.contract_id = contract.id
+                AND renewal_invoice.status = 'PAID'
+              GROUP BY renewal_invoice.contract_id
+              HAVING (MAX(renewal_invoice.period_end) + 1) <= (:asOf::date + INTERVAL '3 days')::date
+            )
+          )
+          OR EXISTS (
+            SELECT 1 FROM invoices overdue_invoice
+            WHERE overdue_invoice.contract_id = contract.id
+              AND overdue_invoice.status = 'OVERDUE'
+          )
+        )`,
+        { asOf: options.asOf },
+      );
+    }
     if (options.tenantId)
       query.andWhere('contract.tenant_id = :tenantId', { tenantId: options.tenantId });
     if (options.propertyUnitId)
@@ -85,7 +146,9 @@ export class ContractTypeOrmRepository implements IContractRepository {
     if (options.moveInTo)
       query.andWhere('contract.move_in_date <= :moveInTo', { moveInTo: options.moveInTo });
     if (options.endFrom)
-      query.andWhere('contract.end_date >= :endFrom', { endFrom: options.endFrom });
+      query.andWhere("COALESCE(contract.end_date, 'infinity'::date) >= :endFrom", {
+        endFrom: options.endFrom,
+      });
     if (options.endTo) query.andWhere('contract.end_date <= :endTo', { endTo: options.endTo });
     const term = options.q?.trim();
     if (term) {
@@ -110,15 +173,19 @@ export class ContractTypeOrmRepository implements IContractRepository {
   hasOverlap(
     propertyUnitId: string,
     startDate: string,
-    endDate: string,
+    endDate: string | null,
     excludeId?: string,
   ): Promise<boolean> {
     const query = this.repository
       .createQueryBuilder('contract')
       .where('contract.property_unit_id = :propertyUnitId', { propertyUnitId })
-      .andWhere('contract.status <> :terminated', { terminated: ContractStatus.TERMINATED })
-      .andWhere('contract.move_in_date <= :endDate', { endDate })
-      .andWhere('contract.end_date >= :startDate', { startDate });
+      .andWhere('contract.status NOT IN (:...terminalStatuses)', {
+        terminalStatuses: [ContractStatus.TERMINATED, ContractStatus.CANCELLED],
+      })
+      .andWhere("contract.move_in_date <= COALESCE(CAST(:endDate AS date), 'infinity'::date)", {
+        endDate,
+      })
+      .andWhere("COALESCE(contract.end_date, 'infinity'::date) >= :startDate", { startDate });
     if (excludeId) query.andWhere('contract.id <> :excludeId', { excludeId });
     return query.getExists();
   }
@@ -126,9 +193,11 @@ export class ContractTypeOrmRepository implements IContractRepository {
   findActiveInPeriod(startDate: string, endDate: string): Promise<Contract[]> {
     return this.repository
       .createQueryBuilder('contract')
-      .where('contract.status = :status', { status: ContractStatus.ACTIVE })
+      .where('contract.status IN (:...statuses)', {
+        statuses: [ContractStatus.ACTIVE, ContractStatus.ENDING],
+      })
       .andWhere('contract.move_in_date <= :endDate', { endDate })
-      .andWhere('contract.end_date >= :startDate', { startDate })
+      .andWhere("COALESCE(contract.end_date, 'infinity'::date) >= :startDate", { startDate })
       .orderBy('contract.id', 'ASC')
       .getMany();
   }

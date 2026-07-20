@@ -4,6 +4,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { S3_CLIENT, S3_PRESIGN_CLIENT } from './storage.constants';
 import { StorageService } from './storage.service';
+import { DOCUMENT_RENDERER, PdfKitDocumentRenderer } from './pdf/document-renderer';
 
 export { S3_CLIENT, S3_PRESIGN_CLIENT } from './storage.constants';
 
@@ -48,8 +49,13 @@ export { S3_CLIENT, S3_PRESIGN_CLIENT } from './storage.constants';
           forcePathStyle: true,
         }),
     },
+    PdfKitDocumentRenderer,
+    {
+      provide: DOCUMENT_RENDERER,
+      useExisting: PdfKitDocumentRenderer,
+    },
     StorageService,
   ],
-  exports: [S3_CLIENT, S3_PRESIGN_CLIENT, StorageService],
+  exports: [S3_CLIENT, S3_PRESIGN_CLIENT, DOCUMENT_RENDERER, StorageService],
 })
 export class StorageModule {}

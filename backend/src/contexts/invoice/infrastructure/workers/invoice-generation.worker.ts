@@ -8,6 +8,8 @@ import { Invoice } from '../../domain/entities/invoice.entity';
 import { INVOICE_REPOSITORY_TOKEN } from '../../domain/invoice.repository';
 import type { IInvoiceRepository } from '../../domain/invoice.repository';
 import { MetricsService } from '../../../../infrastructure/metrics/metrics.service';
+import { ContractType } from '../../../contract/domain/entities/contract.entity';
+import { addCivilDays, calendarPeriodFrom } from '../../../../core/domain/calendar-period';
 
 export const CLOCK_TOKEN = Symbol('CLOCK_TOKEN');
 const INVOICE_CRON_JOB = 'invoice-generation';
@@ -97,6 +99,34 @@ export class InvoiceGenerationWorker implements OnApplicationBootstrap {
     let created = 0;
     let existing = 0;
     for (const contract of contracts) {
+      if (contract.contractType === ContractType.MONTH_TO_MONTH) {
+        let cursor = contract.moveInDate;
+        let period = calendarPeriodFrom(cursor);
+        while (period.end < periodStart) {
+          cursor = addCivilDays(period.end, 1);
+          period = calendarPeriodFrom(cursor);
+        }
+        while (period.start <= windowEnd) {
+          const competence = period.start.slice(0, 7);
+          const contractualDueDate = contract.dueDateFor(competence);
+          const dueDate = contractualDueDate < period.start ? period.start : contractualDueDate;
+          if (dueDate <= windowEnd) {
+            const invoice = Invoice.create(
+              contract.id,
+              competence,
+              contract.monthlyBaseValueCents,
+              dueDate,
+              period.start,
+              period.end,
+            );
+            if (await this.invoiceRepository.insertIfAbsent(invoice)) created += 1;
+            else existing += 1;
+          }
+          cursor = addCivilDays(period.end, 1);
+          period = calendarPeriodFrom(cursor);
+        }
+        continue;
+      }
       for (const competence of competences) {
         const dueDate = contract.dueDateFor(competence);
         if (dueDate > windowEnd || dueDate < periodStart || !contract.isActiveOn(dueDate)) continue;

@@ -46,6 +46,13 @@ export interface ListPropertiesInput {
   buildingId?: string;
 }
 
+export interface ListAvailablePropertiesInput {
+  date?: string;
+  neighborhood?: string;
+  type?: UnitType;
+  buildingId?: string;
+}
+
 @Injectable()
 export class PropertyService {
   constructor(
@@ -133,6 +140,14 @@ export class PropertyService {
       data: result.items.map((item) => PropertyService.toView(item)),
       meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) },
     };
+  }
+
+  async listAvailable(input: ListAvailablePropertiesInput = {}): Promise<PropertyView[]> {
+    const items = await this.repository.listAvailable({
+      ...input,
+      date: input.date ?? this.currentCivilDate(),
+    });
+    return items.map((item) => PropertyService.toView(item));
   }
 
   static toView({ property, buildingName, occupied }: PropertyWithOccupancy): PropertyView {

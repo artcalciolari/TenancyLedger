@@ -27,6 +27,9 @@ export default new DataSource({
   entities: [join(__dirname, '..', '**', '*.entity{.ts,.js}')],
   migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],
   migrationsTableName: 'typeorm_migrations',
+  // PostgreSQL requires ALTER TYPE ... ADD VALUE to commit before a later
+  // migration can use the new enum label in constraints or functions.
+  migrationsTransactionMode: 'each',
   synchronize: false,
   logging: env.DB_LOGGING === true,
   ssl: createDatabaseSslOptions(useSsl, {

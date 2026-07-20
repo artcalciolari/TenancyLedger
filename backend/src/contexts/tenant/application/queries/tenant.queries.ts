@@ -11,6 +11,7 @@ export interface TenantView {
   civilStatus: TenantCivilStatus;
   email: string;
   mobilePhone: string;
+  hasPhoto?: boolean;
 }
 
 export interface PaginatedTenantView {
@@ -43,7 +44,8 @@ export class TenantQueries {
       .addSelect('tenant.profession', 'profession')
       .addSelect('tenant.civilStatus', 'civilStatus')
       .addSelect('tenant.email', 'email')
-      .addSelect('tenant.mobilePhone', 'mobilePhone');
+      .addSelect('tenant.mobilePhone', 'mobilePhone')
+      .addSelect('(tenant.photoStorageKey IS NOT NULL)', 'hasPhoto');
   }
 
   async findAll(filters: TenantListFilters): Promise<PaginatedTenantView> {

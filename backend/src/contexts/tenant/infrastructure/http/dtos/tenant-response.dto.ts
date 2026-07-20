@@ -21,6 +21,8 @@ export class TenantResponseDto {
   email!: string;
   @ApiProperty({ example: '(**) *****-9999', description: 'Telefone mascarado para VIEWER.' })
   mobilePhone!: string;
+  @ApiProperty({ description: 'Indica se há uma foto privada cadastrada para o locatário.' })
+  hasPhoto!: boolean;
 
   static from(tenant: Tenant | TenantView, role?: UserRole): TenantResponseDto {
     const unmask = role !== undefined && UNMASKED_ROLES.has(role);
@@ -32,6 +34,8 @@ export class TenantResponseDto {
       civilStatus: tenant.civilStatus,
       email: unmask ? tenant.email : this.maskEmail(tenant.email),
       mobilePhone: unmask ? tenant.mobilePhone : this.maskPhone(tenant.mobilePhone),
+      hasPhoto:
+        tenant instanceof Tenant ? tenant.photoStorageKey !== null : tenant.hasPhoto === true,
     };
   }
 

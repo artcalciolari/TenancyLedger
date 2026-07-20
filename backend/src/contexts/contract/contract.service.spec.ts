@@ -5,7 +5,12 @@ import { Tenant } from '../tenant/domain/entities/tenant.entity';
 import { TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
 import { UnitType } from '../property/domain/property-unit.entity';
 import { ContractService, CreateContractInput } from './contract.service';
-import { Contract, ContractStatus } from './domain/entities/contract.entity';
+import {
+  Contract,
+  ContractBadge,
+  ContractStatus,
+  ContractType,
+} from './domain/entities/contract.entity';
 import type { IContractRepository } from './domain/repositories/contract.repository.interface';
 
 const CONTRACT_ID = '8768a5d6-1a7e-41b9-bbd0-cd18f4d4ad9c';
@@ -44,9 +49,10 @@ function persistedContract(overrides: Partial<CreateContractInput> = {}): Contra
       values.propertyUnitId,
       values.moveInDate,
       values.monthlyBaseValueCents,
-      values.durationInMonths,
+      values.durationInMonths ?? null,
       values.isRenewable,
       values.billingDay,
+      values.contractType,
     ),
   );
 }
@@ -235,7 +241,7 @@ describe('ContractService', () => {
         propertyUnitId: PROPERTY_ID,
       };
 
-      await expect(service.list(options)).resolves.toEqual({
+      await expect(service.list(options)).resolves.toMatchObject({
         data: [
           {
             id: CONTRACT_ID,
@@ -270,6 +276,14 @@ describe('ContractService', () => {
       });
       expect(list).toHaveBeenCalledWith(expect.objectContaining(options));
       expect(list.mock.calls[0]?.[0].asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('passes the renewalAttention filter through to the repository', async () => {
+      list.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list({ page: 1, limit: 20, renewalAttention: true });
+
+      expect(list).toHaveBeenCalledWith(expect.objectContaining({ renewalAttention: true }));
     });
 
     it('returns an empty page without querying relation repositories', async () => {
@@ -462,7 +476,7 @@ describe('ContractService', () => {
   it('maps only public contract fields in toView', () => {
     const contract = persistedContract();
 
-    expect(ContractService.toView(contract)).toEqual({
+    expect(ContractService.toView(contract)).toMatchObject({
       id: CONTRACT_ID,
       tenantId: TENANT_ID,
       propertyUnitId: PROPERTY_ID,
@@ -476,5 +490,56 @@ describe('ContractService', () => {
       createdAt: CREATED_AT,
       updatedAt: UPDATED_AT,
     });
+  });
+
+  it('derives renewal and overdue badges from paid invoice coverage', () => {
+    const contract = assignPersistenceFields(
+      Contract.create(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        185_000,
+        null,
+        true,
+        18,
+        ContractType.MONTH_TO_MONTH,
+      ),
+    );
+
+    expect(
+      ContractService.toView(
+        contract,
+        undefined,
+        undefined,
+        {
+          paidThroughDate: '2026-08-17',
+          nextRenewalDate: '2026-08-18',
+          paymentOverdue: true,
+        },
+        '2026-08-15',
+      ),
+    ).toMatchObject({
+      paidThroughDate: '2026-08-17',
+      nextRenewalDate: '2026-08-18',
+      badges: [ContractBadge.RENEWAL_DUE, ContractBadge.PAYMENT_OVERDUE],
+    });
+
+    const cancelled = assignPersistenceFields(
+      Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 185_000, 18),
+    );
+    cancelled.cancel('Cadastro descontinuado');
+    expect(
+      ContractService.toView(
+        cancelled,
+        undefined,
+        undefined,
+        {
+          paidThroughDate: '2026-08-17',
+          nextRenewalDate: '2026-08-18',
+          paymentOverdue: false,
+        },
+        '2026-08-15',
+      ).badges,
+    ).toEqual([]);
   });
 });

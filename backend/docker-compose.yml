@@ -47,7 +47,7 @@ services:
       target: runtime
     restart: unless-stopped
     ports:
-      - '127.0.0.1:${FRONTEND_PORT:-5173}:8080'
+      - '${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-5173}:8080'
     depends_on:
       app:
         condition: service_healthy

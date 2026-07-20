@@ -1,4 +1,4 @@
-import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { ValidationError } from '../../core/domain/errors/validation.error';
 import type { StorageService } from '../../infrastructure/storage.service';
 import { BillingService } from './billing.service';
@@ -13,7 +13,8 @@ import type { Clock } from './infrastructure/workers/invoice-generation.worker';
 import { Contract, ContractStatus } from '../contract/domain/entities/contract.entity';
 import { Tenant, TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
 import { PropertyUnit, UnitType } from '../property/domain/property-unit.entity';
-import type { Repository } from 'typeorm';
+import { QueryFailedError, type Repository } from 'typeorm';
+import type { CashboxService } from '../cashbox/cashbox.service';
 
 const INVOICE_ID = '0a60a4ca-1a8e-4f0a-b0ee-2196db87ac51';
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
@@ -526,6 +527,159 @@ describe('BillingService', () => {
 
       await expect(
         service.rejectPayment(INVOICE_ID, PAYMENT_ID, 'Motivo', REVIEWER_ID),
+      ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
+    });
+  });
+
+  describe('direct cash settlement and reversal', () => {
+    it('checks the cashbox date for cash approval, settlement, and reversal', async () => {
+      const cashbox = { assertOpen: jest.fn().mockResolvedValue(undefined) };
+      service = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        undefined,
+        undefined,
+        undefined,
+        cashbox as unknown as CashboxService,
+      );
+
+      await service.settleCash(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        amountCents: 100_00,
+        settledByUserId: SUBMITTER_ID,
+      });
+      await service.reversePayment(INVOICE_ID, PAYMENT_ID, 'Correção', REVIEWER_ID);
+
+      expect(cashbox.assertOpen).toHaveBeenNthCalledWith(1, '2026-07-12');
+      expect(cashbox.assertOpen).toHaveBeenNthCalledWith(2, '2026-07-12');
+
+      invoice = createInvoice();
+      const submitted = invoice.submitPayment(
+        100_00,
+        PaymentMethod.CASH,
+        null,
+        undefined,
+        NOW,
+        'cash-review-0001',
+        REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
+      );
+      assignId(submitted, PAYMENT_ID);
+      await service.approvePayment(INVOICE_ID, PAYMENT_ID, REVIEWER_ID);
+      expect(cashbox.assertOpen).toHaveBeenNthCalledWith(3, '2026-07-12');
+    });
+
+    it('translates the database race guard for a closed day into HTTP 409', async () => {
+      updateWithLock.mockRejectedValueOnce(
+        new QueryFailedError(
+          'UPDATE payment_transactions',
+          [],
+          Object.assign(new Error('cashbox closed'), {
+            code: '23514',
+            constraint: 'CHK_cashbox_day_open',
+          }),
+        ),
+      );
+
+      await expect(
+        service.settleCash(INVOICE_ID, {
+          idempotencyKey: IDEMPOTENCY_KEY,
+          amountCents: 100_00,
+          settledByUserId: SUBMITTER_ID,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('approves cash immediately and reverses it without deleting the ledger entry', async () => {
+      const settled = await service.settleCash(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        amountCents: 100_00,
+        settledByUserId: SUBMITTER_ID,
+      });
+
+      expect(settled).toMatchObject({
+        status: InvoiceStatus.PAID,
+        approvedAmountCents: 100_00,
+      });
+      expect(settled.transactions[0]).toMatchObject({
+        status: PaymentStatus.APPROVED,
+        isDirectSettlement: true,
+        submittedByUserId: SUBMITTER_ID,
+        reviewedByUserId: SUBMITTER_ID,
+      });
+
+      const reversed = await service.reversePayment(
+        INVOICE_ID,
+        PAYMENT_ID,
+        'Valor registrado incorretamente',
+        REVIEWER_ID,
+      );
+
+      expect(reversed.transactions).toHaveLength(1);
+      expect(reversed.transactions[0]).toMatchObject({
+        status: PaymentStatus.REVERSED,
+        reversalReason: 'Valor registrado incorretamente',
+        reversedByUserId: REVIEWER_ID,
+      });
+      expect(reversed).toMatchObject({
+        status: InvoiceStatus.OPEN,
+        approvedAmountCents: 0,
+        outstandingAmountCents: 100_00,
+      });
+    });
+
+    it('activates a payment-pending contract when its initial invoice is fully settled', async () => {
+      invoice = Invoice.create(
+        CONTRACT_ID,
+        '2026-07',
+        100_00,
+        '2026-07-20',
+        '2026-07-18',
+        '2026-08-17',
+      );
+      assignId(invoice, INVOICE_ID);
+      const contract = Contract.createPendingSignature(
+        TENANT_ID,
+        PROPERTY_ID,
+        '2026-07-18',
+        100_00,
+      );
+      assignId(contract, CONTRACT_ID);
+      contract.markSigned(new Date('2026-07-10T12:00:00.000Z'));
+      const contractRepository = {
+        findOneBy: jest.fn().mockResolvedValue(contract),
+        save: jest.fn().mockImplementation((value: Contract) => Promise.resolve(value)),
+      };
+      service = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        contractRepository as unknown as Repository<Contract>,
+      );
+
+      await service.settleCash(INVOICE_ID, {
+        idempotencyKey: IDEMPOTENCY_KEY,
+        amountCents: 100_00,
+        settledByUserId: SUBMITTER_ID,
+      });
+
+      expect(contract.status).toBe(ContractStatus.ACTIVE);
+      expect(contractRepository.save).toHaveBeenCalledWith(contract);
+    });
+
+    it('reports a missing invoice for settlement and reversal', async () => {
+      updateWithLock.mockResolvedValue(null);
+
+      await expect(
+        service.settleCash(INVOICE_ID, {
+          idempotencyKey: IDEMPOTENCY_KEY,
+          amountCents: 100_00,
+          settledByUserId: SUBMITTER_ID,
+        }),
+      ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
+      await expect(
+        service.reversePayment(INVOICE_ID, PAYMENT_ID, 'Motivo', REVIEWER_ID),
       ).rejects.toEqual(new NotFoundException('Fatura não encontrada.'));
     });
   });

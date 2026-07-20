@@ -22,11 +22,19 @@ export interface PropertyListResult {
   total: number;
 }
 
+export interface AvailablePropertyOptions {
+  date: string;
+  neighborhood?: string;
+  type?: PropertyUnit['type'];
+  buildingId?: string;
+}
+
 export interface IPropertyRepository {
   save(property: PropertyUnit): Promise<PropertyUnit>;
   findById(id: string): Promise<PropertyUnit | null>;
   findByLocation(neighborhood: string, unitNumber: string): Promise<PropertyUnit | null>;
   findByBuildingUnit(buildingId: string, unitNumber: string): Promise<PropertyUnit | null>;
   list(options: PropertyListOptions): Promise<PropertyListResult>;
+  listAvailable(options: AvailablePropertyOptions): Promise<PropertyWithOccupancy[]>;
   getView(id: string, asOf: string): Promise<PropertyWithOccupancy | null>;
 }

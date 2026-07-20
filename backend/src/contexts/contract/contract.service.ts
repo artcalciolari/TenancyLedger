@@ -1,29 +1,40 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, QueryFailedError, Repository } from 'typeorm';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
 import { PropertyUnit } from '../property/domain/property-unit.entity';
-import { Contract, ContractStatus } from './domain/entities/contract.entity';
+import {
+  Contract,
+  ContractBadge,
+  ContractStatus,
+  ContractType,
+} from './domain/entities/contract.entity';
 import { CONTRACT_REPOSITORY_TOKEN } from './domain/repositories/contract.repository.interface';
 import type { IContractRepository } from './domain/repositories/contract.repository.interface';
 import { TenantResponseDto } from '../tenant/infrastructure/http/dtos/tenant-response.dto';
 import { UserRole } from '../auth/domain/entities/user.entity';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
+import { addCivilDays } from '../../core/domain/calendar-period';
+import { Invoice, InvoiceStatus } from '../invoice/domain/entities/invoice.entity';
+import { canActivateContract } from './domain/contract-activation.policy';
 
 export interface CreateContractInput {
   tenantId: string;
   propertyUnitId: string;
   moveInDate: string;
   monthlyBaseValueCents: number;
-  durationInMonths: number;
+  durationInMonths?: number | null;
   isRenewable: boolean;
   billingDay?: number;
+  contractType?: ContractType;
 }
 
 export interface ListContractsInput {
   page: number;
   limit: number;
   status?: ContractStatus;
+  badge?: ContractBadge;
+  renewalAttention?: boolean;
   tenantId?: string;
   propertyUnitId?: string;
   q?: string;
@@ -55,12 +66,18 @@ export interface ContractView {
   tenantId: string;
   propertyUnitId: string;
   moveInDate: string;
-  endDate: string;
+  endDate: string | null;
   monthlyBaseValueCents: number;
-  durationInMonths: number;
+  durationInMonths: number | null;
   billingDay: number;
   isRenewable: boolean;
+  contractType: ContractType;
   status: ContractStatus;
+  statusReason: string | null;
+  statusChangedAt: Date;
+  paidThroughDate: string | null;
+  nextRenewalDate: string | null;
+  badges: ContractBadge[];
   createdAt: Date;
   updatedAt: Date;
   tenant?: ContractTenantSummary;
@@ -77,6 +94,12 @@ export interface PaginatedContractsView {
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface ContractBillingSummary {
+  paidThroughDate: string | null;
+  nextRenewalDate: string | null;
+  paymentOverdue: boolean;
+}
+
 @Injectable()
 export class ContractService {
   constructor(
@@ -86,6 +109,9 @@ export class ContractService {
     private readonly tenantRepository: Repository<Tenant>,
     @InjectRepository(PropertyUnit)
     private readonly propertyRepository: Repository<PropertyUnit>,
+    @Optional()
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository?: Repository<Invoice>,
   ) {}
 
   async create(input: CreateContractInput): Promise<Contract> {
@@ -94,9 +120,10 @@ export class ContractService {
       input.propertyUnitId,
       input.moveInDate,
       input.monthlyBaseValueCents,
-      input.durationInMonths,
+      input.durationInMonths ?? null,
       input.isRenewable,
       input.billingDay,
+      input.contractType ?? ContractType.FIXED_TERM,
     );
 
     const [tenantExists, propertyExists] = await Promise.all([
@@ -130,13 +157,17 @@ export class ContractService {
     const asOf = this.currentCivilDate();
     await this.repository.markExpired(asOf);
     const result = await this.repository.list({ ...input, asOf });
-    const relations = await this.loadRelations(result.items, role);
+    const [relations, billing] = await Promise.all([
+      this.loadRelations(result.items, role),
+      this.loadBillingSummaries(result.items),
+    ]);
     return {
       data: result.items.map((contract) =>
         this.detailedView(
           contract,
           relations.tenants.get(contract.tenantId),
           relations.properties.get(contract.propertyUnitId),
+          billing.get(contract.id),
         ),
       ),
       meta: {
@@ -169,12 +200,65 @@ export class ContractService {
     });
   }
 
+  markSigned(id: string): Promise<Contract> {
+    return this.transition(id, (contract) => contract.markSigned());
+  }
+
+  activate(id: string): Promise<Contract> {
+    const invoiceRepository = this.invoiceRepository;
+    if (!invoiceRepository) {
+      throw new Error('O repositório de faturas é obrigatório para ativar um contrato.');
+    }
+    return invoiceRepository.manager.transaction(async (manager) => {
+      const initialInvoice = await manager
+        .getRepository(Invoice)
+        .createQueryBuilder('invoice')
+        .setLock('pessimistic_write')
+        .where('invoice.contract_id = :id', { id })
+        .orderBy('invoice.period_start', 'ASC')
+        .limit(1)
+        .getOne();
+
+      const contractRepository = manager.getRepository(Contract);
+      const contract = await contractRepository.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!contract) throw new NotFoundException('Contrato não encontrado.');
+
+      if (!canActivateContract(contract, initialInvoice)) {
+        throw new ConflictException(
+          'A ativação exige a fatura inicial quitada com o contrato aguardando pagamento.',
+        );
+      }
+
+      contract.activate();
+      return contractRepository.save(contract);
+    });
+  }
+
+  scheduleEnding(id: string, reason: string): Promise<Contract> {
+    return this.transition(id, (contract) => contract.scheduleEnding(reason));
+  }
+
+  cancel(id: string, reason: string): Promise<Contract> {
+    return this.transition(id, (contract) => contract.cancel(reason));
+  }
+
+  terminate(id: string, reason: string): Promise<Contract> {
+    return this.transition(id, (contract) => contract.terminate(reason));
+  }
+
   async toDetailedView(contract: Contract, role?: UserRole): Promise<DetailedContractView> {
-    const relations = await this.loadRelations([contract], role);
+    const [relations, billing] = await Promise.all([
+      this.loadRelations([contract], role),
+      this.loadBillingSummaries([contract]),
+    ]);
     return this.detailedView(
       contract,
       relations.tenants.get(contract.tenantId),
       relations.properties.get(contract.propertyUnitId),
+      billing.get(contract.id),
     );
   }
 
@@ -232,7 +316,21 @@ export class ContractService {
     contract: Contract,
     tenant?: ContractTenantSummary,
     propertyUnit?: ContractPropertySummary,
+    billing?: ContractBillingSummary,
+    asOf = civilDateInTimeZone(new Date()),
   ): ContractView {
+    const paidThroughDate = billing?.paidThroughDate ?? null;
+    const nextRenewalDate = billing?.nextRenewalDate ?? null;
+    const badges: ContractBadge[] = [];
+    if (
+      contract.contractType === ContractType.MONTH_TO_MONTH &&
+      contract.status === ContractStatus.ACTIVE &&
+      nextRenewalDate !== null &&
+      nextRenewalDate <= addCivilDays(asOf, 3)
+    ) {
+      badges.push(ContractBadge.RENEWAL_DUE);
+    }
+    if (billing?.paymentOverdue) badges.push(ContractBadge.PAYMENT_OVERDUE);
     return {
       id: contract.id,
       tenantId: contract.tenantId,
@@ -243,7 +341,13 @@ export class ContractService {
       durationInMonths: contract.durationInMonths,
       billingDay: contract.billingDay,
       isRenewable: contract.isRenewable,
+      contractType: contract.contractType,
       status: contract.status,
+      statusReason: contract.statusReason,
+      statusChangedAt: contract.statusChangedAt,
+      paidThroughDate,
+      nextRenewalDate,
+      badges,
       createdAt: contract.createdAt,
       updatedAt: contract.updatedAt,
       ...(tenant ? { tenant } : {}),
@@ -289,11 +393,59 @@ export class ContractService {
     contract: Contract,
     tenant: ContractTenantSummary | undefined,
     propertyUnit: ContractPropertySummary | undefined,
+    billing?: ContractBillingSummary,
   ): DetailedContractView {
     if (!tenant || !propertyUnit) {
       throw new NotFoundException('Relacionamentos do contrato não encontrados.');
     }
-    return ContractService.toView(contract, tenant, propertyUnit) as DetailedContractView;
+    return ContractService.toView(
+      contract,
+      tenant,
+      propertyUnit,
+      billing,
+      this.currentCivilDate(),
+    ) as DetailedContractView;
+  }
+
+  private async loadBillingSummaries(
+    contracts: readonly Contract[],
+  ): Promise<Map<string, ContractBillingSummary>> {
+    const result = new Map<string, ContractBillingSummary>();
+    if (!this.invoiceRepository || contracts.length === 0) return result;
+    const contractIds = [...new Set(contracts.map((contract) => contract.id))];
+    const rows = await this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .select('invoice.contract_id', 'contractId')
+      .addSelect(
+        `(MAX(invoice.period_end) FILTER (WHERE invoice.status = :paidStatus))::text`,
+        'paidThroughDate',
+      )
+      .addSelect(`COALESCE(BOOL_OR(invoice.status = :overdueStatus), false)`, 'paymentOverdue')
+      .where('invoice.contract_id IN (:...contractIds)', { contractIds })
+      .setParameters({ paidStatus: InvoiceStatus.PAID, overdueStatus: InvoiceStatus.OVERDUE })
+      .groupBy('invoice.contract_id')
+      .getRawMany<{
+        contractId: string;
+        paidThroughDate: string | null;
+        paymentOverdue: boolean;
+      }>();
+    for (const row of rows) {
+      result.set(row.contractId, {
+        paidThroughDate: row.paidThroughDate,
+        nextRenewalDate: row.paidThroughDate ? addCivilDays(row.paidThroughDate, 1) : null,
+        paymentOverdue: Boolean(row.paymentOverdue),
+      });
+    }
+    return result;
+  }
+
+  private transition(id: string, change: (contract: Contract) => void): Promise<Contract> {
+    return this.repository.runInTransaction(async (repository) => {
+      const contract = await repository.findByIdForUpdate(id);
+      if (!contract) throw new NotFoundException('Contrato não encontrado.');
+      change(contract);
+      return repository.save(contract);
+    });
   }
 
   private currentCivilDate(): string {

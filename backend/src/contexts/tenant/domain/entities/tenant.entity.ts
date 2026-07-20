@@ -32,6 +32,10 @@ export interface UpdateTenantProfileFields {
 @Check('CHK_tenants_rg_not_blank', 'char_length(trim(rg)) BETWEEN 5 AND 20')
 @Check('CHK_tenants_profession_not_blank', 'char_length(trim(profession)) BETWEEN 2 AND 100')
 @Check('CHK_tenants_full_name_not_blank', 'char_length(trim(full_name)) BETWEEN 3 AND 120')
+@Check(
+  'CHK_tenants_photo_storage_key',
+  "photo_storage_key IS NULL OR photo_storage_key ~ '^documents/tenant-photos/[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|png|heic|heif)$'",
+)
 export class Tenant {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -61,6 +65,9 @@ export class Tenant {
 
   @Column({ name: 'mobile_phone', length: 13, unique: true })
   mobilePhone!: string;
+
+  @Column({ name: 'photo_storage_key', type: 'varchar', length: 500, nullable: true })
+  photoStorageKey!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
@@ -109,6 +116,7 @@ export class Tenant {
     tenant.civilStatus = civilStatus;
     tenant.email = normalizedEmail;
     tenant.mobilePhone = Tenant.normalizeMobilePhone(mobilePhone);
+    tenant.photoStorageKey = null;
     return tenant;
   }
 
@@ -138,5 +146,16 @@ export class Tenant {
       throw new ValidationError('Telefone celular inválido.');
     }
     return digits;
+  }
+
+  setPhotoStorageKey(storageKey: string): void {
+    if (
+      !/^documents\/tenant-photos\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|heic|heif)$/i.test(
+        storageKey,
+      )
+    ) {
+      throw new ValidationError('Chave de armazenamento da foto inválida.');
+    }
+    this.photoStorageKey = storageKey;
   }
 }

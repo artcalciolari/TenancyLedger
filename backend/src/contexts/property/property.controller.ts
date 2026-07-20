@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from 
 import { Type } from 'class-transformer';
 import {
   IsEnum,
+  IsDateString,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -128,6 +129,29 @@ export class PropertyPaginationDto {
   buildingId?: string;
 }
 
+export class AvailablePropertiesQueryDto {
+  @ApiPropertyOptional({ type: String, format: 'date', description: 'Padrão: data civil atual.' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  date?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  neighborhood?: string;
+
+  @ApiPropertyOptional({ enum: UnitType, enumName: 'UnitType' })
+  @IsOptional()
+  @IsEnum(UnitType)
+  type?: UnitType;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  buildingId?: string;
+}
+
 @ApiProtected()
 @ApiTags('Imóveis')
 @Controller('properties')
@@ -167,6 +191,14 @@ export class PropertyController {
   @ApiOkResponse({ type: PaginatedPropertiesResponseDto })
   list(@Query() query: PropertyPaginationDto): Promise<PaginatedPropertiesView> {
     return this.service.list(query);
+  }
+
+  @Get('available')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @ApiOperation({ summary: 'Listar unidades disponíveis em uma data' })
+  @ApiOkResponse({ type: [PropertyResponseDto] })
+  listAvailable(@Query() query: AvailablePropertiesQueryDto): Promise<PropertyResponseDto[]> {
+    return this.service.listAvailable(query);
   }
 
   @Get(':id')

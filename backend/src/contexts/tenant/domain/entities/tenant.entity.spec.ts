@@ -204,4 +204,15 @@ describe('Tenant', () => {
     expect(tenant.name).toBe('Maria da Silva');
     expect(tenant.email).toBe('maria@example.com');
   });
+
+  it('stores only a tenant-photo private document key', () => {
+    const tenant = createTenant();
+    const key =
+      'documents/tenant-photos/9465500e-0a06-452a-b1a8-9a3b117f3af0/123e4567-e89b-42d3-a456-426614174000.heic';
+
+    tenant.setPhotoStorageKey(key);
+
+    expect(tenant.photoStorageKey).toBe(key);
+    expect(() => tenant.setPhotoStorageKey('../private/photo.jpg')).toThrow(ValidationError);
+  });
 });

@@ -29,6 +29,12 @@ function assertCompleteContract(document) {
     'InvoiceResponseDto',
     'PaymentResponseDto',
     'DashboardSummaryResponseDto',
+    'CashClosingResponseDto',
+    'CashSettlementResponseDto',
+    'ContractDocumentResponseDto',
+    'OnboardingDraftResponseDto',
+    'CompleteOnboardingResponseDto',
+    'ReceiptResponseDto',
     'PaginatedPaymentReviewResponseDto',
     'PaginatedNotificationsResponseDto',
     'ClientErrorDto',
@@ -79,6 +85,14 @@ function assertCompleteContract(document) {
     '/contracts/export.csv',
     '/invoices/export.csv',
     '/client-errors',
+    '/properties/available',
+    '/invoices/{id}/settle-cash',
+    '/receipts/{id}',
+    '/contracts/{id}/document/preview',
+    '/contracts/{id}/documents',
+    '/onboarding-drafts',
+    '/onboarding-drafts/{id}/complete',
+    '/cash-closings',
   ];
   for (const path of requiredPaths) {
     if (!document?.paths?.[path]) {

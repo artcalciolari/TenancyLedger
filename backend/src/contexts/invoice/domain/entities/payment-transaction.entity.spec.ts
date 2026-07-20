@@ -80,6 +80,46 @@ describe('PaymentTransaction', () => {
     expect(() => createTransaction()).not.toThrow();
   });
 
+  it('creates a direct cash settlement already approved by the same actor', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+    const transaction = PaymentTransaction.createDirectSettlement(
+      invoice,
+      100_00,
+      PaymentMethod.CASH,
+      SUBMITTED_AT,
+      IDEMPOTENCY_KEY,
+      REQUEST_FINGERPRINT,
+      SUBMITTER_ID,
+    );
+
+    expect(transaction).toMatchObject({
+      status: PaymentStatus.APPROVED,
+      method: PaymentMethod.CASH,
+      isDirectSettlement: true,
+      submittedByUserId: SUBMITTER_ID,
+      reviewedByUserId: SUBMITTER_ID,
+      reversalReason: null,
+      reversedByUserId: null,
+    });
+    expect(transaction.reviewedAt).toEqual(SUBMITTED_AT);
+  });
+
+  it('rejects a non-cash direct settlement', () => {
+    const invoice = Invoice.create(CONTRACT_ID, '2026-07', 100_00, '2026-07-15');
+
+    expect(() =>
+      PaymentTransaction.createDirectSettlement(
+        invoice,
+        100_00,
+        PaymentMethod.PIX,
+        SUBMITTED_AT,
+        IDEMPOTENCY_KEY,
+        REQUEST_FINGERPRINT,
+        SUBMITTER_ID,
+      ),
+    ).toThrow(ValidationError);
+  });
+
   it.each([
     {
       scenario: 'zero amount',

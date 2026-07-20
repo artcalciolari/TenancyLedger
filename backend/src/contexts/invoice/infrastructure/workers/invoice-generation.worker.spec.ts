@@ -1,7 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { Contract, ContractStatus } from '../../../contract/domain/entities/contract.entity';
+import {
+  Contract,
+  ContractStatus,
+  ContractType,
+} from '../../../contract/domain/entities/contract.entity';
 import type {
   ContractListResult,
   IContractRepository,
@@ -164,6 +168,31 @@ describe('InvoiceGenerationWorker', () => {
       competence: '2026-07',
       dueDate: '2026-07-19',
       totalValueCents: 123_45,
+    });
+  });
+
+  it('generates an inclusive calendar period for a month-to-month contract', async () => {
+    const value = Contract.create(
+      TENANT_ID,
+      PROPERTY_ID,
+      '2026-07-18',
+      123_45,
+      null,
+      true,
+      18,
+      ContractType.MONTH_TO_MONTH,
+    );
+    Object.defineProperty(value, 'id', { value: CONTRACT_ID });
+    const invoices = new FakeInvoiceRepository();
+
+    const result = await createWorker(invoices, [value]).generateUpcomingInvoices();
+
+    expect(result).toMatchObject({ eligibleContracts: 1, created: 1, existing: 0 });
+    expect([...invoices.stored.values()][0]).toMatchObject({
+      competence: '2026-07',
+      dueDate: '2026-07-18',
+      periodStart: '2026-07-18',
+      periodEnd: '2026-08-17',
     });
   });
 

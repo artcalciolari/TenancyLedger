@@ -2,6 +2,7 @@ import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { PaymentMethod, PaymentStatus, ProofType } from './entities/payment-transaction.entity';
 import { TenantCivilStatus } from '../../tenant/domain/entities/tenant.entity';
 import { UnitType } from '../../property/domain/property-unit.entity';
+import type { EntityManager } from 'typeorm';
 
 export const INVOICE_REPOSITORY_TOKEN = Symbol('INVOICE_REPOSITORY_TOKEN');
 
@@ -56,7 +57,7 @@ export interface PaymentReviewRecord {
   outstandingAmountCents: number;
   contractId: string;
   contractStatus: import('../../contract/domain/entities/contract.entity').ContractStatus;
-  contractEndDate: string;
+  contractEndDate: string | null;
   tenantId: string;
   tenantName: string;
   tenantCpf: string;
@@ -89,7 +90,7 @@ export interface IInvoiceRepository {
   insertIfAbsent(invoice: Invoice): Promise<boolean>;
   updateWithLock(
     id: string,
-    update: (invoice: Invoice) => void | Promise<void>,
+    update: (invoice: Invoice, manager?: EntityManager) => void | Promise<void>,
     transactionKey?: string,
   ): Promise<Invoice | null>;
   markOpenInvoicesOverdue(asOf: string): Promise<number>;
