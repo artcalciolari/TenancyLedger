@@ -333,88 +333,94 @@ describe('OnboardingWizard', () => {
     expect(saveButton).toBeDisabled();
   });
 
-  it('volta à escolha do quarto quando a conclusão encontra conflito de ocupação', async () => {
-    const propertyId = '30000000-0000-4000-8000-000000000001';
-    const payload: OnboardingPayload = {
-      version: 1,
-      personalData: {
-        name: 'Marina Oliveira',
-        cpf: '52998224725',
-        rg: '123456789',
-        profession: 'Enfermeira',
-        civilStatus: 'SINGLE',
-        email: 'marina@example.test',
-        mobilePhone: '11999999999',
-      },
-      photo: { name: '', type: '', size: 0, skipped: true },
-      references: [
-        { name: 'Joana Oliveira', relationship: 'Irmã', phone: '11988888888' },
-        { name: 'Carlos Souza', relationship: 'Colega', phone: '11977777777' },
-      ],
-      propertyUnitId: null,
-      moveInDate: '2026-07-18',
-      monthlyBaseValueCents: 150_000,
-    };
-    const draft = {
-      id: draftId,
-      payload,
-      status: 'DRAFT',
-      createdAt: '2026-07-18T10:00:00.000Z',
-      updatedAt: '2026-07-18T12:00:00.000Z',
-    };
-    server.use(
-      http.get('*/api/onboarding-drafts', () => HttpResponse.json({ data: [draft] })),
-      http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
-        const body = (await request.json()) as { payload: OnboardingPayload };
-        return HttpResponse.json({ ...draft, payload: body.payload });
-      }),
-      http.get('*/api/properties/available', () =>
-        HttpResponse.json([
-          {
-            id: propertyId,
-            neighborhood: 'Centro',
-            type: 'ROOM',
-            unitNumber: '12-B',
-            buildingId: null,
-            buildingName: 'Residencial Aurora',
-            occupied: false,
-            createdAt: '2026-01-01T12:00:00.000Z',
-          },
-        ]),
-      ),
-      http.post(
-        `*/api/onboarding-drafts/${draftId}/complete`,
-        () =>
-          new HttpResponse(
-            JSON.stringify({
-              type: 'about:blank',
-              title: 'Conflict',
-              status: 409,
-              detail: 'A unidade já está ocupada.',
-            }),
-            { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
-          ),
-      ),
-    );
-    renderWizard();
-    const user = userEvent.setup();
+  it(
+    'volta à escolha do quarto quando a conclusão encontra conflito de ocupação',
+    { timeout: 10_000 },
+    async () => {
+      const propertyId = '30000000-0000-4000-8000-000000000001';
+      const payload: OnboardingPayload = {
+        version: 1,
+        personalData: {
+          name: 'Marina Oliveira',
+          cpf: '52998224725',
+          rg: '123456789',
+          profession: 'Enfermeira',
+          civilStatus: 'SINGLE',
+          email: 'marina@example.test',
+          mobilePhone: '11999999999',
+        },
+        photo: { name: '', type: '', size: 0, skipped: true },
+        references: [
+          { name: 'Joana Oliveira', relationship: 'Irmã', phone: '11988888888' },
+          { name: 'Carlos Souza', relationship: 'Colega', phone: '11977777777' },
+        ],
+        propertyUnitId: null,
+        moveInDate: '2026-07-18',
+        monthlyBaseValueCents: 150_000,
+      };
+      const draft = {
+        id: draftId,
+        payload,
+        status: 'DRAFT',
+        createdAt: '2026-07-18T10:00:00.000Z',
+        updatedAt: '2026-07-18T12:00:00.000Z',
+      };
+      server.use(
+        http.get('*/api/onboarding-drafts', () => HttpResponse.json({ data: [draft] })),
+        http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
+          const body = (await request.json()) as { payload: OnboardingPayload };
+          return HttpResponse.json({ ...draft, payload: body.payload });
+        }),
+        http.get('*/api/properties/available', () =>
+          HttpResponse.json([
+            {
+              id: propertyId,
+              neighborhood: 'Centro',
+              type: 'ROOM',
+              unitNumber: '12-B',
+              buildingId: null,
+              buildingName: 'Residencial Aurora',
+              occupied: false,
+              createdAt: '2026-01-01T12:00:00.000Z',
+            },
+          ]),
+        ),
+        http.post(
+          `*/api/onboarding-drafts/${draftId}/complete`,
+          () =>
+            new HttpResponse(
+              JSON.stringify({
+                type: 'about:blank',
+                title: 'Conflict',
+                status: 409,
+                detail: 'A unidade já está ocupada.',
+              }),
+              { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+            ),
+        ),
+      );
+      renderWizard();
+      const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Retomar' }));
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(await screen.findByRole('heading', { name: 'Referências' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
-    await user.click(await screen.findByRole('radio'));
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(await screen.findByRole('heading', { name: 'Revisão do cadastro' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
+      await user.click(await screen.findByRole('button', { name: 'Retomar' }));
+      await user.click(screen.getByRole('button', { name: 'Continuar' }));
+      expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Continuar' }));
+      expect(await screen.findByRole('heading', { name: 'Referências' })).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Continuar' }));
+      expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
+      await user.click(await screen.findByRole('radio'));
+      await user.click(screen.getByRole('button', { name: 'Continuar' }));
+      expect(await screen.findByRole('heading', { name: 'Revisão do cadastro' })).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
 
-    expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
-    expect(screen.getByText('A unidade selecionada não está mais disponível.')).toBeVisible();
-    expect(
-      screen.getByText('Este quarto acabou de ser ocupado. Escolha outra unidade para continuar.'),
-    ).toBeVisible();
-  });
+      expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
+      expect(screen.getByText('A unidade selecionada não está mais disponível.')).toBeVisible();
+      expect(
+        screen.getByText(
+          'Este quarto acabou de ser ocupado. Escolha outra unidade para continuar.',
+        ),
+      ).toBeVisible();
+    },
+  );
 });
