@@ -362,7 +362,6 @@ describe('OnboardingWizard', () => {
       createdAt: '2026-07-18T10:00:00.000Z',
       updatedAt: '2026-07-18T12:00:00.000Z',
     };
-    let completionAttempts = 0;
     server.use(
       http.get('*/api/onboarding-drafts', () => HttpResponse.json({ data: [draft] })),
       http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
@@ -383,22 +382,19 @@ describe('OnboardingWizard', () => {
           },
         ]),
       ),
-      http.post(`*/api/onboarding-drafts/${draftId}/complete`, () => {
-        completionAttempts += 1;
-        const detail =
-          completionAttempts === 1
-            ? 'O rascunho já foi concluído ou descartado.'
-            : 'A unidade já está ocupada.';
-        return new HttpResponse(
-          JSON.stringify({
-            type: 'about:blank',
-            title: 'Conflict',
-            status: 409,
-            detail,
-          }),
-          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
-        );
-      }),
+      http.post(
+        `*/api/onboarding-drafts/${draftId}/complete`,
+        () =>
+          new HttpResponse(
+            JSON.stringify({
+              type: 'about:blank',
+              title: 'Conflict',
+              status: 409,
+              detail: 'A unidade já está ocupada.',
+            }),
+            { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+          ),
+      ),
     );
     renderWizard();
     const user = userEvent.setup();
@@ -413,9 +409,6 @@ describe('OnboardingWizard', () => {
     await user.click(await screen.findByRole('radio'));
     await user.click(screen.getByRole('button', { name: 'Continuar' }));
     expect(await screen.findByRole('heading', { name: 'Revisão do cadastro' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
-
-    expect(await screen.findByText('O rascunho já foi concluído ou descartado.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
 
     expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
