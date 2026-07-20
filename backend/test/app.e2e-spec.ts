@@ -1313,7 +1313,9 @@ describe('Tenancy Ledger API (e2e)', () => {
           'Consultora',
           TenantCivilStatus.SINGLE,
           `renovacao.${label}.${suffix}@example.test`,
-          `+55 11 9${String(Number(numericSeed) + Number(offset)).slice(-8)}`,
+          `+55 11 9${String(Number(numericSeed) + Number(offset))
+            .slice(-8)
+            .padStart(8, '0')}`,
         ),
       );
       const contract = Contract.createPendingSignature(
