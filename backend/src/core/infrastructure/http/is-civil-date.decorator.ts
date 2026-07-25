@@ -10,7 +10,8 @@ export function IsCivilDate(validationOptions?: ValidationOptions): PropertyDeco
       validator: {
         validate: (value: unknown) => isCivilDate(value),
         defaultMessage: buildMessage(
-          (eachPrefix) => `${eachPrefix}$property must be a valid date in YYYY-MM-DD format`,
+          (eachPrefix) =>
+            `${eachPrefix}$property deve ser uma data válida no formato AAAA-MM-DD`,
           validationOptions,
         ),
       },

@@ -8,7 +8,7 @@ const embeddedLedgerQueryKeys: readonly QueryKey[] = [
 ];
 
 const tenantEditQueryKeys: readonly QueryKey[] = [['tenants'], ...embeddedLedgerQueryKeys];
-const buildingEditQueryKeys: readonly QueryKey[] = [['buildings'], ['rooms'], ['room']];
+const buildingEditQueryKeys: readonly QueryKey[] = [['buildings'], ['rooms'], ['room'], ...embeddedLedgerQueryKeys];
 
 async function invalidateQueryKeys(
   queryClient: QueryClient,
