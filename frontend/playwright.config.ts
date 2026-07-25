@@ -2,11 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 const integrationEnabled = process.env.E2E_INTEGRATION === '1';
 const integrationBrowser = process.env.E2E_FULLSTACK_BROWSER ?? 'chromium';
-const mockedTestIgnore = ['**/integration/**', '**/visual/**'];
+/** Suítes fora do escopo dos projetos com API mockada. */
+const nonMockedTestIgnore = ['**/integration/**', '**/visual/**'];
+/** Só o projeto `ipad` executa as specs dedicadas ao viewport iPad. */
+const mockedTestIgnore = [...nonMockedTestIgnore, '**/ipad/**'];
 const reportDirectory = process.env.PLAYWRIGHT_HTML_OUTPUT_DIR ?? 'playwright-report';
 const resultsDirectory = process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'test-results';
 const frontendPort = process.env.PLAYWRIGHT_PORT ?? '5173';
 const frontendUrl = `http://127.0.0.1:${frontendPort}`;
+/** Em CI servimos o bundle de produção; localmente o dev server mantém o HMR. */
+const serveBuild = process.env.E2E_SERVE_BUILD === '1';
 
 const integrationDevice =
   integrationBrowser === 'firefox'
@@ -20,7 +25,7 @@ export default defineConfig({
   fullyParallel: !integrationEnabled,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI || integrationEnabled ? 3 : undefined,
+  workers: integrationEnabled ? 1 : process.env.CI ? 4 : undefined,
   reporter: process.env.CI
     ? [['html', { open: 'never', outputFolder: reportDirectory }], ['github']]
     : 'list',
@@ -46,7 +51,7 @@ export default defineConfig({
     },
     {
       name: 'ipad',
-      testIgnore: mockedTestIgnore,
+      testIgnore: nonMockedTestIgnore,
       use: {
         ...devices['iPad (gen 7) landscape'],
         viewport: { width: 1024, height: 768 },
@@ -76,7 +81,9 @@ export default defineConfig({
   ],
   snapshotPathTemplate: '{testDir}/{testFileDir}/__screenshots__/{arg}{ext}',
   webServer: {
-    command: `npm run dev -- --host 127.0.0.1 --port ${frontendPort}`,
+    command: serveBuild
+      ? `npm run preview -- --host 127.0.0.1 --port ${frontendPort} --strictPort`
+      : `npm run dev -- --host 127.0.0.1 --port ${frontendPort}`,
     url: `${frontendUrl}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
