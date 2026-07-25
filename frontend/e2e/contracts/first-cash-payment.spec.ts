@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { suppressOnboardingPrompt } from '../helpers/onboarding-prompt';
 
 const ids = {
   user: '10000000-0000-4000-8000-000000000001',
@@ -46,6 +47,7 @@ function invoice(status: 'OPEN' | 'PAID') {
 }
 
 async function authenticate(page: Page): Promise<void> {
+  await suppressOnboardingPrompt(page, ids.user);
   await page.addInitScript(
     ({ token, userId }) => {
       sessionStorage.setItem(

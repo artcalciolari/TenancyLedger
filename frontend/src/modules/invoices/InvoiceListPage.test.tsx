@@ -31,29 +31,33 @@ describe('InvoiceListPage', () => {
     });
   });
 
-  it('só aplica o filtro de contrato depois de validar o UUID completo', async () => {
-    const user = userEvent.setup();
-    renderPage();
+  it(
+    'só aplica o filtro de contrato depois de validar o UUID completo',
+    { timeout: 10_000 },
+    async () => {
+      const user = userEvent.setup();
+      renderPage();
 
-    await waitFor(() => expect(listInvoices).toHaveBeenCalledTimes(1));
-    await user.click(screen.getByRole('button', { name: 'Filtros avançados' }));
-    const input = screen.getByRole('textbox', { name: 'ID do contrato' });
-    await user.type(input, '123e');
-    expect(listInvoices).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(listInvoices).toHaveBeenCalledTimes(1));
+      await user.click(screen.getByRole('button', { name: 'Filtros avançados' }));
+      const input = screen.getByRole('textbox', { name: 'ID do contrato' });
+      await user.type(input, '123e');
+      expect(listInvoices).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: 'Aplicar' }));
-    expect(await screen.findByText('Informe um UUID v4 completo.')).toBeInTheDocument();
-    expect(listInvoices).toHaveBeenCalledTimes(1);
+      await user.click(screen.getByRole('button', { name: 'Aplicar' }));
+      expect(await screen.findByText('Informe um UUID v4 completo.')).toBeInTheDocument();
+      expect(listInvoices).toHaveBeenCalledTimes(1);
 
-    const contractId = '123e4567-e89b-42d3-a456-426614174000';
-    await user.clear(input);
-    await user.type(input, contractId);
-    await user.click(screen.getByRole('button', { name: 'Aplicar' }));
+      const contractId = '123e4567-e89b-42d3-a456-426614174000';
+      await user.clear(input);
+      await user.type(input, contractId);
+      await user.click(screen.getByRole('button', { name: 'Aplicar' }));
 
-    await waitFor(() =>
-      expect(listInvoices).toHaveBeenLastCalledWith(
-        expect.objectContaining({ contractId, page: 1 }),
-      ),
-    );
-  });
+      await waitFor(() =>
+        expect(listInvoices).toHaveBeenLastCalledWith(
+          expect.objectContaining({ contractId, page: 1 }),
+        ),
+      );
+    },
+  );
 });

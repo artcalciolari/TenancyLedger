@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { suppressOnboardingPrompt } from '../helpers/onboarding-prompt';
 
 const ids = {
   user: '10000000-0000-4000-8000-000000000011',
@@ -49,6 +50,7 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 async function mockPortfolioApi(page: Page) {
+  await suppressOnboardingPrompt(page, ids.user);
   const buildings: MockBuilding[] = [
     {
       id: ids.buildingA,

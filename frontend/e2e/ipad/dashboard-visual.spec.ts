@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { suppressOnboardingPrompt } from '../helpers/onboarding-prompt';
 
 const userId = '10000000-0000-4000-8000-000000000001';
 
@@ -23,6 +24,7 @@ function json(route: Route, body: unknown) {
 }
 
 async function mockDashboard(page: Page): Promise<void> {
+  await suppressOnboardingPrompt(page, userId);
   await page.addInitScript(
     ({ token, id }) => {
       localStorage.setItem('tenancy-ledger:theme-preference:v1', 'light');

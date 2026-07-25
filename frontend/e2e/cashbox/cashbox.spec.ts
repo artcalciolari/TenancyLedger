@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { suppressOnboardingPrompt } from '../helpers/onboarding-prompt';
 
 const userId = '10000000-0000-4000-8000-000000000001';
 const closingDate = '2026-07-18';
@@ -20,6 +21,7 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 async function authenticate(page: Page): Promise<void> {
+  await suppressOnboardingPrompt(page, userId);
   await page.addInitScript(
     ({ token, id }) => {
       sessionStorage.setItem(

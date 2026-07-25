@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { suppressOnboardingPrompt } from '../helpers/onboarding-prompt';
 
 async function openMobileMenuIfNeeded(page: Page, target: Locator): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
@@ -24,6 +25,7 @@ function accessToken(): string {
 }
 
 async function mockAuthenticatedApi(page: Page): Promise<void> {
+  await suppressOnboardingPrompt(page, '66f7fae3-51ff-4f80-8d1c-160a35760479');
   await page.route('**/api/auth/refresh', (route) =>
     route.fulfill({
       status: 401,
