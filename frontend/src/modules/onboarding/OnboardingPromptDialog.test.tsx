@@ -28,7 +28,15 @@ function renderPrompt({
 }: { role?: UserRole; detectIpad?: () => boolean } = {}) {
   const router = createMemoryRouter(
     [
-      { path: '/dashboard', element: <OnboardingPromptDialog detectIpad={detectIpad} /> },
+      {
+        path: '/dashboard',
+        element: (
+          <>
+            <OnboardingPromptDialog detectIpad={detectIpad} />
+            <p>Conteúdo do painel</p>
+          </>
+        ),
+      },
       { path: '/onboarding', element: <div>Assistente</div> },
     ],
     { initialEntries: ['/dashboard'] },
@@ -57,35 +65,45 @@ beforeEach(() => {
 describe('OnboardingPromptDialog', () => {
   it('aparece para ADMIN em iPad', async () => {
     renderPrompt();
-    expect(await screen.findByRole('dialog', { name: 'Cadastro assistido' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Cadastro assistido' })).toBeVisible();
+  });
+
+  it('não bloqueia o conteúdo da página', async () => {
+    renderPrompt();
+    await screen.findByRole('region', { name: 'Cadastro assistido' });
+    // Um diálogo modal tornaria o restante da página inerte; o convite não.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Conteúdo do painel')).toBeVisible();
   });
 
   it('não aparece para VIEWER', () => {
     renderPrompt({ role: 'VIEWER' });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument();
   });
 
   it('não aparece fora do iPad', () => {
     renderPrompt({ detectIpad: () => false });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument();
   });
 
   it('não aparece com dispensa permanente registrada', () => {
     localStorage.setItem(dismissedKey, String(Date.now()));
     renderPrompt();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument();
   });
 
   it('não aparece com adiamento na sessão atual', () => {
     sessionStorage.setItem(snoozedKey, String(Date.now()));
     renderPrompt();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument();
   });
 
   it('"Agora não" adia apenas na sessão', async () => {
     renderPrompt();
     await userEvent.click(await screen.findByRole('button', { name: 'Agora não' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument(),
+    );
     expect(sessionStorage.getItem(snoozedKey)).not.toBeNull();
     expect(localStorage.getItem(dismissedKey)).toBeNull();
   });
@@ -93,23 +111,29 @@ describe('OnboardingPromptDialog', () => {
   it('"Não mostrar novamente" dispensa permanentemente', async () => {
     renderPrompt();
     await userEvent.click(await screen.findByRole('button', { name: 'Não mostrar novamente' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument(),
+    );
     expect(localStorage.getItem(dismissedKey)).not.toBeNull();
   });
 
-  it('fechar com Escape apenas adia', async () => {
+  it('"Dispensar convite" apenas adia', async () => {
     renderPrompt();
-    await screen.findByRole('dialog', { name: 'Cadastro assistido' });
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await userEvent.click(await screen.findByRole('button', { name: 'Dispensar convite' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Cadastro assistido' })).not.toBeInTheDocument(),
+    );
     expect(sessionStorage.getItem(snoozedKey)).not.toBeNull();
     expect(localStorage.getItem(dismissedKey)).toBeNull();
   });
 
-  it('"Abrir assistente" navega e dispensa permanentemente', async () => {
+  it('"Abrir assistente" navega, informa a origem e apenas adia', async () => {
     const router = renderPrompt();
     await userEvent.click(await screen.findByRole('button', { name: 'Abrir assistente' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/onboarding'));
-    expect(localStorage.getItem(dismissedKey)).not.toBeNull();
+    expect(router.state.location.state).toEqual({ from: '/dashboard' });
+    // Abrir o assistente não é recusa: continua aparecendo em sessões futuras.
+    expect(localStorage.getItem(dismissedKey)).toBeNull();
+    expect(sessionStorage.getItem(snoozedKey)).not.toBeNull();
   });
 });

@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Nunca cancelar uma execução de main pela metade: ela pode estar no estágio de deploy.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -298,7 +299,9 @@ jobs:
 
       - name: Smoke-test frontend production image
         run: |
-          docker run --detach --name tenancy-ledger-frontend-ci --add-host app:127.0.0.1 --publish 8080:8080 tenancy-ledger-frontend:ci
+          docker run --detach --name tenancy-ledger-frontend-ci \
+            --add-host app:127.0.0.1 --add-host minio:127.0.0.1 \
+            --publish 8080:8080 tenancy-ledger-frontend:ci
           for attempt in {1..20}; do
             if curl --fail --silent http://127.0.0.1:8080/healthz; then
               exit 0
@@ -311,6 +314,79 @@ jobs:
       - name: Stop frontend smoke-test container
         if: always()
         run: docker rm --force tenancy-ledger-frontend-ci || true
+
+  frontend-e2e:
+    name: Frontend E2E (${{ matrix.engine }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # As suítes mockadas interceptam **/api/** no próprio browser: não dependem da API.
+    needs: frontend-quality-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: chromium
+            projects: --project=chromium --project=mobile-chromium
+          - engine: firefox
+            projects: --project=firefox
+          - engine: webkit
+            projects: --project=webkit --project=mobile-webkit --project=ipad
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      E2E_SERVE_BUILD: '1'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm ci
+
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.engine }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install the Playwright browser and system dependencies
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.engine }}
+
+      - name: Install the Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.engine }}
+
+      - name: Build the frontend bundle for the E2E server
+        # `tsc -b` já rodou em "Frontend quality and build"; aqui só o bundle importa.
+        run: npx vite build
+
+      - name: Run frontend end-to-end tests
+        run: npx playwright test ${{ matrix.projects }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.engine }}
+          path: frontend/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
 
   frontend-e2e-fullstack:
     name: Frontend E2E full-stack
@@ -331,20 +407,24 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tenancyledger_test
+          POSTGRES_DB: tenancyledger_e2e
         options: >-
-          --health-cmd "pg_isready -U postgres -d tenancyledger_test"
+          --health-cmd "pg_isready -U postgres -d tenancyledger_e2e"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     env:
       NODE_ENV: test
+      # O seed full-stack exige E2E_INTEGRATION=1 e um banco dedicado tenancyledger_*_e2e.
+      E2E_INTEGRATION: '1'
+      E2E_SERVE_BUILD: '1'
+      E2E_TEST_PASSWORD: Fullstack-E2E-Password-123!
       DB_HOST: localhost
       DB_PORT: 5432
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
-      DB_DATABASE: tenancyledger_test
+      DB_DATABASE: tenancyledger_e2e
       MINIO_ENDPOINT: localhost
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: minioadmin
@@ -417,6 +497,10 @@ jobs:
         working-directory: backend
         run: npm run migration:run
 
+      - name: Seed the full-stack fixtures
+        working-directory: backend
+        run: npm run test:e2e:seed
+
       - name: Start backend for frontend E2E
         working-directory: backend
         run: |
@@ -443,17 +527,36 @@ jobs:
           docker logs tenancy-ledger-api-e2e
           exit 1
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Run frontend end-to-end tests
-        run: npm run e2e
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}
+
+      - name: Install the Playwright browser and system dependencies
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install the Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build the frontend bundle for the E2E server
+        run: npx vite build
+
+      - name: Run full-stack end-to-end tests
+        run: npm run e2e:integration
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-fullstack
           path: frontend/playwright-report/
           if-no-files-found: warn
           retention-days: 14
@@ -485,3 +588,124 @@ jobs:
           if docker ps -a --format '{{.Names}}' | grep -q '^minio-ci$'; then
             docker rm --force minio-ci
           fi
+
+  deploy:
+    name: Deploy to the pipeline server
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - backend-quality
+      - backend-integration-image
+      - frontend-quality-build
+      - frontend-e2e
+      - frontend-e2e-fullstack
+    runs-on: self-hosted
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: backend
+
+    env:
+      # Única porta publicada no host. FRONTEND_BIND=127.0.0.1 restringe ao próprio servidor.
+      FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '8080' }}
+      FRONTEND_BIND: ${{ vars.FRONTEND_BIND || '0.0.0.0' }}
+      # Origem pública usada pelo CORS e pelas URLs pré-assinadas de comprovantes.
+      PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+      COMPOSE_FILES: -f docker-compose.yml -f docker-compose.deploy.yml
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compose the deployment environment file
+        env:
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          AUTH_BOOTSTRAP_EMAIL: ${{ secrets.AUTH_BOOTSTRAP_EMAIL }}
+          AUTH_BOOTSTRAP_PASSWORD: ${{ secrets.AUTH_BOOTSTRAP_PASSWORD }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+        run: |
+          set -euo pipefail
+          for required in DB_USERNAME DB_PASSWORD DB_DATABASE JWT_SECRET \
+            AUTH_BOOTSTRAP_EMAIL AUTH_BOOTSTRAP_PASSWORD MINIO_ACCESS_KEY MINIO_SECRET_KEY; do
+            if [ -z "${!required:-}" ]; then
+              echo "Missing repository secret: $required"
+              exit 1
+            fi
+          done
+
+          origin="${PUBLIC_ORIGIN:-http://localhost:${FRONTEND_PORT}}"
+
+          umask 077
+          {
+            echo "FRONTEND_BIND=${FRONTEND_BIND}"
+            echo "FRONTEND_PORT=${FRONTEND_PORT}"
+            echo "CORS_ORIGINS=${origin}"
+            echo "SWAGGER_ENABLED=false"
+            echo "LOG_LEVEL=info"
+            echo "DB_USERNAME=${DB_USERNAME}"
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_DATABASE=${DB_DATABASE}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "AUTH_BOOTSTRAP_EMAIL=${AUTH_BOOTSTRAP_EMAIL}"
+            echo "AUTH_BOOTSTRAP_PASSWORD=${AUTH_BOOTSTRAP_PASSWORD}"
+            echo "MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}"
+            echo "MINIO_SECRET_KEY=${MINIO_SECRET_KEY}"
+            # O nginx do frontend expõe o bucket em /payment-proofs/; o nome precisa casar.
+            echo "MINIO_BUCKET_NAME=payment-proofs"
+            echo "MINIO_PUBLIC_ENDPOINT=${origin}"
+            echo "METRICS_TOKEN=${METRICS_TOKEN:-}"
+          } > .env
+
+      - name: Deploy the stack
+        # Sem `--wait`: o serviço `migrate` é one-shot e termina, o que faria a espera falhar.
+        # A prontidão é verificada pelo smoke test de /healthz abaixo.
+        run: |
+          set -euo pipefail
+          docker compose --env-file .env ${COMPOSE_FILES} up \
+            --build --detach --remove-orphans
+
+      - name: Verify that only the frontend port is published
+        run: |
+          set -euo pipefail
+          failed=0
+          for service in app db minio; do
+            container="$(docker compose --env-file .env ${COMPOSE_FILES} ps --quiet "$service")"
+            if [ -n "$container" ] && [ -n "$(docker port "$container")" ]; then
+              echo "Service '$service' unexpectedly publishes host ports:"
+              docker port "$container"
+              failed=1
+            fi
+          done
+          frontend="$(docker compose --env-file .env ${COMPOSE_FILES} ps --quiet frontend)"
+          echo "Frontend published ports:"
+          docker port "$frontend"
+          exit "$failed"
+
+      - name: Smoke-test the deployed frontend
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            if curl --fail --silent "http://127.0.0.1:${FRONTEND_PORT}/healthz"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file .env ${COMPOSE_FILES} logs --tail 200
+          exit 1
+
+      - name: Remove the deployment environment file
+        if: always()
+        run: rm -f .env
+
+      - name: Prune dangling images
+        if: always()
+        run: docker image prune --force

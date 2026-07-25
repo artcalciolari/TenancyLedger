@@ -13,6 +13,7 @@ import {
   FormControl,
   InputAdornment,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Select,
   Stack,
@@ -25,6 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { visuallyHidden } from '@mui/utils';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
@@ -48,8 +50,8 @@ import { CsvExportButton } from '../../components/data-display/CsvExportButton';
 import { EmptyState, ListPageSkeleton } from '../../components/feedback/QueryState';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { formatCivilDate, formatCompetence } from '../../lib/dates/dates';
-import { isUuidV4 } from '../../lib/identifiers/uuid';
 import { formatCents } from '../../lib/money/money';
+import { ContractPicker } from '../contracts/ContractEntityPicker';
 import { invoicesApi } from './api';
 import { parseInvoiceFilters } from './filters';
 import { paymentMethodLabels, paymentStatusLabels } from './labels';
@@ -169,72 +171,10 @@ function AdvancedInvoiceFilters({
   );
 }
 
-function ContractIdFilter({
-  initialValue,
-  onApply,
-  onClear,
-}: {
-  initialValue: string;
-  onApply: (value: string | undefined) => void;
-  onClear: () => void;
-}) {
-  const [draft, setDraft] = useState(initialValue);
-  const [error, setError] = useState('');
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const value = draft.trim();
-    if (value && !isUuidV4(value)) {
-      setError('Informe um UUID v4 completo.');
-      return;
-    }
-    setError('');
-    onApply(value || undefined);
-  };
-
-  return (
-    <Stack
-      component="form"
-      direction={{ xs: 'column', md: 'row' }}
-      spacing={1}
-      onSubmit={submit}
-      noValidate
-      sx={{ flex: 1, minWidth: { md: 280 } }}
-    >
-      <TextField
-        label="ID do contrato"
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          if (error) setError('');
-        }}
-        error={Boolean(error)}
-        helperText={error || 'UUID v4 completo'}
-        sx={{ flex: 1 }}
-      />
-      <Button type="submit" variant="outlined">
-        Aplicar
-      </Button>
-      <Button
-        type="button"
-        variant="text"
-        startIcon={<ClearOutlined />}
-        onClick={() => {
-          setDraft('');
-          setError('');
-          onClear();
-        }}
-      >
-        Limpar
-      </Button>
-    </Stack>
-  );
-}
-
 export function InvoiceListPage() {
   const navigate = useNavigate();
   const listParams = useListSearchParams(invoiceSearchConfig);
-  const { clearFilters, filters, searchParamsKey, updateFilters } = listParams;
+  const { clearFilters, filters, hasFilters, searchParamsKey, updateFilters } = listParams;
   const query = useQuery({
     queryKey: queryKeys.invoices(filters),
     queryFn: () => invoicesApi.list(filters),
@@ -255,11 +195,12 @@ export function InvoiceListPage() {
   }
 
   // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
+  // `replace` evita empilhar uma entrada de histórico por pausa de digitação.
   useEffect(() => {
     const trimmed = searchDraft.trim();
     if (trimmed === (filters.q ?? '')) return;
     const timeout = window.setTimeout(() => {
-      updateFilters({ q: trimmed || undefined });
+      updateFilters({ q: trimmed || undefined }, { replace: true });
     }, 400);
     return () => window.clearTimeout(timeout);
   }, [filters.q, searchDraft, updateFilters]);
@@ -272,6 +213,17 @@ export function InvoiceListPage() {
       >
         <CsvExportButton exportCsv={() => invoicesApi.exportCsv(filters)} filename="faturas.csv" />
       </PageHeader>
+      {/* Indicador de refetch ancorado ao topo da lista, visível sem rolar a página. */}
+      <Box role="status" aria-live="polite" sx={{ height: 4, mb: 0.5 }}>
+        {query.isFetching && !showInitialLoading && (
+          <>
+            <LinearProgress aria-hidden sx={{ height: 4, borderRadius: 2 }} />
+            <Box component="span" sx={visuallyHidden}>
+              Atualizando faturas…
+            </Box>
+          </>
+        )}
+      </Box>
       <Card sx={{ p: 2, mb: 2 }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
@@ -321,6 +273,17 @@ export function InvoiceListPage() {
           >
             Filtros avançados
           </Button>
+          {hasFilters && (
+            <Button
+              type="button"
+              variant="text"
+              startIcon={<ClearOutlined />}
+              onClick={clearFilters}
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              Limpar filtros
+            </Button>
+          )}
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 1.75 }}>
           {statusChipOptions.map((option) => {
@@ -348,11 +311,10 @@ export function InvoiceListPage() {
         {advancedOpen && (
           <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${brand.borderRow}` }}>
             <Stack spacing={2}>
-              <ContractIdFilter
-                key={filters.contractId ?? ''}
-                initialValue={filters.contractId ?? ''}
-                onApply={(contractId) => updateFilters({ contractId })}
-                onClear={clearFilters}
+              <ContractPicker
+                value={filters.contractId ?? ''}
+                onChange={(contractId) => updateFilters({ contractId })}
+                onClear={() => updateFilters({ contractId: undefined })}
               />
               <AdvancedInvoiceFilters
                 key={`advanced-${searchParamsKey}`}
@@ -529,11 +491,6 @@ export function InvoiceListPage() {
             </Box>
           </Card>
         </Stack>
-      )}
-      {query.isFetching && !query.isPending && (
-        <Box role="status" aria-live="polite" sx={{ mt: 1 }}>
-          Atualizando…
-        </Box>
       )}
     </>
   );

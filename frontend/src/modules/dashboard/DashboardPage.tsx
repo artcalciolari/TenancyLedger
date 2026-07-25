@@ -2,6 +2,7 @@ import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Grid,
@@ -14,9 +15,11 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { visuallyHidden } from '@mui/utils';
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
+import type { InvoiceView, NotificationView } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { StatusChip } from '../../components/data-display/StatusChip';
@@ -214,7 +217,262 @@ function FinancialDailyChart({
           </text>
         )}
       </Box>
+      {/* O SVG só expõe um rótulo genérico; a tabela dá os valores a leitores de tela. */}
+      <Box sx={visuallyHidden}>
+        <table>
+          <caption>Série diária de valores recebidos, a receber e previstos</caption>
+          <thead>
+            <tr>
+              <th scope="col">Data</th>
+              <th scope="col">Recebido</th>
+              <th scope="col">A receber</th>
+              <th scope="col">Previsto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((point) => (
+              <tr key={point.date}>
+                <th scope="row">{formatCivilDate(point.date)}</th>
+                <td>{formatCents(point.receivedCents)}</td>
+                <td>{formatCents(point.confirmedReceivableCents)}</td>
+                <td>{formatCents(point.forecastRenewalsCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Box>
     </Box>
+  );
+}
+
+interface BreakdownRow {
+  id: string;
+  primary: string;
+  secondary: string;
+  receivedCents: number;
+  confirmedReceivableCents: number;
+  forecastRenewalsCents: number;
+}
+
+const BREAKDOWN_PREVIEW_ROWS = 6;
+
+/**
+ * Cresce com o conteúdo em vez de virar um painel rolável de 300px dentro da
+ * página — a rolagem aninhada é especialmente ruim por toque no iPad.
+ */
+function FinancialBreakdownTable({
+  rows,
+  columnLabel,
+  tableLabel,
+}: {
+  rows: BreakdownRow[];
+  columnLabel: string;
+  tableLabel: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (rows.length === 0) {
+    return (
+      <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
+        Nenhum valor no período.
+      </Typography>
+    );
+  }
+  const collapsible = rows.length > BREAKDOWN_PREVIEW_ROWS;
+  const visibleRows = collapsible && !expanded ? rows.slice(0, BREAKDOWN_PREVIEW_ROWS) : rows;
+
+  return (
+    <>
+      <TableContainer sx={{ overflowX: 'auto' }}>
+        <Table size="small" aria-label={tableLabel}>
+          <TableHead>
+            <TableRow>
+              <TableCell>{columnLabel}</TableCell>
+              <TableCell align="right">Recebido</TableCell>
+              <TableCell align="right">A receber</TableCell>
+              <TableCell align="right">Previsto</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {visibleRows.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>
+                  <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
+                    {row.primary}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
+                    {row.secondary}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">{formatCents(row.receivedCents)}</TableCell>
+                <TableCell align="right">{formatCents(row.confirmedReceivableCents)}</TableCell>
+                <TableCell align="right">{formatCents(row.forecastRenewalsCents)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      {collapsible && (
+        <Box sx={{ px: 2, pt: 1 }}>
+          <Button
+            variant="text"
+            size="small"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            {expanded ? 'Ver menos' : `Ver todos (${rows.length})`}
+          </Button>
+        </Box>
+      )}
+    </>
+  );
+}
+
+function RecentActivityPanel({ events }: { events: NotificationView[] }) {
+  if (events.length === 0) return null;
+  return (
+    <ListPanel title="Atividade recente">
+      <Stack>
+        {events.map((event) => (
+          <Stack
+            key={event.id}
+            direction="row"
+            spacing={1.5}
+            sx={{ alignItems: 'flex-start', px: 2, py: 1.1 }}
+          >
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '9px',
+                flexShrink: 0,
+                mt: 0.15,
+                bgcolor: brand.accentTint,
+                color: brand.accent,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <NotificationsNoneOutlinedIcon sx={{ fontSize: 18 }} />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 600, color: brand.textPrimary }}>
+                {event.title}
+              </Typography>
+              <Typography sx={{ fontSize: '0.8rem', color: brand.textSecondary }}>
+                {event.message}
+              </Typography>
+            </Box>
+            <Typography
+              sx={{ fontSize: '0.75rem', color: brand.textTertiary, whiteSpace: 'nowrap' }}
+            >
+              {formatDateTime(event.createdAt)}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </ListPanel>
+  );
+}
+
+function RecentInvoicesCard({
+  invoices,
+  onOpen,
+}: {
+  invoices: InvoiceView[];
+  onOpen: (invoiceId: string) => void;
+}) {
+  if (invoices.length === 0) return null;
+  return (
+    <Card sx={{ mt: 2.5 }}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2.5,
+          py: 2,
+          borderBottom: `1px solid ${brand.borderCard}`,
+        }}
+      >
+        <Typography
+          component="h2"
+          variant="h2"
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}
+        >
+          <Box component="span" aria-hidden sx={{ width: 3, height: 14, bgcolor: brand.razao }} />
+          Faturas recentes
+        </Typography>
+        <Stack
+          component={RouterLink}
+          to="/invoices"
+          direction="row"
+          spacing={0.25}
+          sx={{
+            alignItems: 'center',
+            color: 'primary.main',
+            textDecoration: 'none',
+            fontSize: '0.86rem',
+            fontWeight: 600,
+          }}
+        >
+          Ver todas
+          <ChevronRightOutlinedIcon sx={{ fontSize: 18 }} />
+        </Stack>
+      </Stack>
+      <TableContainer sx={{ overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 640 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Fatura</TableCell>
+              <TableCell>Mês ref.</TableCell>
+              <TableCell align="right">Valor</TableCell>
+              <TableCell>Situação</TableCell>
+              <TableCell sx={{ width: 44 }} />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {invoices.map((invoice) => (
+              <TableRow
+                key={invoice.id}
+                hover
+                onClick={() => onOpen(invoice.id)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <TableCell>
+                  <Typography
+                    component={RouterLink}
+                    to={`/invoices/${invoice.id}`}
+                    sx={{
+                      display: 'block',
+                      fontSize: '0.94rem',
+                      fontWeight: 600,
+                      color: brand.textPrimary,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Quarto {invoice.contract.room.number} · {invoice.contract.room.buildingName}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.79rem', color: brand.textTertiary }}>
+                    {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}
+                  </Typography>
+                </TableCell>
+                <TableCell>{formatCompetence(invoice.competence)}</TableCell>
+                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCents(invoice.totalValueCents)}
+                </TableCell>
+                <TableCell>
+                  <StatusChip status={invoice.status} />
+                </TableCell>
+                <TableCell align="right" sx={{ color: brand.borderInput }}>
+                  <ChevronRightOutlinedIcon />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Card>
   );
 }
 
@@ -241,8 +499,18 @@ export function DashboardPage() {
   if (summary.isPending && !summary.data) {
     return <DashboardSkeleton label="Carregando visão geral…" />;
   }
-  if (summary.isError) {
-    return <ProblemAlert error={summary.error} onRetry={() => void summary.refetch()} />;
+  // Sem resumo não há métricas, mas notificações e faturas recentes seguem disponíveis.
+  if (summary.isError && !summary.data) {
+    return (
+      <>
+        <PageHeader title="Visão geral" />
+        <ProblemAlert error={summary.error} onRetry={() => void summary.refetch()} />
+        <Box sx={{ mt: 2.5 }}>
+          <RecentActivityPanel events={notifications.data?.data.slice(0, 4) ?? []} />
+        </Box>
+        <RecentInvoicesCard invoices={recentInvoices.data?.data ?? []} onOpen={navigate} />
+      </>
+    );
   }
 
   const data = summary.data;
@@ -315,89 +583,36 @@ export function DashboardPage() {
         </Grid>
         <Grid size={{ xs: 12, lg: 7 }}>
           <ListPanel title="Resumo por prédio" count={`${data.financial.byBuilding.length} grupos`}>
-            {data.financial.byBuilding.length === 0 ? (
-              <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
-                Nenhum valor no período.
-              </Typography>
-            ) : (
-              <TableContainer sx={{ maxHeight: 300 }}>
-                <Table stickyHeader size="small" aria-label="Posição financeira por prédio">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Prédio</TableCell>
-                      <TableCell align="right">Recebido</TableCell>
-                      <TableCell align="right">A receber</TableCell>
-                      <TableCell align="right">Previsto</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {data.financial.byBuilding.map((building) => (
-                      <TableRow key={building.buildingId}>
-                        <TableCell>
-                          <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
-                            {building.buildingName}
-                          </Typography>
-                          <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
-                            {building.neighborhood} · {building.roomCount}{' '}
-                            {building.roomCount === 1 ? 'quarto' : 'quartos'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">{formatCents(building.receivedCents)}</TableCell>
-                        <TableCell align="right">
-                          {formatCents(building.confirmedReceivableCents)}
-                        </TableCell>
-                        <TableCell align="right">
-                          {formatCents(building.forecastRenewalsCents)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+            <FinancialBreakdownTable
+              columnLabel="Prédio"
+              tableLabel="Posição financeira por prédio"
+              rows={data.financial.byBuilding.map((building) => ({
+                id: building.buildingId,
+                primary: building.buildingName,
+                secondary: `${building.neighborhood} · ${building.roomCount} ${
+                  building.roomCount === 1 ? 'quarto' : 'quartos'
+                }`,
+                receivedCents: building.receivedCents,
+                confirmedReceivableCents: building.confirmedReceivableCents,
+                forecastRenewalsCents: building.forecastRenewalsCents,
+              }))}
+            />
           </ListPanel>
         </Grid>
         <Grid size={{ xs: 12 }}>
           <ListPanel title="Posição por quarto" count={`${data.financial.byRoom.length} quartos`}>
-            {data.financial.byRoom.length === 0 ? (
-              <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
-                Nenhum valor no período.
-              </Typography>
-            ) : (
-              <TableContainer sx={{ maxHeight: 300 }}>
-                <Table stickyHeader size="small" aria-label="Posição financeira por quarto">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Quarto</TableCell>
-                      <TableCell align="right">Recebido</TableCell>
-                      <TableCell align="right">A receber</TableCell>
-                      <TableCell align="right">Previsto</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {data.financial.byRoom.map((room) => (
-                      <TableRow key={room.roomId}>
-                        <TableCell>
-                          <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
-                            {room.buildingName} · Quarto {room.roomNumber}
-                          </Typography>
-                          <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
-                            {room.neighborhood}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">{formatCents(room.receivedCents)}</TableCell>
-                        <TableCell align="right">
-                          {formatCents(room.confirmedReceivableCents)}
-                        </TableCell>
-                        <TableCell align="right">
-                          {formatCents(room.forecastRenewalsCents)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+            <FinancialBreakdownTable
+              columnLabel="Quarto"
+              tableLabel="Posição financeira por quarto"
+              rows={data.financial.byRoom.map((room) => ({
+                id: room.roomId,
+                primary: `${room.buildingName} · Quarto ${room.roomNumber}`,
+                secondary: room.neighborhood,
+                receivedCents: room.receivedCents,
+                confirmedReceivableCents: room.confirmedReceivableCents,
+                forecastRenewalsCents: room.forecastRenewalsCents,
+              }))}
+            />
           </ListPanel>
         </Grid>
       </Grid>
@@ -464,154 +679,16 @@ export function DashboardPage() {
           )}
           {recentActivity.length > 0 && (
             <Grid size={{ xs: 12, md: attentionItems.length > 0 ? 6 : 12 }}>
-              <ListPanel title="Atividade recente">
-                <Stack>
-                  {recentActivity.map((event) => (
-                    <Stack
-                      key={event.id}
-                      direction="row"
-                      spacing={1.5}
-                      sx={{ alignItems: 'flex-start', px: 2, py: 1.1 }}
-                    >
-                      <Box
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '9px',
-                          flexShrink: 0,
-                          mt: 0.15,
-                          bgcolor: brand.accentTint,
-                          color: brand.accent,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <NotificationsNoneOutlinedIcon sx={{ fontSize: 18 }} />
-                      </Box>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          sx={{ fontSize: '0.88rem', fontWeight: 600, color: brand.textPrimary }}
-                        >
-                          {event.title}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.8rem', color: brand.textSecondary }}>
-                          {event.message}
-                        </Typography>
-                      </Box>
-                      <Typography
-                        sx={{
-                          fontSize: '0.75rem',
-                          color: brand.textTertiary,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {formatDateTime(event.createdAt)}
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </ListPanel>
+              <RecentActivityPanel events={recentActivity} />
             </Grid>
           )}
         </Grid>
       )}
 
-      {recentInvoices.data && recentInvoices.data.data.length > 0 && (
-        <Card>
-          <Stack
-            direction="row"
-            sx={{
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              px: 2.5,
-              py: 2,
-              borderBottom: `1px solid ${brand.borderCard}`,
-            }}
-          >
-            <Typography
-              component="h2"
-              variant="h2"
-              sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}
-            >
-              <Box
-                component="span"
-                aria-hidden
-                sx={{ width: 3, height: 14, bgcolor: brand.razao }}
-              />
-              Faturas recentes
-            </Typography>
-            <Stack
-              component={RouterLink}
-              to="/invoices"
-              direction="row"
-              spacing={0.25}
-              sx={{
-                alignItems: 'center',
-                color: 'primary.main',
-                textDecoration: 'none',
-                fontSize: '0.86rem',
-                fontWeight: 600,
-              }}
-            >
-              Ver todas
-              <ChevronRightOutlinedIcon sx={{ fontSize: 18 }} />
-            </Stack>
-          </Stack>
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: 640 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Fatura</TableCell>
-                  <TableCell>Mês ref.</TableCell>
-                  <TableCell align="right">Valor</TableCell>
-                  <TableCell>Situação</TableCell>
-                  <TableCell sx={{ width: 44 }} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {recentInvoices.data.data.map((invoice) => (
-                  <TableRow
-                    key={invoice.id}
-                    hover
-                    onClick={() => void navigate(`/invoices/${invoice.id}`)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    <TableCell>
-                      <Typography
-                        component={RouterLink}
-                        to={`/invoices/${invoice.id}`}
-                        sx={{
-                          display: 'block',
-                          fontSize: '0.94rem',
-                          fontWeight: 600,
-                          color: brand.textPrimary,
-                          textDecoration: 'none',
-                        }}
-                      >
-                        Quarto {invoice.contract.room.number} · {invoice.contract.room.buildingName}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.79rem', color: brand.textTertiary }}>
-                        {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{formatCompetence(invoice.competence)}</TableCell>
-                    <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {formatCents(invoice.totalValueCents)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip status={invoice.status} />
-                    </TableCell>
-                    <TableCell align="right" sx={{ color: brand.borderInput }}>
-                      <ChevronRightOutlinedIcon />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      )}
+      <RecentInvoicesCard
+        invoices={recentInvoices.data?.data ?? []}
+        onOpen={(invoiceId) => void navigate(`/invoices/${invoiceId}`)}
+      />
     </>
   );
 }

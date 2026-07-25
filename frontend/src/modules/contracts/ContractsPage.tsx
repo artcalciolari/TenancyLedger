@@ -219,11 +219,12 @@ export function ContractsPage() {
   const showInitialLoading = (contracts.isPending || pageOutOfRange) && !contracts.data;
 
   // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
+  // `replace` evita empilhar uma entrada de histórico por pausa de digitação.
   useEffect(() => {
     const trimmed = searchDraft.trim();
     if (trimmed === (filters.q ?? '')) return;
     const timeout = window.setTimeout(() => {
-      updateFilters({ q: trimmed || undefined });
+      updateFilters({ q: trimmed || undefined }, { replace: true });
     }, 400);
     return () => window.clearTimeout(timeout);
   }, [filters.q, searchDraft, updateFilters]);

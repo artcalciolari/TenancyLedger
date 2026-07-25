@@ -1,13 +1,9 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Typography,
-} from '@mui/material';
+import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined';
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+import { Box, Button, IconButton, Paper, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { brand } from '../../app/theme/theme';
 import { isIpad } from '../../lib/device/device';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
@@ -28,15 +24,20 @@ function safeWrite(storage: Storage, key: string): void {
   try {
     storage.setItem(key, String(Date.now()));
   } catch {
-    // Sem persistência disponível; o prompt poderá reaparecer.
+    // Sem persistência disponível; o convite poderá reaparecer.
   }
 }
 
-interface OnboardingPromptDialogProps {
+interface OnboardingPromptProps {
   detectIpad?: () => boolean;
 }
 
-export function OnboardingPromptDialog({ detectIpad = isIpad }: OnboardingPromptDialogProps) {
+/**
+ * Convite não bloqueante para o cadastro assistido. O acesso permanente continua
+ * sendo o item "Cadastro assistido" do menu lateral; aqui só destacamos a opção
+ * para quem opera em iPad, sem esconder o painel atrás de um diálogo modal.
+ */
+export function OnboardingPromptDialog({ detectIpad = isIpad }: OnboardingPromptProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,7 +50,7 @@ export function OnboardingPromptDialog({ detectIpad = isIpad }: OnboardingPrompt
     return true;
   });
 
-  if (!session) return null;
+  if (!session || !open) return null;
   const userId = session.user.id;
 
   const snooze = () => {
@@ -62,29 +63,74 @@ export function OnboardingPromptDialog({ detectIpad = isIpad }: OnboardingPrompt
     setOpen(false);
   };
 
+  // Abrir o assistente não é uma recusa: apenas adia até a próxima sessão.
   const openWizard = () => {
-    dismissForever();
-    void navigate('/onboarding');
+    snooze();
+    void navigate('/onboarding', {
+      state: { from: `${location.pathname}${location.search}` },
+    });
   };
 
   return (
-    <Dialog open={open} onClose={snooze} aria-labelledby="onboarding-prompt-title">
-      <DialogTitle id="onboarding-prompt-title">Cadastro assistido</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Deseja abrir o assistente de cadastro guiado? Ele ajuda a registrar prédios, quartos,
-          locatários e contratos em poucos passos.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button color="inherit" onClick={dismissForever}>
-          Não mostrar novamente
-        </Button>
-        <Button onClick={snooze}>Agora não</Button>
-        <Button variant="contained" onClick={openWizard}>
-          Abrir assistente
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <Paper
+      variant="outlined"
+      role="region"
+      aria-labelledby="onboarding-prompt-title"
+      sx={{
+        mb: 2.5,
+        p: 2,
+        borderColor: brand.borderInput,
+        bgcolor: brand.accentTint,
+      }}
+    >
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+        <Box
+          aria-hidden
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            flexShrink: 0,
+            bgcolor: 'background.paper',
+            color: brand.accentDark,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <AutoFixHighOutlinedIcon sx={{ fontSize: 20 }} />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            id="onboarding-prompt-title"
+            component="h2"
+            sx={{ fontSize: '0.98rem', fontWeight: 700, color: brand.textPrimary }}
+          >
+            Cadastro assistido
+          </Typography>
+          <Typography sx={{ fontSize: '0.86rem', color: brand.textSecondary }}>
+            Registre prédios, quartos, locatários e contratos em poucos passos.
+          </Typography>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            sx={{ mt: 1.5, alignItems: { sm: 'center' } }}
+          >
+            <Button variant="contained" onClick={openWizard}>
+              Abrir assistente
+            </Button>
+            <Button color="inherit" onClick={snooze}>
+              Agora não
+            </Button>
+            <Button color="inherit" onClick={dismissForever}>
+              Não mostrar novamente
+            </Button>
+          </Stack>
+        </Box>
+        <IconButton aria-label="Dispensar convite" onClick={snooze} sx={{ flexShrink: 0 }}>
+          <CloseOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Stack>
+    </Paper>
   );
 }

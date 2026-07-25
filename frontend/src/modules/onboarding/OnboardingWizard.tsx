@@ -28,7 +28,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useBlocker, useNavigate, useSearchParams } from 'react-router';
+import { useBlocker, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ApiError } from '../../api/problem';
 import { brand } from '../../app/theme/theme';
 import { formatDateTime } from '../../lib/dates/dates';
@@ -99,6 +99,12 @@ function isDuplicateTenantConflict(detail: string): boolean {
 
 export function OnboardingWizard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Quem abriu o assistente informa a origem; sem ela voltamos para a visão geral.
+  const originPath =
+    typeof (location.state as { from?: unknown } | null)?.from === 'string'
+      ? (location.state as { from: string }).from
+      : '/dashboard';
   const [searchParams] = useSearchParams();
   const requestedDraftId = searchParams.get('draft');
   const theme = useTheme();
@@ -560,7 +566,7 @@ export function OnboardingWizard() {
           >
             {saveMutation.isPending ? 'Salvando…' : 'Salvar rascunho'}
           </Button>
-          <IconButton aria-label="Fechar cadastro" onClick={() => void navigate('/dashboard')}>
+          <IconButton aria-label="Fechar cadastro" onClick={() => void navigate(originPath)}>
             <CloseOutlinedIcon />
           </IconButton>
         </Toolbar>

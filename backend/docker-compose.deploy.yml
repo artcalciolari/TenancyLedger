@@ -1,0 +1,18 @@
+# Sobreposição de deploy para o runner self-hosted.
+#
+# Regra: a única porta publicada no host é a do frontend, herdada do compose base
+# (`${FRONTEND_BIND}:${FRONTEND_PORT}:8080`). API, banco e MinIO ficam acessíveis
+# somente pela rede interna do compose; o nginx do frontend faz o proxy de `/api/`
+# e das URLs pré-assinadas de comprovantes em `/payment-proofs/`.
+#
+# Requer Docker Compose >= 2.24 (tag `!reset`).
+
+services:
+  app:
+    ports: !reset []
+
+  db:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
