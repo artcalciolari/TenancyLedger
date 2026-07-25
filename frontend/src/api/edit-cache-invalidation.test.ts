@@ -30,7 +30,7 @@ describe('edit cache invalidation', () => {
 
     await invalidateBuildingEditCaches(queryClient);
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(invalidateQueries).toHaveBeenCalledTimes(7);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['buildings'] });
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['rooms'] });
     expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['room'] });
