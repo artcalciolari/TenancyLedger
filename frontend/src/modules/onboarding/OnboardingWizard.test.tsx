@@ -16,6 +16,12 @@ let savedPayload: OnboardingPayload | null = null;
 
 const server = setupServer(
   http.get('*/api/onboarding-drafts', () => HttpResponse.json({ data: [] })),
+  http.get('*/api/buildings', () =>
+    HttpResponse.json({
+      data: [],
+      meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
+    }),
+  ),
   http.post('*/api/onboarding-drafts', async ({ request }) => {
     const body = (await request.json()) as { payload: OnboardingPayload };
     savedPayload = body.payload;
@@ -354,7 +360,7 @@ describe('OnboardingWizard', () => {
           { name: 'Joana Oliveira', relationship: 'Irmã', phone: '11988888888' },
           { name: 'Carlos Souza', relationship: 'Colega', phone: '11977777777' },
         ],
-        propertyUnitId: null,
+        roomId: null,
         moveInDate: '2026-07-18',
         monthlyBaseValueCents: 150_000,
       };
@@ -371,19 +377,20 @@ describe('OnboardingWizard', () => {
           const body = (await request.json()) as { payload: OnboardingPayload };
           return HttpResponse.json({ ...draft, payload: body.payload });
         }),
-        http.get('*/api/properties/available', () =>
-          HttpResponse.json([
-            {
-              id: propertyId,
-              neighborhood: 'Centro',
-              type: 'ROOM',
-              unitNumber: '12-B',
-              buildingId: null,
-              buildingName: 'Residencial Aurora',
-              occupied: false,
-              createdAt: '2026-01-01T12:00:00.000Z',
-            },
-          ]),
+        http.get('*/api/rooms', () =>
+          HttpResponse.json({
+            data: [
+              {
+                id: propertyId,
+                number: '12-B',
+                buildingId: '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c',
+                buildingName: 'Residencial Aurora',
+                occupied: false,
+                createdAt: '2026-01-01T12:00:00.000Z',
+              },
+            ],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          }),
         ),
         http.post(
           `*/api/onboarding-drafts/${draftId}/complete`,
@@ -393,7 +400,7 @@ describe('OnboardingWizard', () => {
                 type: 'about:blank',
                 title: 'Conflict',
                 status: 409,
-                detail: 'A unidade já está ocupada.',
+                detail: 'O quarto já está ocupado.',
               }),
               { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
             ),
@@ -415,11 +422,9 @@ describe('OnboardingWizard', () => {
       await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
 
       expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
-      expect(screen.getByText('A unidade selecionada não está mais disponível.')).toBeVisible();
+      expect(screen.getByText('O quarto selecionado não está mais disponível.')).toBeVisible();
       expect(
-        screen.getByText(
-          'Este quarto acabou de ser ocupado. Escolha outra unidade para continuar.',
-        ),
+        screen.getByText('Este quarto acabou de ser ocupado. Escolha outro quarto para continuar.'),
       ).toBeVisible();
     },
   );

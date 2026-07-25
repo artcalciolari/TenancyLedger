@@ -78,7 +78,7 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
           receivedCents: 0,
           confirmedReceivableCents: 0,
           forecastRenewalsCents: 0,
-          byProperty: [],
+          byRoom: [],
           byBuilding: [],
           daily: [],
         },
@@ -190,7 +190,7 @@ test('diálogo de pagamento mantém e restaura o foco', async ({ page }) => {
         contract: {
           id: '40000000-0000-4000-8000-000000000001',
           tenantId: '20000000-0000-4000-8000-000000000001',
-          propertyUnitId: '30000000-0000-4000-8000-000000000001',
+          roomId: '30000000-0000-4000-8000-000000000001',
           status: 'ACTIVE',
           tenant: {
             id: '20000000-0000-4000-8000-000000000001',
@@ -201,11 +201,12 @@ test('diálogo de pagamento mantém e restaura o foco', async ({ page }) => {
             profession: 'Engenheira civil',
             civilStatus: 'SINGLE',
           },
-          propertyUnit: {
+          room: {
             id: '30000000-0000-4000-8000-000000000001',
+            number: '101-A',
+            buildingId: '60000000-0000-4000-8000-000000000001',
+            buildingName: 'Residencial Aurora',
             neighborhood: 'Jardins',
-            unitNumber: '101-A',
-            type: 'APARTMENT',
           },
         },
       }),

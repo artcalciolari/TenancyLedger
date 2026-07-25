@@ -10,9 +10,11 @@ const building: BuildingDetailView = {
   neighborhood: 'Centro',
   address: 'Rua Um, 10',
   createdAt: '2026-07-12T12:00:00.000Z',
-  totalUnits: 2,
-  occupiedUnits: 1,
-  units: [],
+  totalRooms: 2,
+  occupiedRooms: 1,
+  vacantRooms: 1,
+  vacancyPercentage: 50,
+  rooms: [],
 };
 
 function renderDialog() {

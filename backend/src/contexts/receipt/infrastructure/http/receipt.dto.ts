@@ -19,9 +19,9 @@ export class ReceiptResponseDto {
   @ApiProperty({ example: '52998224725' })
   tenantCpf!: string;
   @ApiProperty({ format: 'uuid' })
-  propertyUnitId!: string;
+  roomId!: string;
   @ApiProperty({ maxLength: 300 })
-  propertyDescription!: string;
+  roomDescription!: string;
   @ApiProperty({ type: String, format: 'date' })
   periodStart!: string;
   @ApiProperty({ type: String, format: 'date' })
@@ -47,8 +47,8 @@ export class ReceiptResponseDto {
       tenantId: receipt.tenantId,
       tenantName: receipt.tenantName,
       tenantCpf: receipt.tenantCpf,
-      propertyUnitId: receipt.propertyUnitId,
-      propertyDescription: receipt.propertyDescription,
+      roomId: receipt.roomId,
+      roomDescription: receipt.roomDescription,
       periodStart: receipt.periodStart,
       periodEnd: receipt.periodEnd,
       amountCents: receipt.amountCents,

@@ -113,7 +113,7 @@ export class InvoicePaginationDto {
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID('4')
-  propertyUnitId?: string;
+  roomId?: string;
 
   @ApiPropertyOptional({ type: String, format: 'date' })
   @IsOptional()
@@ -137,7 +137,7 @@ export class InvoicePaginationDto {
 
   @ApiPropertyOptional({
     maxLength: 120,
-    description: 'Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade.',
+    description: 'Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou quarto.',
   })
   @IsOptional()
   @IsString()

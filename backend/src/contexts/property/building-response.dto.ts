@@ -1,6 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/infrastructure/http/openapi.dto';
-import { UnitType } from './domain/property-unit.entity';
 import { BuildingDetailView, BuildingView } from './building.service';
 
 export class BuildingResponseDto {
@@ -13,7 +12,7 @@ export class BuildingResponseDto {
   @ApiProperty({ maxLength: 120, example: 'Centro' })
   neighborhood!: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: String,
     maxLength: 200,
     example: 'Rua das Flores, 123',
@@ -25,10 +24,21 @@ export class BuildingResponseDto {
   createdAt!: Date;
 
   @ApiProperty({ example: 12 })
-  totalUnits!: number;
+  totalRooms!: number;
 
   @ApiProperty({ example: 8 })
-  occupiedUnits!: number;
+  occupiedRooms!: number;
+
+  @ApiProperty({ example: 4 })
+  vacantRooms!: number;
+
+  @ApiProperty({
+    type: Number,
+    example: 33.3,
+    nullable: true,
+    description: 'Percentual de vagas com 1 casa decimal; nulo quando o prédio não tem quartos.',
+  })
+  vacancyPercentage!: number | null;
 
   static from(view: BuildingView): BuildingResponseDto {
     return {
@@ -37,37 +47,33 @@ export class BuildingResponseDto {
       neighborhood: view.neighborhood,
       address: view.address,
       createdAt: view.createdAt,
-      totalUnits: view.totalUnits,
-      occupiedUnits: view.occupiedUnits,
+      totalRooms: view.totalRooms,
+      occupiedRooms: view.occupiedRooms,
+      vacantRooms: view.vacantRooms,
+      vacancyPercentage: view.vacancyPercentage,
     };
   }
 }
 
-export class BuildingUnitResponseDto {
+export class BuildingRoomResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ maxLength: 40, example: '101-A' })
-  unitNumber!: string;
-
-  @ApiProperty({ enum: UnitType, enumName: 'UnitType' })
-  type!: UnitType;
-
-  @ApiProperty({ maxLength: 120, example: 'Centro' })
-  neighborhood!: string;
+  @ApiProperty({ maxLength: 40, example: '101' })
+  number!: string;
 
   @ApiProperty()
   occupied!: boolean;
 }
 
 export class BuildingDetailResponseDto extends BuildingResponseDto {
-  @ApiProperty({ type: [BuildingUnitResponseDto] })
-  units!: BuildingUnitResponseDto[];
+  @ApiProperty({ type: [BuildingRoomResponseDto] })
+  rooms!: BuildingRoomResponseDto[];
 
   static fromDetail(view: BuildingDetailView): BuildingDetailResponseDto {
     return {
       ...BuildingResponseDto.from(view),
-      units: view.units,
+      rooms: view.rooms,
     };
   }
 }

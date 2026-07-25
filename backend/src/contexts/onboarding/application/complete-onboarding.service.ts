@@ -6,7 +6,7 @@ import { ValidationError } from '../../../core/domain/errors/validation.error';
 import { StorageService } from '../../../infrastructure/storage.service';
 import { Contract, ContractStatus } from '../../contract/domain/entities/contract.entity';
 import { Invoice } from '../../invoice/domain/entities/invoice.entity';
-import { PropertyUnit } from '../../property/domain/property-unit.entity';
+import { Room } from '../../property/domain/room.entity';
 import { TenantReference } from '../../tenant/domain/entities/tenant-reference.entity';
 import { Tenant, TenantCivilStatus } from '../../tenant/domain/entities/tenant.entity';
 import { OnboardingDraft, OnboardingDraftStatus } from '../domain/onboarding-draft.entity';
@@ -27,7 +27,7 @@ interface CompletionPayload {
     phone: string;
     email?: string;
   }>;
-  propertyUnitId: string;
+  roomId: string;
   moveInDate: string;
   monthlyBaseValueCents: number;
 }
@@ -82,16 +82,14 @@ export class CompleteOnboardingService {
             payload.personalData.email,
             payload.personalData.mobilePhone,
           );
-          const property = await manager
-            .getRepository(PropertyUnit)
-            .findOneBy({ id: payload.propertyUnitId });
-          if (!property) throw new NotFoundException('Unidade imobiliária não encontrada.');
+          const room = await manager.getRepository(Room).findOneBy({ id: payload.roomId });
+          if (!room) throw new NotFoundException('Quarto não encontrado.');
 
           const overlapping = await manager
             .getRepository(Contract)
             .createQueryBuilder('contract')
-            .where('contract.property_unit_id = :propertyUnitId', {
-              propertyUnitId: payload.propertyUnitId,
+            .where('contract.room_id = :roomId', {
+              roomId: payload.roomId,
             })
             .andWhere('contract.status NOT IN (:...terminalStatuses)', {
               terminalStatuses: [ContractStatus.TERMINATED, ContractStatus.CANCELLED],
@@ -101,7 +99,7 @@ export class CompleteOnboardingService {
             })
             .getExists();
           if (overlapping) {
-            throw new ConflictException('A unidade já possui um contrato sobreposto.');
+            throw new ConflictException('O quarto já possui um contrato sobreposto.');
           }
 
           await manager.save(tenant);
@@ -124,7 +122,7 @@ export class CompleteOnboardingService {
 
           const contract = Contract.createPendingSignature(
             tenant.id,
-            property.id,
+            room.id,
             payload.moveInDate,
             payload.monthlyBaseValueCents,
           );
@@ -179,7 +177,7 @@ export class CompleteOnboardingService {
         throw new ConflictException('CPF, e-mail ou telefone já cadastrado.');
       }
       if (code === '23P01') {
-        throw new ConflictException('A unidade já possui um contrato sobreposto.');
+        throw new ConflictException('O quarto já possui um contrato sobreposto.');
       }
       throw error;
     }
@@ -229,7 +227,7 @@ export class CompleteOnboardingService {
           ...(typeof email === 'string' && email.trim() ? { email } : {}),
         };
       }),
-      propertyUnitId: CompleteOnboardingService.string(root.propertyUnitId, 'unidade'),
+      roomId: CompleteOnboardingService.string(root.roomId, 'quarto'),
       moveInDate: CompleteOnboardingService.string(root.moveInDate, 'data de entrada'),
       monthlyBaseValueCents: Number(monthlyBaseValueCents),
     };

@@ -18,8 +18,7 @@ import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
 import { invoicesApi } from '../invoices/api';
 import { SettleCashDialog } from '../invoices/SettleCashDialog';
-import { propertiesApi } from '../properties/api';
-import { unitTypeLabel } from '../properties/labels';
+import { roomsApi } from '../rooms/api';
 import { tenantsApi } from '../tenants/api';
 import { civilStatusLabel } from '../tenants/labels';
 import { useContract } from './hooks';
@@ -58,16 +57,16 @@ export function ContractDetailPage() {
   const [settleInvoice, setSettleInvoice] = useState<InvoiceView | null>(null);
   const [renewedEndDate, setRenewedEndDate] = useState<string | null>(null);
   const tenantId = contract.data?.tenantId ?? '';
-  const propertyUnitId = contract.data?.propertyUnitId ?? '';
+  const roomId = contract.data?.roomId ?? '';
   const tenant = useQuery({
     queryKey: queryKeys.tenant(tenantId),
     queryFn: () => tenantsApi.get(tenantId),
     enabled: Boolean(tenantId),
   });
-  const property = useQuery({
-    queryKey: queryKeys.property(propertyUnitId),
-    queryFn: () => propertiesApi.get(propertyUnitId),
-    enabled: Boolean(propertyUnitId),
+  const room = useQuery({
+    queryKey: queryKeys.room(roomId),
+    queryFn: () => roomsApi.get(roomId),
+    enabled: Boolean(roomId),
   });
   const invoices = useQuery({
     queryKey: ['invoices', { contractId, onboardingPayment: true }],
@@ -124,9 +123,7 @@ export function ContractDetailPage() {
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Typography component="h1" variant="h1">
-            {property.data
-              ? `${property.data.neighborhood} · Unid. ${property.data.unitNumber}`
-              : 'Contrato'}
+            {room.data ? `Quarto ${room.data.number}` : 'Contrato'}
           </Typography>
           <StatusChip status={contract.data.status} />
         </Stack>
@@ -273,12 +270,12 @@ export function ContractDetailPage() {
           </Card>
           <Card sx={{ p: { xs: 2.25, sm: 2.75 } }}>
             <Typography component="h2" variant="h2" sx={{ mb: 2 }}>
-              Imóvel
+              Quarto
             </Typography>
-            {property.isPending ? (
+            {room.isPending ? (
               <Skeleton height={72} />
-            ) : property.isError ? (
-              <Typography color="error">Não foi possível carregar o imóvel.</Typography>
+            ) : room.isError ? (
+              <Typography color="error">Não foi possível carregar o quarto.</Typography>
             ) : (
               <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                 <Box
@@ -297,15 +294,15 @@ export function ContractDetailPage() {
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600, color: brand.textPrimary }}>
-                    {property.data.neighborhood} · Unid. {property.data.unitNumber}
+                    Quarto {room.data.number}
                   </Typography>
                   <Typography sx={{ fontSize: '0.82rem', color: brand.textTertiary }}>
-                    {unitTypeLabel(property.data.type)}
+                    {room.data.buildingName}
                   </Typography>
                 </Box>
                 <Typography
                   component={RouterLink}
-                  to={`/properties/${property.data.id}`}
+                  to={`/rooms/${room.data.id}`}
                   sx={{
                     fontSize: '0.85rem',
                     fontWeight: 600,

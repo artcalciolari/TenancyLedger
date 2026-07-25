@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { PropertyUnit } from '../../property/domain/property-unit.entity';
+import { Room } from '../../property/domain/room.entity';
+import { Building } from '../../property/domain/building.entity';
 import { Tenant } from '../../tenant/domain/entities/tenant.entity';
 import {
   Contract,
@@ -84,7 +85,8 @@ export class ContractTypeOrmRepository implements IContractRepository {
     const query = this.repository
       .createQueryBuilder('contract')
       .leftJoin(Tenant, 'tenant', 'tenant.id = contract.tenant_id')
-      .leftJoin(PropertyUnit, 'property', 'property.id = contract.property_unit_id');
+      .leftJoin(Room, 'room', 'room.id = contract.room_id')
+      .leftJoin(Building, 'building', 'building.id = room.building_id');
     if (options.status) query.andWhere('contract.status = :status', { status: options.status });
     if (options.badge === ContractBadge.RENEWAL_DUE) {
       query
@@ -137,9 +139,9 @@ export class ContractTypeOrmRepository implements IContractRepository {
     }
     if (options.tenantId)
       query.andWhere('contract.tenant_id = :tenantId', { tenantId: options.tenantId });
-    if (options.propertyUnitId)
-      query.andWhere('contract.property_unit_id = :propertyUnitId', {
-        propertyUnitId: options.propertyUnitId,
+    if (options.roomId)
+      query.andWhere('contract.room_id = :roomId', {
+        roomId: options.roomId,
       });
     if (options.moveInFrom)
       query.andWhere('contract.move_in_date >= :moveInFrom', { moveInFrom: options.moveInFrom });
@@ -161,8 +163,10 @@ export class ContractTypeOrmRepository implements IContractRepository {
           OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'
-          OR property.neighborhood ILIKE :q ESCAPE '\\'
-          OR property.unit_number ILIKE :q ESCAPE '\\'
+          OR room.number ILIKE :q ESCAPE '\\'
+          OR building.name ILIKE :q ESCAPE '\\'
+          OR building.neighborhood ILIKE :q ESCAPE '\\'
+          OR building.address ILIKE :q ESCAPE '\\'
         )`,
         { q: `%${escaped}%`, digits: `%${digits || escaped}%` },
       );
@@ -171,14 +175,14 @@ export class ContractTypeOrmRepository implements IContractRepository {
   }
 
   hasOverlap(
-    propertyUnitId: string,
+    roomId: string,
     startDate: string,
     endDate: string | null,
     excludeId?: string,
   ): Promise<boolean> {
     const query = this.repository
       .createQueryBuilder('contract')
-      .where('contract.property_unit_id = :propertyUnitId', { propertyUnitId })
+      .where('contract.room_id = :roomId', { roomId })
       .andWhere('contract.status NOT IN (:...terminalStatuses)', {
         terminalStatuses: [ContractStatus.TERMINATED, ContractStatus.CANCELLED],
       })

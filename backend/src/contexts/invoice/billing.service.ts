@@ -27,7 +27,8 @@ import type { Clock } from './infrastructure/workers/invoice-generation.worker';
 import { Contract, ContractStatus } from '../contract/domain/entities/contract.entity';
 import { canActivateContract } from '../contract/domain/contract-activation.policy';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
-import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import { TenantResponseDto } from '../tenant/infrastructure/http/dtos/tenant-response.dto';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
 import { ReceiptIssuerService } from '../receipt/application/receipt-issuer.service';
@@ -40,7 +41,7 @@ export interface ListInvoicesInput {
   competence?: string;
   status?: InvoiceStatus;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   dueFrom?: string;
   dueTo?: string;
   paymentStatus?: PaymentTransaction['status'];
@@ -88,14 +89,15 @@ export interface PaymentView {
 export interface InvoiceContractSummary {
   id: string;
   tenantId: string;
-  propertyUnitId: string;
+  roomId: string;
   status: ContractStatus;
   tenant: ReturnType<typeof TenantResponseDto.from>;
-  propertyUnit: {
+  room: {
     id: string;
+    number: string;
+    buildingId: string;
+    buildingName: string;
     neighborhood: string;
-    type: PropertyUnit['type'];
-    unitNumber: string;
   };
 }
 
@@ -161,8 +163,11 @@ export class BillingService {
     @InjectRepository(Tenant)
     private readonly tenants?: Repository<Tenant>,
     @Optional()
-    @InjectRepository(PropertyUnit)
-    private readonly properties?: Repository<PropertyUnit>,
+    @InjectRepository(Room)
+    private readonly rooms?: Repository<Room>,
+    @Optional()
+    @InjectRepository(Building)
+    private readonly buildings?: Repository<Building>,
     @Optional()
     private readonly cashbox?: CashboxService,
     @Optional()
@@ -263,14 +268,15 @@ export class BillingService {
           contract: {
             id: item.contractId,
             tenantId: item.tenantId,
-            propertyUnitId: item.propertyUnitId,
+            roomId: item.roomId,
             status: this.effectiveContractStatus(item.contractStatus, item.contractEndDate),
             tenant,
-            propertyUnit: {
-              id: item.propertyUnitId,
-              neighborhood: item.propertyNeighborhood,
-              type: item.propertyType,
-              unitNumber: item.propertyUnitNumber,
+            room: {
+              id: item.roomId,
+              number: item.roomNumber,
+              buildingId: item.buildingId,
+              buildingName: item.buildingName,
+              neighborhood: item.buildingNeighborhood,
             },
           },
         };
@@ -300,9 +306,9 @@ export class BillingService {
       'tenantId',
       'tenantName',
       'tenantCpf',
-      'propertyUnitId',
-      'propertyNeighborhood',
-      'propertyUnitNumber',
+      'roomId',
+      'roomNumber',
+      'buildingName',
     ];
     const rows = invoices.map((invoice) => {
       invoice.refreshStatus(this.currentCivilDate());
@@ -319,9 +325,9 @@ export class BillingService {
         context?.tenantId ?? '',
         context?.tenant.name ?? '',
         context?.tenant.cpf ?? '',
-        context?.propertyUnitId ?? '',
-        context?.propertyUnit.neighborhood ?? '',
-        context?.propertyUnit.unitNumber ?? '',
+        context?.roomId ?? '',
+        context?.room.number ?? '',
+        context?.room.buildingName ?? '',
       ];
     });
     return [header, ...rows]
@@ -618,37 +624,50 @@ export class BillingService {
   private async loadContractSummaries(
     invoices: readonly Invoice[],
   ): Promise<Map<string, InvoiceContractSummary>> {
-    if (!this.contracts || !this.tenants || !this.properties || invoices.length === 0) {
+    if (
+      !this.contracts ||
+      !this.tenants ||
+      !this.rooms ||
+      !this.buildings ||
+      invoices.length === 0
+    ) {
       return new Map();
     }
     const contractIds = [...new Set(invoices.map((invoice) => invoice.contractId))];
     const contracts = await this.contracts.findBy({ id: In(contractIds) });
     const tenantIds = [...new Set(contracts.map((contract) => contract.tenantId))];
-    const propertyIds = [...new Set(contracts.map((contract) => contract.propertyUnitId))];
-    const [tenants, properties] = await Promise.all([
+    const roomIds = [...new Set(contracts.map((contract) => contract.roomId))];
+    const [tenants, rooms] = await Promise.all([
       tenantIds.length ? this.tenants.findBy({ id: In(tenantIds) }) : [],
-      propertyIds.length ? this.properties.findBy({ id: In(propertyIds) }) : [],
+      roomIds.length ? this.rooms.findBy({ id: In(roomIds) }) : [],
     ]);
+    const buildingIds = [...new Set(rooms.map((room) => room.buildingId))];
+    const buildings = buildingIds.length
+      ? await this.buildings.findBy({ id: In(buildingIds) })
+      : [];
     const tenantsById = new Map(
       tenants.map((tenant) => [tenant.id, TenantResponseDto.from(tenant)]),
     );
-    const propertiesById = new Map(properties.map((property) => [property.id, property]));
+    const roomsById = new Map(rooms.map((room) => [room.id, room]));
+    const buildingsById = new Map(buildings.map((building) => [building.id, building]));
     const result = new Map<string, InvoiceContractSummary>();
     for (const contract of contracts) {
       const tenant = tenantsById.get(contract.tenantId);
-      const property = propertiesById.get(contract.propertyUnitId);
-      if (!tenant || !property) continue;
+      const room = roomsById.get(contract.roomId);
+      const building = room ? buildingsById.get(room.buildingId) : undefined;
+      if (!tenant || !room || !building) continue;
       result.set(contract.id, {
         id: contract.id,
         tenantId: contract.tenantId,
-        propertyUnitId: contract.propertyUnitId,
+        roomId: contract.roomId,
         status: this.effectiveContractStatus(contract.status, contract.endDate),
         tenant,
-        propertyUnit: {
-          id: property.id,
-          neighborhood: property.neighborhood,
-          type: property.type,
-          unitNumber: property.unitNumber,
+        room: {
+          id: room.id,
+          number: room.number,
+          buildingId: building.id,
+          buildingName: building.name,
+          neighborhood: building.neighborhood,
         },
       });
     }

@@ -35,7 +35,7 @@ export const referencesSchema = z
   .min(2, 'Informe pelo menos duas referências.');
 
 export const reviewSchema = z.object({
-  propertyUnitId: z.string().uuid('Selecione um quarto disponível.'),
+  roomId: z.string().uuid('Selecione um quarto disponível.'),
   moveInDate: z.iso.date('Informe uma data de entrada válida.'),
   monthlyBaseValueCents: z
     .number('Informe o valor mensal.')
@@ -74,7 +74,7 @@ export const onboardingPayloadSchema = z.object({
     }),
   photo: photoMetadataSchema.nullable().catch(null),
   references: z.array(tenantReferenceSchema).catch([]),
-  propertyUnitId: z.string().nullable().catch(null),
+  roomId: z.string().nullable().catch(null),
   moveInDate: z.string().catch(''),
   monthlyBaseValueCents: z.number().int().positive().nullable().catch(null),
 });

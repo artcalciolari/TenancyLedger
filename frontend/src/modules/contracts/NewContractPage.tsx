@@ -20,7 +20,7 @@ import { PageHeader } from '../../components/data-display/PageHeader';
 import { parseBrlToCents } from '../../lib/money/money';
 import { isUuid } from './filters';
 import { useCreateContract } from './hooks';
-import { PropertyPicker, TenantPicker } from './ContractEntityPicker';
+import { RoomPicker, TenantPicker } from './ContractEntityPicker';
 import { createContractSchema, type CreateContractForm } from './schemas';
 
 const fieldGridSx = {
@@ -65,7 +65,7 @@ export function NewContractPage() {
     resolver: zodResolver(createContractSchema),
     defaultValues: {
       tenantId: initialId(searchParams, 'tenantId'),
-      propertyUnitId: initialId(searchParams, 'propertyUnitId'),
+      roomId: initialId(searchParams, 'roomId'),
       moveInDate: '',
       monthlyBaseValue: '',
       durationInMonths: 12,
@@ -83,7 +83,7 @@ export function NewContractPage() {
     const contract = await createContract.mutateAsync({
       contractType: 'FIXED_TERM',
       tenantId: values.tenantId,
-      propertyUnitId: values.propertyUnitId,
+      roomId: values.roomId,
       moveInDate: values.moveInDate,
       monthlyBaseValueCents,
       durationInMonths: values.durationInMonths,
@@ -97,13 +97,13 @@ export function NewContractPage() {
     <>
       <PageHeader
         title="Novo contrato"
-        description="Defina o locatário, o imóvel e as condições da locação."
+        description="Defina o locatário, o quarto e as condições da locação."
       />
       <Card sx={{ maxWidth: 960, p: { xs: 2, sm: 3.5 } }}>
         <Stack component="form" spacing={3} onSubmit={submit} noValidate>
           {createContract.isError && <ProblemAlert error={createContract.error} />}
           <Alert severity="info">
-            O imóvel não poderá ter outro contrato com vigência sobreposta.
+            O quarto não poderá ter outro contrato com vigência sobreposta.
           </Alert>
           <Box>
             <SectionLabel>Partes</SectionLabel>
@@ -121,13 +121,13 @@ export function NewContractPage() {
                 )}
               />
               <Controller
-                name="propertyUnitId"
+                name="roomId"
                 control={control}
                 render={({ field }) => (
-                  <FormControl error={Boolean(errors.propertyUnitId)}>
-                    <PropertyPicker value={field.value} onChange={field.onChange} />
-                    {errors.propertyUnitId?.message && (
-                      <FormHelperText>{errors.propertyUnitId.message}</FormHelperText>
+                  <FormControl error={Boolean(errors.roomId)}>
+                    <RoomPicker value={field.value} onChange={field.onChange} />
+                    {errors.roomId?.message && (
+                      <FormHelperText>{errors.roomId.message}</FormHelperText>
                     )}
                   </FormControl>
                 )}

@@ -16,7 +16,7 @@ import type { Clock } from './infrastructure/workers/invoice-generation.worker';
 const INVOICE_ID = '0a60a4ca-1a8e-4f0a-b0ee-2196db87ac51';
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
 const PAYMENT_ID = '283b10d3-58f2-42d8-aa93-777f55ec9476';
 const SUBMITTER_ID = '4f59e471-f4d2-44f6-996f-547e83debc47';
 const REVIEWER_ID = '957a3866-f282-48d7-9180-5cbf99c74982';
@@ -100,6 +100,7 @@ describe('BillingService receipt transaction integration', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       receiptIssuer,
     );
   });
@@ -140,7 +141,7 @@ describe('BillingService receipt transaction integration', () => {
   });
 
   it('activates the initial contract under the same transaction and lock', async () => {
-    const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 100_00);
+    const contract = Contract.createPendingSignature(TENANT_ID, ROOM_ID, '2026-07-18', 100_00);
     assignId(contract, CONTRACT_ID);
     contract.markSigned(new Date('2026-07-17T12:00:00.000Z'));
     transactionalContractFind.mockResolvedValue(contract);
@@ -162,7 +163,7 @@ describe('BillingService receipt transaction integration', () => {
   });
 
   it('rolls settlement back before receipt upload when contract activation fails', async () => {
-    const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 100_00);
+    const contract = Contract.createPendingSignature(TENANT_ID, ROOM_ID, '2026-07-18', 100_00);
     assignId(contract, CONTRACT_ID);
     contract.markSigned(new Date('2026-07-17T12:00:00.000Z'));
     transactionalContractFind.mockResolvedValue(contract);

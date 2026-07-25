@@ -2,6 +2,9 @@ import { DataSource } from 'typeorm';
 import { ValidationError } from '../../core/domain/errors/validation.error';
 import { DashboardService } from './dashboard.service';
 
+const BUILDING_SOL_ID = '94aa5692-e8cd-476b-b5f4-6ca595d5cccd';
+const BUILDING_VITORIA_ID = '11111111-1111-4111-8111-111111111111';
+
 describe('DashboardService', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -35,41 +38,41 @@ describe('DashboardService', () => {
           eventDate: '2026-07-10',
           kind: 'RECEIVED',
           amountCents: '50000',
-          propertyUnitId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
-          buildingId: null,
-          buildingName: null,
+          roomId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+          buildingId: BUILDING_VITORIA_ID,
+          buildingName: 'Edifício Vitória',
           neighborhood: 'Centro',
-          unitNumber: '2',
+          roomNumber: '2',
         },
         {
           eventDate: new Date('2026-07-10T00:00:00.000Z'),
           kind: 'CONFIRMED_RECEIVABLE',
           amountCents: 25000,
-          propertyUnitId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
-          buildingId: null,
-          buildingName: null,
+          roomId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+          buildingId: BUILDING_VITORIA_ID,
+          buildingName: 'Edifício Vitória',
           neighborhood: 'Centro',
-          unitNumber: '2',
+          roomNumber: '2',
         },
         {
           eventDate: '2026-08-01',
           kind: 'FORECAST_RENEWAL',
           amountCents: 90000,
-          propertyUnitId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
-          buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+          roomId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
+          buildingId: BUILDING_SOL_ID,
           buildingName: 'Edifício Sol',
           neighborhood: 'Jardins',
-          unitNumber: '101',
+          roomNumber: '101',
         },
         {
           eventDate: '2026-07-10',
           kind: 'CONFIRMED_RECEIVABLE',
           amountCents: 5000,
-          propertyUnitId: 'b26f4f2a-16d8-49c1-b314-19f5e0261598',
-          buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+          roomId: 'b26f4f2a-16d8-49c1-b314-19f5e0261598',
+          buildingId: BUILDING_SOL_ID,
           buildingName: 'Edifício Sol',
           neighborhood: 'Jardins',
-          unitNumber: '102',
+          roomNumber: '102',
         },
       ]);
     const service = new DashboardService({ query } as unknown as DataSource);
@@ -81,53 +84,53 @@ describe('DashboardService', () => {
         receivedCents: 50_000,
         confirmedReceivableCents: 30_000,
         forecastRenewalsCents: 90_000,
-        byProperty: [
+        byRoom: [
           {
-            propertyUnitId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
-            buildingId: null,
-            buildingName: null,
-            neighborhood: 'Centro',
-            unitNumber: '2',
-            receivedCents: 50_000,
-            confirmedReceivableCents: 25_000,
-            forecastRenewalsCents: 0,
-          },
-          {
-            propertyUnitId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
-            buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+            roomId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
+            buildingId: BUILDING_SOL_ID,
             buildingName: 'Edifício Sol',
             neighborhood: 'Jardins',
-            unitNumber: '101',
+            roomNumber: '101',
             receivedCents: 0,
             confirmedReceivableCents: 0,
             forecastRenewalsCents: 90_000,
           },
           {
-            propertyUnitId: 'b26f4f2a-16d8-49c1-b314-19f5e0261598',
-            buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+            roomId: 'b26f4f2a-16d8-49c1-b314-19f5e0261598',
+            buildingId: BUILDING_SOL_ID,
             buildingName: 'Edifício Sol',
             neighborhood: 'Jardins',
-            unitNumber: '102',
+            roomNumber: '102',
             receivedCents: 0,
             confirmedReceivableCents: 5_000,
+            forecastRenewalsCents: 0,
+          },
+          {
+            roomId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+            buildingId: BUILDING_VITORIA_ID,
+            buildingName: 'Edifício Vitória',
+            neighborhood: 'Centro',
+            roomNumber: '2',
+            receivedCents: 50_000,
+            confirmedReceivableCents: 25_000,
             forecastRenewalsCents: 0,
           },
         ],
         byBuilding: [
           {
-            buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+            buildingId: BUILDING_SOL_ID,
             buildingName: 'Edifício Sol',
             neighborhood: 'Jardins',
-            propertyUnitCount: 2,
+            roomCount: 2,
             receivedCents: 0,
             confirmedReceivableCents: 5_000,
             forecastRenewalsCents: 90_000,
           },
           {
-            buildingId: null,
-            buildingName: null,
+            buildingId: BUILDING_VITORIA_ID,
+            buildingName: 'Edifício Vitória',
             neighborhood: 'Centro',
-            propertyUnitCount: 1,
+            roomCount: 1,
             receivedCents: 50_000,
             confirmedReceivableCents: 25_000,
             forecastRenewalsCents: 0,
@@ -228,7 +231,7 @@ describe('DashboardService', () => {
       receivedCents: 0,
       confirmedReceivableCents: 0,
       forecastRenewalsCents: 0,
-      byProperty: [],
+      byRoom: [],
       byBuilding: [],
       daily: [],
     });
@@ -246,7 +249,7 @@ describe('DashboardService', () => {
     expect(query).toHaveBeenCalledTimes(3);
   });
 
-  it('sorts properties and building groups deterministically regardless of insertion order', async () => {
+  it('sorts rooms and building groups deterministically regardless of insertion order', async () => {
     const query = jest
       .fn()
       .mockResolvedValueOnce([])
@@ -256,34 +259,34 @@ describe('DashboardService', () => {
           eventDate: '2026-07-10',
           kind: 'RECEIVED',
           amountCents: 100,
-          propertyUnitId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
-          buildingId: '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
+          roomId: 'a1594607-7840-4f91-a6ab-c844013d3df5',
+          buildingId: BUILDING_SOL_ID,
           buildingName: 'Edifício Sol',
           neighborhood: 'Jardins',
-          unitNumber: '101',
+          roomNumber: '101',
         },
         {
           eventDate: '2026-07-10',
           kind: 'RECEIVED',
           amountCents: 200,
-          propertyUnitId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
-          buildingId: null,
-          buildingName: null,
+          roomId: '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+          buildingId: BUILDING_VITORIA_ID,
+          buildingName: 'Edifício Vitória',
           neighborhood: 'Centro',
-          unitNumber: '2',
+          roomNumber: '2',
         },
       ]);
     const service = new DashboardService({ query } as unknown as DataSource);
 
     const result = await service.getSummary('2026-07-12');
 
-    expect(result.financial.byProperty.map((property) => property.propertyUnitId)).toEqual([
-      '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
+    expect(result.financial.byRoom.map((room) => room.roomId)).toEqual([
       'a1594607-7840-4f91-a6ab-c844013d3df5',
+      '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee',
     ]);
     expect(result.financial.byBuilding.map((building) => building.buildingId)).toEqual([
-      '94aa5692-e8cd-476b-b5f4-6ca595d5cccd',
-      null,
+      BUILDING_SOL_ID,
+      BUILDING_VITORIA_ID,
     ]);
   });
 

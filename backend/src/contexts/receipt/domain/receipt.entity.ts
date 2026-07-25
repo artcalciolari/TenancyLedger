@@ -10,8 +10,8 @@ export interface ReceiptSnapshot {
   tenantId: string;
   tenantName: string;
   tenantCpf: string;
-  propertyUnitId: string;
-  propertyDescription: string;
+  roomId: string;
+  roomDescription: string;
   periodStart: string;
   periodEnd: string;
   amountCents: number;
@@ -65,11 +65,11 @@ export class Receipt {
   @Column({ name: 'tenant_cpf', type: 'char', length: 11 })
   tenantCpf!: string;
 
-  @Column({ name: 'property_unit_id', type: 'uuid' })
-  propertyUnitId!: string;
+  @Column({ name: 'room_id', type: 'uuid' })
+  roomId!: string;
 
-  @Column({ name: 'property_description', type: 'varchar', length: 300 })
-  propertyDescription!: string;
+  @Column({ name: 'room_description', type: 'varchar', length: 300 })
+  roomDescription!: string;
 
   @Column({ name: 'period_start', type: 'date' })
   periodStart!: string;
@@ -104,15 +104,15 @@ export class Receipt {
       ['fatura', snapshot.invoiceId],
       ['contrato', snapshot.contractId],
       ['locatário', snapshot.tenantId],
-      ['unidade', snapshot.propertyUnitId],
+      ['quarto', snapshot.roomId],
     ] as const) {
       Receipt.assertUuid(value, label);
     }
     const tenantName = Receipt.requiredText(snapshot.tenantName, 120, 'Nome do locatário');
-    const propertyDescription = Receipt.requiredText(
-      snapshot.propertyDescription,
+    const roomDescription = Receipt.requiredText(
+      snapshot.roomDescription,
       300,
-      'Descrição da unidade',
+      'Descrição do quarto',
     );
     const paymentMethod = Receipt.requiredText(snapshot.paymentMethod, 30, 'Método de pagamento');
     if (!/^\d{11}$/.test(snapshot.tenantCpf)) {
@@ -135,7 +135,7 @@ export class Receipt {
       number,
       ...snapshot,
       tenantName,
-      propertyDescription,
+      roomDescription,
       paymentMethod,
       issuedAt: new Date(issuedAt),
       storageKey: '',

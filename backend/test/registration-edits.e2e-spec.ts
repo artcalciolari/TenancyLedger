@@ -6,6 +6,7 @@ import { App } from 'supertest/types';
 import { DataSource, Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
+import { Contract } from '../src/contexts/contract/domain/entities/contract.entity';
 import { AuditLog } from '../src/core/infrastructure/audit/audit-log.entity';
 
 type JsonRecord = Record<string, unknown>;
@@ -16,10 +17,10 @@ interface CreatedBuilding {
   neighborhood: string;
 }
 
-interface CreatedProperty {
+interface CreatedRoom {
   id: string;
-  unitNumber: string;
-  neighborhood: string;
+  number: string;
+  buildingId: string;
 }
 
 interface TenantInput {
@@ -94,6 +95,7 @@ describe('Registration edits (e2e)', () => {
   jest.setTimeout(120_000);
 
   let app: INestApplication | undefined;
+  let dataSource: DataSource;
   let auditLogs: Repository<AuditLog>;
   let adminToken = '';
   let adminId = '';
@@ -110,7 +112,7 @@ describe('Registration edits (e2e)', () => {
     configureApp(nestApp);
     await nestApp.init();
 
-    const dataSource = nestApp.get(DataSource);
+    dataSource = nestApp.get(DataSource);
     auditLogs = dataSource.getRepository(AuditLog);
 
     const email = process.env.AUTH_BOOTSTRAP_EMAIL ?? 'admin@example.com';
@@ -148,38 +150,17 @@ describe('Registration edits (e2e)', () => {
     return { id: readString(asRecord(responseBody(response)), 'id'), name, neighborhood };
   }
 
-  async function createProperty(
-    building: CreatedBuilding,
-    label: string,
-    type = 'APARTMENT',
-  ): Promise<CreatedProperty> {
-    const unitNumber = `${label}-${suffix}`;
+  async function createRoom(building: CreatedBuilding, label: string): Promise<CreatedRoom> {
+    const number = `${label}-${suffix}`;
     const response = await request(httpServer())
-      .post('/properties')
+      .post('/rooms')
       .set('authorization', `Bearer ${adminToken}`)
-      .send({ buildingId: building.id, type, unitNumber })
+      .send({ buildingId: building.id, number })
       .expect(201);
     return {
       id: readString(asRecord(responseBody(response)), 'id'),
-      unitNumber,
-      neighborhood: building.neighborhood,
-    };
-  }
-
-  async function createStandaloneProperty(
-    label: string,
-    neighborhood = `Bairro avulso ${label} ${suffix}`,
-  ): Promise<CreatedProperty> {
-    const unitNumber = `${label}-${suffix}`;
-    const response = await request(httpServer())
-      .post('/properties')
-      .set('authorization', `Bearer ${adminToken}`)
-      .send({ neighborhood, type: 'HOUSE', unitNumber })
-      .expect(201);
-    return {
-      id: readString(asRecord(responseBody(response)), 'id'),
-      unitNumber,
-      neighborhood,
+      number,
+      buildingId: building.id,
     };
   }
 
@@ -212,9 +193,9 @@ describe('Registration edits (e2e)', () => {
     expect(asRecord(responseBody(response))).toMatchObject({ status, requestId, detail });
   }
 
-  it('renames a building and propagates its neighborhood to linked units', async () => {
+  it('renames a building and its rooms reflect the updated name and neighborhood', async () => {
     const building = await createBuilding('propagação');
-    const property = await createProperty(building, 'PROP');
+    const room = await createRoom(building, 'PROP');
     const updatedName = `Prédio atualizado ${suffix}`;
     const updatedNeighborhood = `Bairro atualizado ${suffix}`;
 
@@ -222,28 +203,26 @@ describe('Registration edits (e2e)', () => {
       .send({ name: updatedName, neighborhood: updatedNeighborhood })
       .expect(200);
     const updated = asRecord(responseBody(response));
-    const units = asArray(updated.units, 'updated building units').map((unit) =>
-      asRecord(unit, 'building unit'),
+    const rooms = asArray(updated.rooms, 'updated building rooms').map((entry) =>
+      asRecord(entry, 'building room'),
     );
 
     expect(updated).toMatchObject({
       id: building.id,
       name: updatedName,
       neighborhood: updatedNeighborhood,
-      totalUnits: 1,
+      totalRooms: 1,
     });
-    expect(units).toContainEqual(
-      expect.objectContaining({ id: property.id, neighborhood: updatedNeighborhood }),
-    );
+    expect(rooms).toContainEqual(expect.objectContaining({ id: room.id, number: room.number }));
 
-    const propertyResponse = await request(httpServer())
-      .get(`/properties/${property.id}`)
+    const roomResponse = await request(httpServer())
+      .get(`/rooms/${room.id}`)
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(asRecord(responseBody(propertyResponse))).toMatchObject({
-      id: property.id,
-      neighborhood: updatedNeighborhood,
+    expect(asRecord(responseBody(roomResponse))).toMatchObject({
+      id: room.id,
       buildingId: building.id,
+      buildingName: updatedName,
     });
   });
 
@@ -290,9 +269,9 @@ describe('Registration edits (e2e)', () => {
     expectProblem(response, 409, requestId, 'Já existe um prédio com este nome.');
   });
 
-  it('updates only the building address without propagating an unchanged neighborhood', async () => {
+  it('updates only the building address without affecting its rooms', async () => {
     const building = await createBuilding('sem propagação');
-    const property = await createProperty(building, 'NO-PROPAGATION');
+    const room = await createRoom(building, 'NO-PROPAGATION');
 
     const response = await authorizedPatch(`/buildings/${building.id}`)
       .send({ address: '   ' })
@@ -304,13 +283,13 @@ describe('Registration edits (e2e)', () => {
       neighborhood: building.neighborhood,
       address: null,
     });
-    const propertyResponse = await request(httpServer())
-      .get(`/properties/${property.id}`)
+    const roomResponse = await request(httpServer())
+      .get(`/rooms/${room.id}`)
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(asRecord(responseBody(propertyResponse))).toMatchObject({
-      id: property.id,
-      neighborhood: building.neighborhood,
+    expect(asRecord(responseBody(roomResponse))).toMatchObject({
+      id: room.id,
+      buildingId: building.id,
     });
   });
 
@@ -327,169 +306,100 @@ describe('Registration edits (e2e)', () => {
     expectProblem(response, 422, requestId, 'O nome do prédio é obrigatório.');
   });
 
-  it('edits the type and number of a property linked to a building', async () => {
-    const building = await createBuilding('edição unidade');
-    const property = await createProperty(building, 'EDIT');
-    const unitNumber = `EDITADA-${suffix}`;
+  it('edits the number of a room linked to a building', async () => {
+    const building = await createBuilding('edição quarto');
+    const room = await createRoom(building, 'EDIT');
+    const number = `EDITADA-${suffix}`;
 
-    const response = await authorizedPatch(`/properties/${property.id}`)
-      .send({ type: 'COMMERCIAL', unitNumber })
-      .expect(200);
+    const response = await authorizedPatch(`/rooms/${room.id}`).send({ number }).expect(200);
 
     expect(asRecord(responseBody(response))).toMatchObject({
-      id: property.id,
+      id: room.id,
       buildingId: building.id,
-      neighborhood: building.neighborhood,
-      type: 'COMMERCIAL',
-      unitNumber,
+      number,
     });
   });
 
-  it('returns 422 when changing the building link of a property', async () => {
+  it('returns 422 when changing the building link of a room', async () => {
     const building = await createBuilding('vínculo original');
     const otherBuilding = await createBuilding('vínculo novo');
-    const property = await createProperty(building, 'LINK');
-    const requestId = `e2e-property-building-${suffix}`;
+    const room = await createRoom(building, 'LINK');
+    const requestId = `e2e-room-building-${suffix}`;
 
-    const response = await authorizedPatch(`/properties/${property.id}`)
+    const response = await authorizedPatch(`/rooms/${room.id}`)
       .set('x-request-id', requestId)
       .send({ buildingId: otherBuilding.id })
       .expect('content-type', /application\/problem\+json/)
       .expect(422);
 
-    expectProblem(response, 422, requestId, 'O vínculo da unidade com o prédio é imutável.');
+    expectProblem(response, 422, requestId, 'O vínculo do quarto com o prédio é imutável.');
   });
 
-  it('returns 422 when changing the derived neighborhood of a linked property', async () => {
-    const building = await createBuilding('bairro derivado');
-    const property = await createProperty(building, 'NEIGHBORHOOD');
-    const requestId = `e2e-property-neighborhood-${suffix}`;
+  it('returns 409 when a room number duplicates another room in the building', async () => {
+    const building = await createBuilding('quartos duplicados');
+    const target = await createRoom(building, 'UNIT-A');
+    const source = await createRoom(building, 'UNIT-B');
+    const requestId = `e2e-room-conflict-${suffix}`;
 
-    const response = await authorizedPatch(`/properties/${property.id}`)
+    const response = await authorizedPatch(`/rooms/${source.id}`)
       .set('x-request-id', requestId)
-      .send({ neighborhood: `Outro bairro ${suffix}` })
-      .expect('content-type', /application\/problem\+json/)
-      .expect(422);
-
-    expectProblem(
-      response,
-      422,
-      requestId,
-      'O bairro de uma unidade vinculada é definido pelo prédio.',
-    );
-  });
-
-  it('returns 409 when a property number duplicates another unit in the building', async () => {
-    const building = await createBuilding('unidades duplicadas');
-    const target = await createProperty(building, 'UNIT-A');
-    const source = await createProperty(building, 'UNIT-B');
-    const requestId = `e2e-property-conflict-${suffix}`;
-
-    const response = await authorizedPatch(`/properties/${source.id}`)
-      .set('x-request-id', requestId)
-      .send({ unitNumber: target.unitNumber.toLowerCase() })
+      .send({ number: target.number.toLowerCase() })
       .expect('content-type', /application\/problem\+json/)
       .expect(409);
 
-    expectProblem(response, 409, requestId, 'Já existe uma unidade com este número neste prédio.');
+    expectProblem(response, 409, requestId, 'Já existe um quarto com este número neste prédio.');
   });
 
-  it('returns 404 when editing a missing property', async () => {
-    const requestId = `e2e-property-not-found-${suffix}`;
+  it('returns 404 when editing a missing room', async () => {
+    const requestId = `e2e-room-not-found-${suffix}`;
 
-    const response = await authorizedPatch(`/properties/${randomUUID()}`)
+    const response = await authorizedPatch(`/rooms/${randomUUID()}`)
       .set('x-request-id', requestId)
-      .send({ type: 'ROOM' })
+      .send({ number: 'X' })
       .expect('content-type', /application\/problem\+json/)
       .expect(404);
 
-    expectProblem(response, 404, requestId, 'Unidade imobiliária não encontrada.');
+    expectProblem(response, 404, requestId, 'Quarto não encontrado.');
   });
 
-  it('edits the neighborhood of a standalone property', async () => {
-    const property = await createStandaloneProperty('STANDALONE-EDIT');
-    const neighborhood = `Novo bairro avulso ${suffix}`;
+  it('returns 422 when a room number normalizes to blank text', async () => {
+    const building = await createBuilding('numero em branco');
+    const room = await createRoom(building, 'BLANK-UNIT');
+    const requestId = `e2e-room-blank-${suffix}`;
 
-    const response = await authorizedPatch(`/properties/${property.id}`)
-      .send({ neighborhood })
-      .expect(200);
-
-    expect(asRecord(responseBody(response))).toMatchObject({
-      id: property.id,
-      neighborhood,
-      unitNumber: property.unitNumber,
-      buildingId: null,
-      buildingName: null,
-    });
-  });
-
-  it('returns 409 when a standalone property edit duplicates a normalized location', async () => {
-    const neighborhood = `Bairro conflito avulso ${suffix}`;
-    const target = await createStandaloneProperty('STANDALONE-A', neighborhood);
-    const source = await createStandaloneProperty('STANDALONE-B', neighborhood);
-    const requestId = `e2e-property-location-conflict-${suffix}`;
-
-    const response = await authorizedPatch(`/properties/${source.id}`)
+    const response = await authorizedPatch(`/rooms/${room.id}`)
       .set('x-request-id', requestId)
-      .send({ unitNumber: target.unitNumber.toLowerCase() })
-      .expect('content-type', /application\/problem\+json/)
-      .expect(409);
-
-    expectProblem(response, 409, requestId, 'Já existe uma unidade com este bairro e número.');
-  });
-
-  it('returns 422 when a property number normalizes to blank text', async () => {
-    const property = await createStandaloneProperty('BLANK-UNIT');
-    const requestId = `e2e-property-blank-${suffix}`;
-
-    const response = await authorizedPatch(`/properties/${property.id}`)
-      .set('x-request-id', requestId)
-      .send({ unitNumber: '   ' })
+      .send({ number: '   ' })
       .expect('content-type', /application\/problem\+json/)
       .expect(422);
 
-    expectProblem(response, 422, requestId, 'O número da unidade é obrigatório.');
+    expectProblem(response, 422, requestId, 'O número do quarto é obrigatório.');
   });
 
-  it('returns 422 when a property edit carries an invalid nullable type', async () => {
-    const property = await createStandaloneProperty('NULL-TYPE');
-    const requestId = `e2e-property-null-type-${suffix}`;
-
-    const response = await authorizedPatch(`/properties/${property.id}`)
-      .set('x-request-id', requestId)
-      .send({ type: null })
-      .expect('content-type', /application\/problem\+json/)
-      .expect(422);
-
-    expectProblem(response, 422, requestId, 'O tipo da unidade é inválido.');
-  });
-
-  it('rejects property creation with a missing building or duplicate unit number', async () => {
-    const missingRequestId = `e2e-property-create-building-${suffix}`;
+  it('rejects room creation with a missing building or duplicate number', async () => {
+    const missingRequestId = `e2e-room-create-building-${suffix}`;
     const missingResponse = await request(httpServer())
-      .post('/properties')
+      .post('/rooms')
       .set('authorization', `Bearer ${adminToken}`)
       .set('x-request-id', missingRequestId)
       .send({
         buildingId: randomUUID(),
-        type: 'APARTMENT',
-        unitNumber: `MISSING-${suffix}`,
+        number: `MISSING-${suffix}`,
       })
       .expect('content-type', /application\/problem\+json/)
       .expect(404);
     expectProblem(missingResponse, 404, missingRequestId, 'Prédio não encontrado.');
 
     const building = await createBuilding('duplicidade de criação');
-    const existing = await createProperty(building, 'CREATE-DUPLICATE');
-    const duplicateRequestId = `e2e-property-create-conflict-${suffix}`;
+    const existing = await createRoom(building, 'CREATE-DUPLICATE');
+    const duplicateRequestId = `e2e-room-create-conflict-${suffix}`;
     const duplicateResponse = await request(httpServer())
-      .post('/properties')
+      .post('/rooms')
       .set('authorization', `Bearer ${adminToken}`)
       .set('x-request-id', duplicateRequestId)
       .send({
         buildingId: building.id,
-        type: 'ROOM',
-        unitNumber: existing.unitNumber.toLowerCase(),
+        number: existing.number.toLowerCase(),
       })
       .expect('content-type', /application\/problem\+json/)
       .expect(409);
@@ -497,11 +407,11 @@ describe('Registration edits (e2e)', () => {
       duplicateResponse,
       409,
       duplicateRequestId,
-      'Já existe uma unidade com este número neste prédio.',
+      'Já existe um quarto com este número neste prédio.',
     );
   });
 
-  it('returns 404 when getting missing building and property resources', async () => {
+  it('returns 404 when getting missing building and room resources', async () => {
     const buildingRequestId = `e2e-building-get-not-found-${suffix}`;
     const buildingResponse = await request(httpServer())
       .get(`/buildings/${randomUUID()}`)
@@ -511,14 +421,14 @@ describe('Registration edits (e2e)', () => {
       .expect(404);
     expectProblem(buildingResponse, 404, buildingRequestId, 'Prédio não encontrado.');
 
-    const propertyRequestId = `e2e-property-get-not-found-${suffix}`;
-    const propertyResponse = await request(httpServer())
-      .get(`/properties/${randomUUID()}`)
+    const roomRequestId = `e2e-room-get-not-found-${suffix}`;
+    const roomResponse = await request(httpServer())
+      .get(`/rooms/${randomUUID()}`)
       .set('authorization', `Bearer ${adminToken}`)
-      .set('x-request-id', propertyRequestId)
+      .set('x-request-id', roomRequestId)
       .expect('content-type', /application\/problem\+json/)
       .expect(404);
-    expectProblem(propertyResponse, 404, propertyRequestId, 'Unidade imobiliária não encontrada.');
+    expectProblem(roomResponse, 404, roomRequestId, 'Quarto não encontrado.');
   });
 
   it('lists buildings without a search term and keeps the created building in the page', async () => {
@@ -660,5 +570,127 @@ describe('Registration edits (e2e)', () => {
       .expect(422);
 
     expectProblem(response, 422, requestId, 'Telefone celular inválido.');
+  });
+
+  it('filters room occupancy and building vacancy by civil date and preserves empty-page totals', async () => {
+    const asOf = '2026-07-20';
+    const futureDate = '2027-07-20';
+    const fullBuilding = await createBuilding('disponibilidade lotado');
+    const vacancyBuilding = await createBuilding('disponibilidade vagas');
+    const emptyBuilding = await createBuilding('disponibilidade vazio');
+    const occupiedRoom = await createRoom(fullBuilding, 'OCCUPIED');
+    const vacantRoom = await createRoom(vacancyBuilding, 'VACANT');
+    const futureRoom = await createRoom(vacancyBuilding, 'FUTURE');
+    const cancelledRoom = await createRoom(vacancyBuilding, 'CANCELLED');
+    const terminatedRoom = await createRoom(vacancyBuilding, 'TERMINATED');
+    const sameNumberInFull = await createRoom(fullBuilding, 'SAME-NUMBER');
+    const sameNumberInVacancy = await createRoom(vacancyBuilding, 'SAME-NUMBER');
+    const activeTenant = await createTenant('ocupação ativa');
+    const futureTenant = await createTenant('ocupação futura');
+    const cancelledTenant = await createTenant('ocupação cancelada');
+    const terminatedTenant = await createTenant('ocupação encerrada');
+    const contracts = dataSource.getRepository(Contract);
+
+    await contracts.save(
+      Contract.create(activeTenant.id, occupiedRoom.id, '2026-07-01', 100_000, 24, false),
+    );
+    await contracts.save(
+      Contract.create(activeTenant.id, sameNumberInFull.id, '2026-07-01', 100_000, 24, false),
+    );
+    await contracts.save(
+      Contract.create(futureTenant.id, futureRoom.id, '2027-01-01', 100_000, 24, false),
+    );
+    const cancelled = Contract.createPendingSignature(
+      cancelledTenant.id,
+      cancelledRoom.id,
+      '2026-01-01',
+      100_000,
+    );
+    cancelled.cancel('Contrato cancelado para teste.');
+    await contracts.save(cancelled);
+    const terminated = Contract.create(
+      terminatedTenant.id,
+      terminatedRoom.id,
+      '2026-01-01',
+      100_000,
+      24,
+      false,
+    );
+    terminated.terminate('Contrato encerrado para teste.');
+    await contracts.save(terminated);
+
+    const roomIds = async (query: Record<string, string>): Promise<string[]> => {
+      const response = await request(httpServer())
+        .get('/rooms')
+        .query({ page: '1', limit: '100', ...query })
+        .set('authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      return asArray(asRecord(responseBody(response)).data, 'filtered rooms').map((entry) =>
+        readString(asRecord(entry, 'room'), 'id'),
+      );
+    };
+
+    await expect(
+      roomIds({ buildingId: fullBuilding.id, status: 'OCCUPIED', date: asOf }),
+    ).resolves.toContain(occupiedRoom.id);
+    const vacantAtPresent = await roomIds({
+      buildingId: vacancyBuilding.id,
+      status: 'VACANT',
+      date: asOf,
+    });
+    expect(vacantAtPresent).toEqual(
+      expect.arrayContaining([vacantRoom.id, futureRoom.id, cancelledRoom.id, terminatedRoom.id]),
+    );
+    await expect(
+      roomIds({ buildingId: vacancyBuilding.id, status: 'OCCUPIED', date: futureDate }),
+    ).resolves.toContain(futureRoom.id);
+
+    const assertBuildingFilter = async (
+      building: CreatedBuilding,
+      vacancy: 'WITH_VACANCY' | 'FULL' | 'NO_ROOMS',
+    ): Promise<void> => {
+      const response = await request(httpServer())
+        .get('/buildings')
+        .query({ page: 1, limit: 10, q: building.name, date: asOf, vacancy })
+        .set('authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(
+        asArray(asRecord(responseBody(response)).data, `${vacancy} buildings`).map((entry) =>
+          readString(asRecord(entry, 'building'), 'id'),
+        ),
+      ).toContain(building.id);
+    };
+
+    await assertBuildingFilter(vacancyBuilding, 'WITH_VACANCY');
+    await assertBuildingFilter(fullBuilding, 'FULL');
+    await assertBuildingFilter(emptyBuilding, 'NO_ROOMS');
+
+    const emptyPageResponse = await request(httpServer())
+      .get('/buildings')
+      .query({
+        page: 2,
+        limit: 1,
+        q: vacancyBuilding.name,
+        date: asOf,
+        vacancy: 'WITH_VACANCY',
+      })
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const emptyPage = asRecord(responseBody(emptyPageResponse));
+    expect(asArray(emptyPage.data, 'empty building page')).toHaveLength(0);
+    expect(asRecord(emptyPage.meta, 'empty building metadata')).toMatchObject({
+      page: 2,
+      limit: 1,
+      total: 1,
+      totalPages: 1,
+    });
+
+    expect(sameNumberInFull.number).toBe(sameNumberInVacancy.number);
+    await expect(
+      roomIds({ buildingId: fullBuilding.id, q: sameNumberInFull.number, date: asOf }),
+    ).resolves.toContain(sameNumberInFull.id);
+    await expect(
+      roomIds({ buildingId: vacancyBuilding.id, q: sameNumberInVacancy.number, date: asOf }),
+    ).resolves.toContain(sameNumberInVacancy.id);
   });
 });

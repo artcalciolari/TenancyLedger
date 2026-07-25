@@ -4,7 +4,6 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
-import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -40,6 +39,7 @@ interface NavigationItem {
   label: string;
   to: string;
   icon: ReactNode;
+  matchPrefixes?: readonly string[];
   roles?: readonly UserRole[];
   showReviewBadge?: boolean;
 }
@@ -75,8 +75,12 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { label: 'Contratos', to: '/contracts', icon: <DescriptionOutlinedIcon /> },
       { label: 'Locatários', to: '/tenants', icon: <PeopleAltOutlinedIcon /> },
-      { label: 'Imóveis', to: '/properties', icon: <HomeWorkOutlinedIcon /> },
-      { label: 'Prédios', to: '/buildings', icon: <ApartmentOutlinedIcon /> },
+      {
+        label: 'Prédios e quartos',
+        to: '/portfolio',
+        icon: <ApartmentOutlinedIcon />,
+        matchPrefixes: ['/portfolio', '/buildings', '/rooms'],
+      },
     ],
   },
   {
@@ -99,12 +103,11 @@ const pageMeta: Record<string, { title: string; crumb: string }> = {
   '/cashbox': { title: 'Fechamento de caixa', crumb: 'Operação' },
   '/contracts': { title: 'Contratos', crumb: 'Cadastros' },
   '/contracts/new': { title: 'Novo contrato', crumb: 'Cadastros · Contratos' },
+  '/portfolio': { title: 'Prédios e quartos', crumb: 'Cadastros' },
   '/tenants': { title: 'Locatários', crumb: 'Cadastros' },
   '/tenants/new': { title: 'Novo locatário', crumb: 'Cadastros · Locatários' },
-  '/properties': { title: 'Imóveis', crumb: 'Cadastros' },
-  '/properties/new': { title: 'Novo imóvel', crumb: 'Cadastros · Imóveis' },
-  '/buildings': { title: 'Prédios', crumb: 'Cadastros' },
-  '/buildings/new': { title: 'Novo prédio', crumb: 'Cadastros · Prédios' },
+  '/rooms/new': { title: 'Novo quarto', crumb: 'Cadastros · Prédios e quartos' },
+  '/buildings/new': { title: 'Novo prédio', crumb: 'Cadastros · Prédios e quartos' },
   '/users': { title: 'Usuários', crumb: 'Administração' },
   '/users/new': { title: 'Novo usuário', crumb: 'Administração' },
   '/account/password': { title: 'Trocar senha', crumb: 'Conta' },
@@ -119,10 +122,10 @@ function metaForPath(pathname: string): { title: string; crumb: string } {
     return { title: 'Detalhe do contrato', crumb: 'Cadastros · Contratos' };
   if (pathname.startsWith('/tenants/'))
     return { title: 'Detalhe do locatário', crumb: 'Cadastros · Locatários' };
-  if (pathname.startsWith('/properties/'))
-    return { title: 'Detalhe do imóvel', crumb: 'Cadastros · Imóveis' };
+  if (pathname.startsWith('/rooms/'))
+    return { title: 'Detalhe do quarto', crumb: 'Cadastros · Prédios e quartos' };
   if (pathname.startsWith('/buildings/'))
-    return { title: 'Detalhe do prédio', crumb: 'Cadastros · Prédios' };
+    return { title: 'Detalhe do prédio', crumb: 'Cadastros · Prédios e quartos' };
   return { title: 'Tenancy Ledger', crumb: '' };
 }
 
@@ -234,7 +237,12 @@ export function AppShell() {
             </Typography>
             {group.items.map((item) => {
               const selected =
-                location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+                item.matchPrefixes !== undefined
+                  ? item.matchPrefixes.some(
+                      (prefix) =>
+                        location.pathname === prefix || location.pathname.startsWith(`${prefix}/`),
+                    )
+                  : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
               const badge = item.showReviewBadge && reviewCount > 0 ? reviewCount : null;
               return (
                 <Box

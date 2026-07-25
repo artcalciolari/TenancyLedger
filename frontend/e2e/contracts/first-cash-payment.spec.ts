@@ -3,7 +3,8 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 const ids = {
   user: '10000000-0000-4000-8000-000000000001',
   tenant: '20000000-0000-4000-8000-000000000001',
-  property: '30000000-0000-4000-8000-000000000001',
+  building: '25000000-0000-4000-8000-000000000001',
+  room: '30000000-0000-4000-8000-000000000001',
   contract: '40000000-0000-4000-8000-000000000001',
   invoice: '50000000-0000-4000-8000-000000000001',
   document: '60000000-0000-4000-8000-000000000001',
@@ -92,7 +93,7 @@ test('assina o contrato mensal, registra o primeiro CASH e emite o recibo', asyn
       return json(route, {
         id: ids.contract,
         tenantId: ids.tenant,
-        propertyUnitId: ids.property,
+        roomId: ids.room,
         moveInDate: '2026-07-18',
         endDate: null,
         monthlyBaseValueCents: 150_000,
@@ -125,16 +126,16 @@ test('assina o contrato mensal, registra o primeiro CASH e emite o recibo', asyn
         updatedAt: '2026-07-18T12:00:00.000Z',
       });
     }
-    if (path === `/api/properties/${ids.property}`) {
+    if (path === `/api/rooms/${ids.room}`) {
       return json(route, {
-        id: ids.property,
-        neighborhood: 'Centro',
-        unitNumber: '12-B',
-        type: 'ROOM',
-        buildingId: null,
-        occupied: true,
+        id: ids.room,
+        buildingId: ids.building,
+        number: '12-B',
         createdAt: '2026-07-18T12:00:00.000Z',
-        updatedAt: '2026-07-18T12:00:00.000Z',
+        buildingName: 'Residencial Aurora',
+        buildingNeighborhood: 'Centro',
+        buildingAddress: null,
+        occupied: true,
       });
     }
     if (path === '/api/invoices' && request.method() === 'GET') {

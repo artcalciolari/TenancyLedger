@@ -18,11 +18,11 @@ function requestOf(overrides: RequestOverrides = {}): Request {
   const requestId = overrides.requestId;
   return {
     method: overrides.method ?? 'GET',
-    path: overrides.path ?? '/properties',
+    path: overrides.path ?? '/rooms',
     route:
       'route' in overrides
         ? overrides.route
-        : { path: overrides.routePath ?? overrides.path ?? '/properties' },
+        : { path: overrides.routePath ?? overrides.path ?? '/rooms' },
     user: overrides.user,
     header: jest.fn((name: string) => (name === 'x-request-id' ? requestId : undefined)),
   } as unknown as Request;
@@ -101,10 +101,10 @@ describe('AuditInterceptor', () => {
         finishInsert = () => resolve({});
       }),
     );
-    const body = { id: 'property-1', name: 'Unit 101' };
+    const body = { id: 'room-1', number: '101' };
     const request = requestOf({
-      path: '/properties/property-1',
-      routePath: '/properties/:id',
+      path: '/rooms/room-1',
+      routePath: '/rooms/:id',
       user: { id: 'admin-1', role: 'admin' },
       requestId: 'request-1',
     });
@@ -129,29 +129,29 @@ describe('AuditInterceptor', () => {
     expect(released).toBe(true);
   });
 
-  it('audits sensitive GETs such as properties with actor and request context', async () => {
+  it('audits sensitive GETs such as rooms with actor and request context', async () => {
     const request = requestOf({
-      path: '/properties/property-1',
-      routePath: '/properties/:id',
+      path: '/rooms/room-1',
+      routePath: '/rooms/:id',
       user: { sub: 'operator-1', role: 'manager' },
       requestId: 'trace-123',
     });
 
     await firstValueFrom(
       interceptor.intercept(contextOf(request), {
-        handle: () => of({ id: 'property-1' }),
+        handle: () => of({ id: 'room-1' }),
       } as CallHandler),
     );
 
     expect(insert).toHaveBeenCalledWith({
       actorId: 'operator-1',
-      action: 'GET /properties/:id',
-      resourceType: 'properties',
-      resourceId: 'property-1',
+      action: 'GET /rooms/:id',
+      resourceType: 'rooms',
+      resourceId: 'room-1',
       requestId: 'trace-123',
       metadata: {
         method: 'GET',
-        path: '/properties/property-1',
+        path: '/rooms/room-1',
         statusCode: 200,
         role: 'manager',
       },

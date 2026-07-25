@@ -58,7 +58,7 @@ const contractSearchConfig: ListSearchConfig<ContractPageFilters> = {
   filterKeys: [
     'status',
     'tenantId',
-    'propertyUnitId',
+    'roomId',
     'q',
     'moveInFrom',
     'moveInTo',
@@ -114,15 +114,15 @@ function AdvancedFiltersForm({ filters, onApply }: AdvancedFiltersFormProps) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const tenantId = formString(data, 'tenantId').trim();
-    const propertyUnitId = formString(data, 'propertyUnitId').trim();
+    const roomId = formString(data, 'roomId').trim();
     const tenantIsValid = !tenantId || isUuid(tenantId);
-    const propertyIsValid = !propertyUnitId || isUuid(propertyUnitId);
+    const roomIsValid = !roomId || isUuid(roomId);
     setTenantError(tenantIsValid ? '' : 'Informe um UUID v4 válido.');
-    setPropertyError(propertyIsValid ? '' : 'Informe um UUID v4 válido.');
-    if (!tenantIsValid || !propertyIsValid) return;
+    setPropertyError(roomIsValid ? '' : 'Informe um UUID v4 válido.');
+    if (!tenantIsValid || !roomIsValid) return;
     onApply({
       tenantId: tenantId || undefined,
-      propertyUnitId: propertyUnitId || undefined,
+      roomId: roomId || undefined,
       moveInFrom: formString(data, 'moveInFrom') || undefined,
       moveInTo: formString(data, 'moveInTo') || undefined,
       endFrom: formString(data, 'endFrom') || undefined,
@@ -147,9 +147,9 @@ function AdvancedFiltersForm({ filters, onApply }: AdvancedFiltersFormProps) {
           helperText={tenantError || 'UUID completo'}
         />
         <TextField
-          name="propertyUnitId"
-          label="ID do imóvel"
-          defaultValue={filters.propertyUnitId ?? ''}
+          name="roomId"
+          label="ID do quarto"
+          defaultValue={filters.roomId ?? ''}
           error={Boolean(propertyError)}
           helperText={propertyError || 'UUID completo'}
         />
@@ -250,7 +250,7 @@ export function ContractsPage() {
           <TextField
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
-            placeholder="Buscar por bairro, unidade, CPF ou profissão"
+            placeholder="Buscar por quarto, prédio, CPF ou profissão"
             aria-label="Buscar contrato"
             slotProps={{
               input: {
@@ -356,8 +356,7 @@ export function ContractsPage() {
                       sx={{ alignItems: 'center', justifyContent: 'space-between' }}
                     >
                       <Typography sx={{ fontWeight: 700, color: brand.textPrimary }}>
-                        {contract.propertyUnit.neighborhood} · Unid.{' '}
-                        {contract.propertyUnit.unitNumber}
+                        Quarto {contract.room.number} · {contract.room.buildingName}
                       </Typography>
                       <StatusChip status={contract.status} />
                     </Stack>
@@ -418,8 +417,7 @@ export function ContractsPage() {
                             textDecoration: 'none',
                           }}
                         >
-                          {contract.propertyUnit.neighborhood} · Unid.{' '}
-                          {contract.propertyUnit.unitNumber}
+                          Quarto {contract.room.number} · {contract.room.buildingName}
                         </Typography>
                         <Typography
                           sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}

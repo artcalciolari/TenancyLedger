@@ -4,7 +4,7 @@ import type {
   OnboardingDraftListView,
   OnboardingDraftStatus as ApiOnboardingDraftStatus,
   OnboardingDraftView,
-  PropertyView,
+  RoomView,
 } from '../../api/contract';
 import type { operations } from '../../api/generated/schema';
 
@@ -27,7 +27,7 @@ export interface OnboardingPayload {
   personalData: CreateTenantForm;
   photo: PhotoDraftMetadata | null;
   references: TenantReferenceDraft[];
-  propertyUnitId: string | null;
+  roomId: string | null;
   moveInDate: string;
   monthlyBaseValueCents: number | null;
 }
@@ -44,13 +44,15 @@ export type OnboardingDraftList = Omit<OnboardingDraftListView, 'data'> & {
 
 export type CompleteOnboardingResult = CompleteOnboardingView;
 
-type ApiAvailablePropertyFilters = NonNullable<
-  operations['PropertyController_listAvailable']['parameters']['query']
+type ApiAvailableRoomFilters = NonNullable<
+  operations['RoomController_list']['parameters']['query']
 >;
 
-export type AvailablePropertyFilters = Omit<ApiAvailablePropertyFilters, 'date'> & { date: string };
+export type AvailableRoomFilters = Omit<ApiAvailableRoomFilters, 'date' | 'status'> & {
+  date: string;
+};
 
-export type AvailableProperty = PropertyView;
+export type AvailableRoom = RoomView;
 
 export interface PhotoSelection {
   file: File;

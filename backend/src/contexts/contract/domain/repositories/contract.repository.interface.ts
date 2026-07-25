@@ -8,7 +8,7 @@ export interface ContractFilterOptions {
   badge?: ContractBadge;
   renewalAttention?: boolean;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   q?: string;
   moveInFrom?: string;
   moveInTo?: string;
@@ -35,7 +35,7 @@ export interface IContractRepository {
   listForExport(options: ContractFilterOptions): Promise<Contract[]>;
   markExpired(asOf: string): Promise<number>;
   hasOverlap(
-    propertyUnitId: string,
+    roomId: string,
     startDate: string,
     endDate: string | null,
     excludeId?: string,

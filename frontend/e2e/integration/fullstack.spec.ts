@@ -8,7 +8,7 @@ const ids = {
   seededContract: '40000000-0000-4000-8000-000000000001',
   openInvoice: '50000000-0000-4000-8000-000000000001',
   reviewInvoice: '50000000-0000-4000-8000-000000000002',
-  onboardingProperty: '30000000-0000-4000-8000-000000000002',
+  onboardingRoom: '30000000-0000-4000-8000-000000000002',
 } as const;
 
 interface CompleteOnboardingResponse {
@@ -22,7 +22,7 @@ interface CompleteOnboardingResponse {
 interface OnboardingContractResponse {
   id: string;
   tenantId: string;
-  propertyUnitId: string;
+  roomId: string;
   moveInDate: string;
   endDate: string | null;
   durationInMonths: number | null;
@@ -88,14 +88,23 @@ test('executa cadastro, filtros e conciliação real com segregação e notifica
   expect(tenantId).toMatch(/^[0-9a-f-]{36}$/);
   await expect(page.getByText('Engenheira E2E', { exact: true })).toBeVisible();
 
-  await page.goto('/properties/new');
+  await page.goto('/buildings/new');
+  await page.getByLabel('Nome do prédio').fill('Edifício Jardins E2E');
   await page.getByLabel('Bairro').fill('Jardins E2E');
-  await page.getByLabel('Número da unidade').fill('E2E-202');
-  await page.getByRole('button', { name: 'Cadastrar imóvel' }).click();
-  await expect(page).toHaveURL(/\/properties\/[0-9a-f-]{36}$/);
-  const propertyId = page.url().split('/').at(-1);
-  expect(propertyId).toMatch(/^[0-9a-f-]{36}$/);
-  await expect(page.getByText('Jardins E2E', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cadastrar prédio' }).click();
+  await expect(page).toHaveURL(/\/buildings\/[0-9a-f-]{36}$/);
+  const buildingId = page.url().split('/').at(-1);
+  expect(buildingId).toMatch(/^[0-9a-f-]{36}$/);
+  await expect(page.getByRole('heading', { name: 'Edifício Jardins E2E' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Adicionar quarto' }).click();
+  await expect(page).toHaveURL(new RegExp(`/rooms/new\\?buildingId=${buildingId}`));
+  await page.getByLabel('Número do quarto').fill('E2E-202');
+  await page.getByRole('button', { name: 'Cadastrar quarto' }).click();
+  await expect(page).toHaveURL(/\/rooms\/[0-9a-f-]{36}$/);
+  const roomId = page.url().split('/').at(-1);
+  expect(roomId).toMatch(/^[0-9a-f-]{36}$/);
+  await expect(page.getByRole('heading', { name: 'Quarto E2E-202' })).toBeVisible();
 
   await page.goto('/contracts/new');
   await page
@@ -108,12 +117,12 @@ test('executa cadastro, filtros e conciliação real com segregação e notifica
   await dialog.getByRole('button', { name: 'Confirmar seleção' }).click();
 
   await page
-    .getByText('Imóvel', { exact: true })
+    .getByText('Quarto', { exact: true })
     .locator('..')
     .getByRole('button', { name: 'Selecionar' })
     .click();
-  dialog = page.getByRole('dialog', { name: 'Selecionar imóvel' });
-  await dialog.getByRole('button', { name: /Jardins E2E/ }).click();
+  dialog = page.getByRole('dialog', { name: 'Selecionar quarto' });
+  await dialog.getByRole('button', { name: /E2E-202/ }).click();
   await dialog.getByRole('button', { name: 'Confirmar seleção' }).click();
 
   await page.getByLabel('Data de entrada').fill('2099-01-05');
@@ -218,13 +227,14 @@ test('conclui onboarding real com duas referências, contrato pendente e primeir
 
   await expect(page.getByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
   await page.getByLabel('Data de entrada').fill('2099-03-10');
-  await page.getByLabel('Bairro').fill('Onboarding E2E');
+  await page.getByLabel('Prédio, bairro, endereço ou número').fill('Bairro Seed E2E');
   const availableResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       response.request().method() === 'GET' &&
-      url.pathname === '/api/properties/available' &&
-      url.searchParams.get('neighborhood') === 'Onboarding E2E'
+      url.pathname === '/api/rooms' &&
+      url.searchParams.get('q') === 'Bairro Seed E2E' &&
+      url.searchParams.get('status') === 'VACANT'
     );
   });
   await page.getByRole('button', { name: 'Buscar' }).click();
@@ -269,7 +279,7 @@ test('conclui onboarding real com duas referências, contrato pendente e primeir
   expect(contract).toMatchObject({
     id: completed.contractId,
     tenantId: completed.tenantId,
-    propertyUnitId: ids.onboardingProperty,
+    roomId: ids.onboardingRoom,
     moveInDate: '2099-03-10',
     endDate: null,
     durationInMonths: null,

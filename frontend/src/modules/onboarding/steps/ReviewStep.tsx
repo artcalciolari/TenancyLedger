@@ -17,11 +17,11 @@ import { formatCents, parseBrlToCents } from '../../../lib/money/money';
 import { civilStatusLabel } from '../../tenants/labels';
 import type { FieldErrors } from '../schemas';
 import { coveredCalendarPeriod } from '../state';
-import type { AvailableProperty, OnboardingPayload } from '../types';
+import type { AvailableRoom, OnboardingPayload } from '../types';
 
 interface ReviewStepProps {
   payload: OnboardingPayload;
-  selectedProperty: AvailableProperty | null;
+  selectedRoom: AvailableRoom | null;
   photoPreviewUrl: string | null;
   errors: FieldErrors;
   onMoveInDateChange: (date: string) => void;
@@ -44,7 +44,7 @@ function SectionHeading({ title, onEdit }: { title: string; onEdit: () => void }
 
 export function ReviewStep({
   payload,
-  selectedProperty,
+  selectedRoom,
   photoPreviewUrl,
   errors,
   onMoveInDateChange,
@@ -128,23 +128,21 @@ export function ReviewStep({
           <Card>
             <CardContent>
               <SectionHeading title="Quarto" onEdit={() => onEdit(3)} />
-              {selectedProperty ? (
+              {selectedRoom ? (
                 <>
-                  <Typography sx={{ fontWeight: 700 }}>
-                    {selectedProperty.neighborhood} · Unidade {selectedProperty.unitNumber}
-                  </Typography>
+                  <Typography sx={{ fontWeight: 700 }}>Quarto {selectedRoom.number}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedProperty.buildingName ?? 'Unidade independente'}
+                    {selectedRoom.buildingName ?? '—'}
                   </Typography>
                 </>
               ) : (
                 <Typography color="text.secondary">
-                  Unidade selecionada: {payload.propertyUnitId ?? 'nenhuma'}
+                  Quarto selecionado: {payload.roomId ?? 'nenhum'}
                 </Typography>
               )}
-              {errors.propertyUnitId && (
+              {errors.roomId && (
                 <Alert severity="error" sx={{ mt: 1.5 }}>
-                  {errors.propertyUnitId}
+                  {errors.roomId}
                 </Alert>
               )}
             </CardContent>

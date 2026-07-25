@@ -37,17 +37,17 @@ describe('schemas do onboarding', () => {
     ).toBe(false);
   });
 
-  it('valida a unidade, data e valor mensal da revisão', () => {
+  it('valida o quarto, data e valor mensal da revisão', () => {
     expect(
       reviewSchema.safeParse({
-        propertyUnitId: '30000000-0000-4000-8000-000000000001',
+        roomId: '30000000-0000-4000-8000-000000000001',
         moveInDate: '2026-07-18',
         monthlyBaseValueCents: 150_000,
       }).success,
     ).toBe(true);
     expect(
       reviewSchema.safeParse({
-        propertyUnitId: '',
+        roomId: '',
         moveInDate: '2026-02-30',
         monthlyBaseValueCents: 0,
       }).success,

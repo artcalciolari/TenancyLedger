@@ -55,7 +55,7 @@ export class AuditInterceptor implements NestInterceptor {
     if (request.path.startsWith('/client-errors')) return false;
     if (request.method !== 'GET' && request.method !== 'HEAD') return true;
 
-    return ['/tenants', '/properties', '/contracts', '/invoices', '/payments'].some((path) =>
+    return ['/tenants', '/rooms', '/contracts', '/invoices', '/payments'].some((path) =>
       request.path.includes(path),
     );
   }

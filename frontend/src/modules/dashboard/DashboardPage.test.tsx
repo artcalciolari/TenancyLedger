@@ -35,13 +35,13 @@ describe('DashboardPage', () => {
         receivedCents: 150_000,
         confirmedReceivableCents: 75_000,
         forecastRenewalsCents: 90_000,
-        byProperty: [
+        byRoom: [
           {
-            propertyUnitId: 'property-id',
+            roomId: 'room-id',
             buildingId: 'building-id',
             buildingName: 'Edifício Sol',
             neighborhood: 'Centro',
-            unitNumber: '101',
+            roomNumber: '101',
             receivedCents: 150_000,
             confirmedReceivableCents: 75_000,
             forecastRenewalsCents: 90_000,
@@ -52,7 +52,7 @@ describe('DashboardPage', () => {
             buildingId: 'building-id',
             buildingName: 'Edifício Sol',
             neighborhood: 'Centro',
-            propertyUnitCount: 1,
+            roomCount: 1,
             receivedCents: 150_000,
             confirmedReceivableCents: 75_000,
             forecastRenewalsCents: 90_000,
@@ -95,17 +95,17 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('separa os três conceitos e mostra os recortes por prédio, imóvel e dia', async () => {
+  it('separa os três conceitos e mostra os recortes por prédio, quarto e dia', async () => {
     renderPage();
 
     expect((await screen.findAllByText('Recebido')).length).toBeGreaterThan(0);
     expect(screen.getByText('A receber confirmado')).toBeInTheDocument();
     expect(screen.getByText('Renovações previstas')).toBeInTheDocument();
     expect(screen.getAllByText((text) => text.includes('1.500,00')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Edifício Sol · Unid. 101')).toBeInTheDocument();
+    expect(screen.getByText('Edifício Sol · Quarto 101')).toBeInTheDocument();
     const buildingTable = screen.getByRole('table', { name: 'Posição financeira por prédio' });
     expect(buildingTable).toBeInTheDocument();
-    expect(buildingTable).toHaveTextContent('1 unidade');
+    expect(buildingTable).toHaveTextContent('1 quarto');
     expect(
       screen.getByRole('img', {
         name: 'Série diária de valores recebidos, a receber e previstos',

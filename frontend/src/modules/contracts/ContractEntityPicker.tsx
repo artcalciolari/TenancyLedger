@@ -1,5 +1,5 @@
+import BedOutlinedIcon from '@mui/icons-material/BedOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import HomeWorkOutlinedIcon from '@mui/icons-material/HomeWorkOutlined';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import {
@@ -22,13 +22,13 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import type { Paginated, PropertyView, TenantView, UnitType } from '../../api/contract';
+import type { Paginated, RoomView, TenantView } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
-import { propertiesApi } from '../properties/api';
+import { roomsApi } from '../rooms/api';
 import { tenantsApi } from '../tenants/api';
 
 interface EntityPickerProps<T extends { id: string }> {
@@ -304,39 +304,23 @@ export function TenantPicker({
   );
 }
 
-const unitTypeLabels: Record<UnitType, string> = {
-  KITNET: 'Kitnet',
-  ROOM: 'Quarto',
-  APARTMENT: 'Apartamento',
-  HOUSE: 'Casa',
-  COMMERCIAL: 'Comercial',
-};
-
-export function PropertyPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-}) {
+export function RoomPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   return (
-    <EntityPicker<PropertyView>
+    <EntityPicker<RoomView>
       value={value}
       onChange={onChange}
-      label="Imóvel"
-      dialogTitle="Selecionar imóvel"
-      list={propertiesApi.list}
-      get={propertiesApi.get}
-      listKey={queryKeys.properties}
-      detailKey={queryKeys.property}
-      primary={(property) => `Unidade ${property.unitNumber} · ${property.neighborhood}`}
-      secondary={(property) => unitTypeLabels[property.type]}
-      selectedSummary={(property) =>
-        `Unidade ${property.unitNumber} · ${property.neighborhood} · ${unitTypeLabels[property.type]}`
-      }
+      label="Quarto"
+      dialogTitle="Selecionar quarto"
+      list={roomsApi.list}
+      get={roomsApi.get}
+      listKey={queryKeys.rooms}
+      detailKey={queryKeys.room}
+      primary={(room) => `Quarto ${room.number}`}
+      secondary={(room) => room.buildingName ?? '—'}
+      selectedSummary={(room) => `Quarto ${room.number} · ${room.buildingName ?? '—'}`}
       avatar={() => (
         <IconAvatar>
-          <HomeWorkOutlinedIcon />
+          <BedOutlinedIcon />
         </IconAvatar>
       )}
     />

@@ -16,6 +16,11 @@ interface FilterUpdateOptions {
 
 export interface ListSearchConfig<T extends ListFilters> {
   filterKeys: readonly FilterKey<T>[];
+  hasFiltersKeys?: readonly FilterKey<T>[];
+  clearFilterKeys?: readonly FilterKey<T>[];
+  pageParam?: string;
+  limitParam?: string;
+  paramNames?: Partial<Record<keyof T & string, string>>;
   parse: (searchParams: URLSearchParams, page: number, limit: number) => T;
 }
 
@@ -26,45 +31,100 @@ function serialized(value: unknown): string | undefined {
 }
 
 export function useListSearchParams<T extends ListFilters>(config: ListSearchConfig<T>) {
-  const { page, limit, setPagination } = usePaginationParams();
+  const { page, limit, setPagination } = usePaginationParams({
+    pageParam: config.pageParam,
+    limitParam: config.limitParam,
+    normalize: false,
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsKey = searchParams.toString();
+  const logicalSearchParams = useMemo(() => {
+    const mapped = new URLSearchParams(searchParamsKey);
+    for (const key of config.filterKeys) {
+      const paramName = config.paramNames?.[key] ?? key;
+      if (paramName !== key) mapped.delete(key);
+      const value = searchParams.get(paramName);
+      if (value === null) mapped.delete(key);
+      else mapped.set(key, value);
+    }
+    return mapped;
+  }, [config.filterKeys, config.paramNames, searchParams, searchParamsKey]);
   const filters = useMemo(
-    () => config.parse(new URLSearchParams(searchParamsKey), page, limit),
-    [config, limit, page, searchParamsKey],
+    () => config.parse(logicalSearchParams, page, limit),
+    [config, limit, logicalSearchParams, page],
   );
   const normalizedEntries = useMemo(
-    () => config.filterKeys.map((key) => [key, serialized(filters[key])] as const),
-    [config.filterKeys, filters],
+    () =>
+      config.filterKeys.map(
+        (key) => [config.paramNames?.[key] ?? key, serialized(filters[key]), key] as const,
+      ),
+    [config.filterKeys, config.paramNames, filters],
   );
 
   useEffect(() => {
     const next = new URLSearchParams(searchParamsKey);
     let changed = false;
-    normalizedEntries.forEach(([key, value]) => {
-      const current = next.get(key);
-      if (current !== null && value === undefined) {
+    normalizedEntries.forEach(([paramName, value, key]) => {
+      if (paramName !== key && next.has(key)) {
         next.delete(key);
         changed = true;
-      } else if (value !== undefined && current !== value) {
-        next.set(key, value);
+      }
+      const currentValue = next.get(paramName);
+      if (currentValue !== null && value === undefined) {
+        next.delete(paramName);
+        changed = true;
+      } else if (value !== undefined && currentValue !== value) {
+        next.set(paramName, value);
         changed = true;
       }
     });
+    const pageParam = config.pageParam ?? 'page';
+    const limitParam = config.limitParam ?? 'limit';
+    if (next.has(pageParam) && next.get(pageParam) !== String(page)) {
+      next.set(pageParam, String(page));
+      changed = true;
+    }
+    if (next.has(limitParam) && next.get(limitParam) !== String(limit)) {
+      next.set(limitParam, String(limit));
+      changed = true;
+    }
     if (changed) setSearchParams(next, { replace: true });
-  }, [normalizedEntries, searchParamsKey, setSearchParams]);
+  }, [
+    config.limitParam,
+    config.pageParam,
+    limit,
+    normalizedEntries,
+    page,
+    searchParamsKey,
+    setSearchParams,
+  ]);
 
   const updateFilters = useCallback(
     (values: FilterUpdate<T>, options: FilterUpdateOptions = {}) => {
-      const next = new URLSearchParams(searchParamsKey);
-      Object.entries(values).forEach(([key, value]) => {
-        if (value === undefined || value === '') next.delete(key);
-        else next.set(key, String(value));
-      });
-      if (!Object.hasOwn(values, 'page')) next.set('page', '1');
-      setSearchParams(next, { replace: options.replace });
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          const entries = Object.entries(values) as [
+            keyof T & string,
+            string | number | boolean | undefined,
+          ][];
+          entries.forEach(([key, value]) => {
+            const paramName =
+              key === 'page'
+                ? (config.pageParam ?? 'page')
+                : key === 'limit'
+                  ? (config.limitParam ?? 'limit')
+                  : (config.paramNames?.[key] ?? key);
+            if (value === undefined || value === '') next.delete(paramName);
+            else next.set(paramName, String(value));
+          });
+          if (!Object.hasOwn(values, 'page')) next.set(config.pageParam ?? 'page', '1');
+          return next;
+        },
+        { replace: options.replace },
+      );
     },
-    [searchParamsKey, setSearchParams],
+    [config.limitParam, config.pageParam, config.paramNames, setSearchParams],
   );
 
   const applyFilters = useCallback(
@@ -80,14 +140,34 @@ export function useListSearchParams<T extends ListFilters>(config: ListSearchCon
   );
 
   const clearFilters = useCallback(() => {
-    setSearchParams({ page: '1', limit: String(limit) });
-  }, [limit, setSearchParams]);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      for (const key of config.clearFilterKeys ?? config.filterKeys) {
+        next.delete(config.paramNames?.[key] ?? key);
+      }
+      next.set(config.pageParam ?? 'page', '1');
+      if (current.get(config.limitParam ?? 'limit') !== null) {
+        next.set(config.limitParam ?? 'limit', String(limit));
+      }
+      return next;
+    });
+  }, [
+    config.clearFilterKeys,
+    config.filterKeys,
+    config.limitParam,
+    config.pageParam,
+    config.paramNames,
+    limit,
+    setSearchParams,
+  ]);
 
   return {
     applyFilters,
     clearFilters,
     filters,
-    hasFilters: config.filterKeys.some((key) => serialized(filters[key]) !== undefined),
+    hasFilters: (config.hasFiltersKeys ?? config.filterKeys).some(
+      (key) => serialized(filters[key]) !== undefined,
+    ),
     limit,
     page,
     searchParamsKey,

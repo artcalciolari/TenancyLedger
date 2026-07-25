@@ -1,9 +1,9 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { QueryFailedError, Repository } from 'typeorm';
-import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
 import { TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
-import { UnitType } from '../property/domain/property-unit.entity';
 import { ContractService, CreateContractInput } from './contract.service';
 import {
   Contract,
@@ -15,16 +15,18 @@ import type { IContractRepository } from './domain/repositories/contract.reposit
 
 const CONTRACT_ID = '8768a5d6-1a7e-41b9-bbd0-cd18f4d4ad9c';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
 const SECOND_CONTRACT_ID = 'c69df19a-100c-4131-bf25-64ee7e249f66';
 const SECOND_TENANT_ID = '15821999-f689-46d2-b2e7-ce1aef5a6ebf';
-const SECOND_PROPERTY_ID = 'b3309ca5-a4ef-4575-a627-60d2ad635aee';
+const SECOND_ROOM_ID = 'b3309ca5-a4ef-4575-a627-60d2ad635aee';
+const SECOND_BUILDING_ID = '5a6d9d30-f66f-48fb-bd0a-e02afc972b65';
 const CREATED_AT = new Date('2026-07-12T12:00:00.000Z');
 const UPDATED_AT = new Date('2026-07-12T13:00:00.000Z');
 
 const input: CreateContractInput = {
   tenantId: TENANT_ID,
-  propertyUnitId: PROPERTY_ID,
+  roomId: ROOM_ID,
   moveInDate: '2026-07-15',
   monthlyBaseValueCents: 185_000,
   durationInMonths: 12,
@@ -46,7 +48,7 @@ function persistedContract(overrides: Partial<CreateContractInput> = {}): Contra
   return assignPersistenceFields(
     Contract.create(
       values.tenantId,
-      values.propertyUnitId,
+      values.roomId,
       values.moveInDate,
       values.monthlyBaseValueCents,
       values.durationInMonths ?? null,
@@ -80,9 +82,10 @@ describe('ContractService', () => {
   let list: jest.MockedFunction<IContractRepository['list']>;
   let hasOverlap: jest.MockedFunction<IContractRepository['hasOverlap']>;
   let tenantExistsBy: jest.MockedFunction<ExistsBy>;
-  let propertyExistsBy: jest.MockedFunction<ExistsBy>;
+  let roomExistsBy: jest.MockedFunction<ExistsBy>;
   let tenantFindBy: jest.Mock;
-  let propertyFindBy: jest.Mock;
+  let roomFindBy: jest.Mock;
+  let buildingFindBy: jest.Mock;
 
   beforeEach(() => {
     save = jest.fn().mockImplementation((contract: Contract) => Promise.resolve(contract));
@@ -106,7 +109,7 @@ describe('ContractService', () => {
       markExpired: jest.fn().mockResolvedValue(0),
     };
     tenantExistsBy = jest.fn().mockResolvedValue(true);
-    propertyExistsBy = jest.fn().mockResolvedValue(true);
+    roomExistsBy = jest.fn().mockResolvedValue(true);
     tenantFindBy = jest.fn().mockResolvedValue([
       {
         id: TENANT_ID,
@@ -117,18 +120,25 @@ describe('ContractService', () => {
         mobilePhone: '11999999999',
       } as Tenant,
     ]);
-    propertyFindBy = jest.fn().mockResolvedValue([
+    roomFindBy = jest.fn().mockResolvedValue([
       {
-        id: PROPERTY_ID,
+        id: ROOM_ID,
+        number: '101-A',
+        buildingId: BUILDING_ID,
+      } as Room,
+    ]);
+    buildingFindBy = jest.fn().mockResolvedValue([
+      {
+        id: BUILDING_ID,
+        name: 'Edifício Aurora',
         neighborhood: 'Centro',
-        type: UnitType.APARTMENT,
-        unitNumber: '101-A',
-      } as PropertyUnit,
+      } as Building,
     ]);
     service = new ContractService(
       repository,
       { existsBy: tenantExistsBy, findBy: tenantFindBy } as unknown as Repository<Tenant>,
-      { existsBy: propertyExistsBy, findBy: propertyFindBy } as unknown as Repository<PropertyUnit>,
+      { existsBy: roomExistsBy, findBy: roomFindBy } as unknown as Repository<Room>,
+      { findBy: buildingFindBy } as unknown as Repository<Building>,
     );
   });
 
@@ -138,7 +148,7 @@ describe('ContractService', () => {
 
       expect(result).toMatchObject({
         tenantId: TENANT_ID,
-        propertyUnitId: PROPERTY_ID,
+        roomId: ROOM_ID,
         moveInDate: '2026-07-15',
         endDate: '2027-07-14',
         monthlyBaseValueCents: 185_000,
@@ -148,8 +158,8 @@ describe('ContractService', () => {
         status: ContractStatus.ACTIVE,
       });
       expect(tenantExistsBy).toHaveBeenCalledWith({ id: TENANT_ID });
-      expect(propertyExistsBy).toHaveBeenCalledWith({ id: PROPERTY_ID });
-      expect(hasOverlap).toHaveBeenCalledWith(PROPERTY_ID, '2026-07-15', '2027-07-14');
+      expect(roomExistsBy).toHaveBeenCalledWith({ id: ROOM_ID });
+      expect(hasOverlap).toHaveBeenCalledWith(ROOM_ID, '2026-07-15', '2027-07-14');
       expect(save).toHaveBeenCalledWith(result);
     });
 
@@ -174,16 +184,16 @@ describe('ContractService', () => {
         new NotFoundException('Inquilino não encontrado.'),
       );
 
-      expect(propertyExistsBy).toHaveBeenCalledWith({ id: PROPERTY_ID });
+      expect(roomExistsBy).toHaveBeenCalledWith({ id: ROOM_ID });
       expect(hasOverlap).not.toHaveBeenCalled();
       expect(save).not.toHaveBeenCalled();
     });
 
-    it('rejects a missing property before checking overlap or saving', async () => {
-      propertyExistsBy.mockResolvedValue(false);
+    it('rejects a missing room before checking overlap or saving', async () => {
+      roomExistsBy.mockResolvedValue(false);
 
       await expect(service.create(input)).rejects.toThrow(
-        new NotFoundException('Unidade imobiliária não encontrada.'),
+        new NotFoundException('Quarto não encontrado.'),
       );
 
       expect(hasOverlap).not.toHaveBeenCalled();
@@ -194,7 +204,7 @@ describe('ContractService', () => {
       hasOverlap.mockResolvedValue(true);
 
       await expect(service.create(input)).rejects.toThrow(
-        new ConflictException('A unidade já possui um contrato com vigência sobreposta.'),
+        new ConflictException('O quarto já possui um contrato com vigência sobreposta.'),
       );
 
       expect(save).not.toHaveBeenCalled();
@@ -204,7 +214,7 @@ describe('ContractService', () => {
       save.mockRejectedValue(queryFailure('23P01'));
 
       await expect(service.create(input)).rejects.toThrow(
-        new ConflictException('A unidade já possui um contrato com vigência sobreposta.'),
+        new ConflictException('O quarto já possui um contrato com vigência sobreposta.'),
       );
     });
 
@@ -252,7 +262,7 @@ describe('ContractService', () => {
         limit: 10,
         status: ContractStatus.ACTIVE,
         tenantId: TENANT_ID,
-        propertyUnitId: PROPERTY_ID,
+        roomId: ROOM_ID,
       };
 
       await expect(service.list(options)).resolves.toMatchObject({
@@ -260,7 +270,7 @@ describe('ContractService', () => {
           {
             id: CONTRACT_ID,
             tenantId: TENANT_ID,
-            propertyUnitId: PROPERTY_ID,
+            roomId: ROOM_ID,
             moveInDate: '2026-07-15',
             endDate: '2027-07-14',
             monthlyBaseValueCents: 185_000,
@@ -278,11 +288,12 @@ describe('ContractService', () => {
               email: 'l***@example.com',
               mobilePhone: '(**) *****-9999',
             },
-            propertyUnit: {
-              id: PROPERTY_ID,
+            room: {
+              id: ROOM_ID,
+              number: '101-A',
+              buildingId: BUILDING_ID,
+              buildingName: 'Edifício Aurora',
               neighborhood: 'Centro',
-              type: UnitType.APARTMENT,
-              unitNumber: '101-A',
             },
           },
         ],
@@ -307,7 +318,17 @@ describe('ContractService', () => {
       });
 
       expect(tenantFindBy).not.toHaveBeenCalled();
-      expect(propertyFindBy).not.toHaveBeenCalled();
+      expect(roomFindBy).not.toHaveBeenCalled();
+    });
+
+    it('fails explicitly when a room references a building that cannot be found', async () => {
+      const contract = persistedContract();
+      list.mockResolvedValue({ items: [contract], total: 1 });
+      buildingFindBy.mockResolvedValue([]);
+
+      await expect(service.list({ page: 1, limit: 20 })).rejects.toThrow(
+        'Relacionamentos do contrato não encontrados.',
+      );
     });
   });
 
@@ -315,7 +336,7 @@ describe('ContractService', () => {
     it('neutralizes =, +, -, and @ formula prefixes in exported contract cells', async () => {
       const first = persistedContract();
       const second = assignPersistenceFields(
-        Contract.create(SECOND_TENANT_ID, SECOND_PROPERTY_ID, '2026-08-01', 210_000, 12, true, 12),
+        Contract.create(SECOND_TENANT_ID, SECOND_ROOM_ID, '2026-08-01', 210_000, 12, true, 12),
         SECOND_CONTRACT_ID,
       );
       repository.listForExport.mockResolvedValue([first, second]);
@@ -337,19 +358,29 @@ describe('ContractService', () => {
           mobilePhone: '11988888888',
         } as Tenant,
       ]);
-      propertyFindBy.mockResolvedValue([
+      roomFindBy.mockResolvedValue([
         {
-          id: PROPERTY_ID,
-          neighborhood: '=1+1',
-          type: UnitType.APARTMENT,
-          unitNumber: '+SUM(A1:A2)',
-        } as PropertyUnit,
+          id: ROOM_ID,
+          number: '+SUM(A1:A2)',
+          buildingId: BUILDING_ID,
+        } as Room,
         {
-          id: SECOND_PROPERTY_ID,
-          neighborhood: '-2+3',
-          type: UnitType.HOUSE,
-          unitNumber: '@SUM(A1:A2)',
-        } as PropertyUnit,
+          id: SECOND_ROOM_ID,
+          number: '@SUM(A1:A2)',
+          buildingId: SECOND_BUILDING_ID,
+        } as Room,
+      ]);
+      buildingFindBy.mockResolvedValue([
+        {
+          id: BUILDING_ID,
+          name: '=1+1',
+          neighborhood: 'Centro',
+        } as Building,
+        {
+          id: SECOND_BUILDING_ID,
+          name: '-2+3',
+          neighborhood: 'Centro',
+        } as Building,
       ]);
 
       const csv = await service.exportCsv({ page: 1, limit: 20 });
@@ -359,14 +390,14 @@ describe('ContractService', () => {
         .flatMap((row) => row.split(','));
 
       expect(cells).toEqual(
-        expect.arrayContaining(["'=1+1", "'+SUM(A1:A2)", "'-2+3", "'@SUM(A1:A2)"]),
+        expect.arrayContaining(["'+SUM(A1:A2)", "'=1+1", "'@SUM(A1:A2)", "'-2+3"]),
       );
     });
 
     it('leaves missing optional relation fields empty in the export', async () => {
       repository.listForExport.mockResolvedValue([persistedContract()]);
       tenantFindBy.mockResolvedValue([]);
-      propertyFindBy.mockResolvedValue([]);
+      roomFindBy.mockResolvedValue([]);
 
       const csv = await service.exportCsv({ page: 1, limit: 20 });
       const cells = csv.split('\r\n')[1]?.split(',');
@@ -378,13 +409,12 @@ describe('ContractService', () => {
 
     it('quotes delimiters, line breaks, and embedded quotes in relation fields', async () => {
       repository.listForExport.mockResolvedValue([persistedContract()]);
-      propertyFindBy.mockResolvedValue([
+      buildingFindBy.mockResolvedValue([
         {
-          id: PROPERTY_ID,
-          neighborhood: 'Centro, "Histórico"\nSul',
-          type: UnitType.APARTMENT,
-          unitNumber: '101-A',
-        } as PropertyUnit,
+          id: BUILDING_ID,
+          name: 'Centro, "Histórico"\nSul',
+          neighborhood: 'Centro',
+        } as Building,
       ]);
 
       const csv = await service.exportCsv({ page: 1, limit: 20 });
@@ -405,7 +435,7 @@ describe('ContractService', () => {
       expect(result.endDate).toBe('2028-01-14');
       expect(runInTransaction).toHaveBeenCalledTimes(1);
       expect(findByIdForUpdate).toHaveBeenCalledWith(CONTRACT_ID);
-      expect(hasOverlap).toHaveBeenCalledWith(PROPERTY_ID, '2026-07-15', '2028-01-14', CONTRACT_ID);
+      expect(hasOverlap).toHaveBeenCalledWith(ROOM_ID, '2026-07-15', '2028-01-14', CONTRACT_ID);
       expect(save).toHaveBeenCalledWith(contract);
     });
 
@@ -414,7 +444,7 @@ describe('ContractService', () => {
       hasOverlap.mockResolvedValue(true);
 
       await expect(service.renew(CONTRACT_ID, 6)).rejects.toThrow(
-        new ConflictException('A renovação sobrepõe outro contrato desta unidade.'),
+        new ConflictException('A renovação sobrepõe outro contrato deste quarto.'),
       );
 
       expect(save).not.toHaveBeenCalled();
@@ -425,7 +455,7 @@ describe('ContractService', () => {
       save.mockRejectedValue(queryFailure('23P01'));
 
       await expect(service.renew(CONTRACT_ID, 6)).rejects.toThrow(
-        new ConflictException('A unidade já possui um contrato com vigência sobreposta.'),
+        new ConflictException('O quarto já possui um contrato com vigência sobreposta.'),
       );
     });
 
@@ -470,15 +500,15 @@ describe('ContractService', () => {
       await expect(service.toDetailedView(contract)).resolves.toMatchObject({
         id: CONTRACT_ID,
         tenant: { id: TENANT_ID, cpf: '***.***.***-09' },
-        propertyUnit: { id: PROPERTY_ID, unitNumber: '101-A' },
+        room: { id: ROOM_ID, number: '101-A' },
       });
     });
 
-    it.each(['tenant', 'property'])(
+    it.each(['tenant', 'room'])(
       'rejects a contract whose %s relation disappeared',
       async (missingRelation) => {
         if (missingRelation === 'tenant') tenantFindBy.mockResolvedValue([]);
-        else propertyFindBy.mockResolvedValue([]);
+        else roomFindBy.mockResolvedValue([]);
 
         await expect(service.toDetailedView(persistedContract())).rejects.toThrow(
           new NotFoundException('Relacionamentos do contrato não encontrados.'),
@@ -493,7 +523,7 @@ describe('ContractService', () => {
     expect(ContractService.toView(contract)).toMatchObject({
       id: CONTRACT_ID,
       tenantId: TENANT_ID,
-      propertyUnitId: PROPERTY_ID,
+      roomId: ROOM_ID,
       moveInDate: '2026-07-15',
       endDate: '2027-07-14',
       monthlyBaseValueCents: 185_000,
@@ -510,7 +540,7 @@ describe('ContractService', () => {
     const contract = assignPersistenceFields(
       Contract.create(
         TENANT_ID,
-        PROPERTY_ID,
+        ROOM_ID,
         '2026-07-18',
         185_000,
         null,
@@ -539,7 +569,7 @@ describe('ContractService', () => {
     });
 
     const cancelled = assignPersistenceFields(
-      Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 185_000, 18),
+      Contract.createPendingSignature(TENANT_ID, ROOM_ID, '2026-07-18', 185_000, 18),
     );
     cancelled.cancel('Cadastro descontinuado');
     expect(

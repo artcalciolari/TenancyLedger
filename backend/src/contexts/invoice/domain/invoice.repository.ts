@@ -1,7 +1,6 @@
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { PaymentMethod, PaymentStatus, ProofType } from './entities/payment-transaction.entity';
 import { TenantCivilStatus } from '../../tenant/domain/entities/tenant.entity';
-import { UnitType } from '../../property/domain/property-unit.entity';
 import type { EntityManager } from 'typeorm';
 
 export const INVOICE_REPOSITORY_TOKEN = Symbol('INVOICE_REPOSITORY_TOKEN');
@@ -11,7 +10,7 @@ export interface InvoiceFilterOptions {
   competence?: string;
   status?: InvoiceStatus;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   dueFrom?: string;
   dueTo?: string;
   paymentStatus?: PaymentStatus;
@@ -30,7 +29,7 @@ export interface PaymentReviewListOptions {
   method?: PaymentMethod;
   competence?: string;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   submittedFrom?: string;
   submittedTo?: string;
   q?: string;
@@ -65,10 +64,11 @@ export interface PaymentReviewRecord {
   tenantCivilStatus: TenantCivilStatus;
   tenantEmail: string;
   tenantMobilePhone: string;
-  propertyUnitId: string;
-  propertyNeighborhood: string;
-  propertyType: UnitType;
-  propertyUnitNumber: string;
+  roomId: string;
+  roomNumber: string;
+  buildingId: string;
+  buildingName: string;
+  buildingNeighborhood: string;
 }
 
 export interface PaymentReviewListResult {

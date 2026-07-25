@@ -25,29 +25,14 @@ describe('edit cache invalidation', () => {
     expect(invalidateQueries).toHaveBeenNthCalledWith(5, { queryKey: ['payments'] });
   });
 
-  it('preserva as invalidações atuais do prédio sem tocar contratos quando o bairro não muda', async () => {
+  it('invalida os prédios e quartos ao editar um prédio', async () => {
     const { invalidateQueries, queryClient } = invalidationSpy();
 
-    await invalidateBuildingEditCaches(queryClient, false);
+    await invalidateBuildingEditCaches(queryClient);
 
     expect(invalidateQueries).toHaveBeenCalledTimes(3);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['buildings'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['properties'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['property'] });
-  });
-
-  it('invalida dados financeiros embutidos somente quando o bairro do prédio muda', async () => {
-    const { invalidateQueries, queryClient } = invalidationSpy();
-
-    await invalidateBuildingEditCaches(queryClient, true);
-
-    expect(invalidateQueries).toHaveBeenCalledTimes(7);
-    expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['buildings'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['properties'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['property'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(4, { queryKey: ['contracts'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(5, { queryKey: ['invoices'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(6, { queryKey: ['invoice'] });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(7, { queryKey: ['payments'] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['rooms'] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['room'] });
   });
 });

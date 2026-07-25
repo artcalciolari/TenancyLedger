@@ -5,7 +5,7 @@ const PAYMENT_ID = '283b10d3-58f2-42d8-aa93-777f55ec9476';
 const INVOICE_ID = '0a60a4ca-1a8e-4f0a-b0ee-2196db87ac51';
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
 const ISSUED_AT = new Date('2026-07-18T15:30:00.000Z');
 
 const snapshot: ReceiptSnapshot = {
@@ -15,8 +15,8 @@ const snapshot: ReceiptSnapshot = {
   tenantId: TENANT_ID,
   tenantName: '  Maria   da Silva  ',
   tenantCpf: '52998224725',
-  propertyUnitId: PROPERTY_ID,
-  propertyDescription: '  APARTMENT 101-A — Centro  ',
+  roomId: ROOM_ID,
+  roomDescription: '  Quarto 101-A — Edifício Aurora, Centro  ',
   periodStart: '2026-07-18',
   periodEnd: '2026-08-17',
   amountCents: 185_000,
@@ -40,7 +40,7 @@ describe('Receipt', () => {
       number: 42,
       paymentTransactionId: PAYMENT_ID,
       tenantName: 'Maria da Silva',
-      propertyDescription: 'APARTMENT 101-A — Centro',
+      roomDescription: 'Quarto 101-A — Edifício Aurora, Centro',
       paymentMethod: 'CASH',
       storageKey: '',
       voidedReason: null,
@@ -58,21 +58,18 @@ describe('Receipt', () => {
     },
   );
 
-  it.each([
-    'paymentTransactionId',
-    'invoiceId',
-    'contractId',
-    'tenantId',
-    'propertyUnitId',
-  ] as const)('rejects an invalid %s UUID', (field) => {
-    expect(() => createReceipt({ [field]: 'invalid' })).toThrow(ValidationError);
-  });
+  it.each(['paymentTransactionId', 'invoiceId', 'contractId', 'tenantId', 'roomId'] as const)(
+    'rejects an invalid %s UUID',
+    (field) => {
+      expect(() => createReceipt({ [field]: 'invalid' })).toThrow(ValidationError);
+    },
+  );
 
   it.each([
     ['tenantName', ''],
     ['tenantName', 'x'.repeat(121)],
-    ['propertyDescription', ''],
-    ['propertyDescription', 'x'.repeat(301)],
+    ['roomDescription', ''],
+    ['roomDescription', 'x'.repeat(301)],
     ['paymentMethod', ''],
     ['paymentMethod', 'x'.repeat(31)],
   ] as const)('rejects an invalid %s', (field, value) => {

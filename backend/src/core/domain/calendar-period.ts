@@ -49,17 +49,22 @@ export function assertCivilDate(value: string, field = 'data'): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     throw new ValidationError(`A ${field} deve estar no formato AAAA-MM-DD.`);
   }
+  if (!isCivilDate(value)) {
+    throw new ValidationError(`A ${field} é inválida.`);
+  }
+}
+
+export function isCivilDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(5, 7));
   const day = Number(value.slice(8, 10));
   const parsed = new Date(Date.UTC(year, month - 1, day));
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
-  ) {
-    throw new ValidationError(`A ${field} é inválida.`);
-  }
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
 }
 
 function formatUtcDate(value: Date): string {

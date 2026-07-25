@@ -48,7 +48,7 @@ import { ReferencesStep } from './steps/ReferencesStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { RoomSearchStep } from './steps/RoomSearchStep';
 import type {
-  AvailableProperty,
+  AvailableRoom,
   CompleteOnboardingResult,
   OnboardingDraft,
   OnboardingPayload,
@@ -78,13 +78,13 @@ function newestDraft(drafts: OnboardingDraft[]): OnboardingDraft | null {
 
 function isUnitOccupancyConflict(detail: string): boolean {
   const normalized = detail.toLocaleLowerCase('pt-BR');
-  const mentionsUnit = normalized.includes('unidade') || normalized.includes('quarto');
+  const mentionsRoom = normalized.includes('quarto');
   const mentionsAvailability =
     normalized.includes('ocupad') ||
     normalized.includes('sobrepost') ||
     normalized.includes('disponível') ||
     normalized.includes('disponivel');
-  return mentionsUnit && mentionsAvailability;
+  return mentionsRoom && mentionsAvailability;
 }
 
 function isDuplicateTenantConflict(detail: string): boolean {
@@ -111,7 +111,7 @@ export function OnboardingWizard() {
   );
   const [activeStep, setActiveStep] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [selectedProperty, setSelectedProperty] = useState<AvailableProperty | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<AvailableRoom | null>(null);
   const [photoSelection, setPhotoSelection] = useState<PhotoSelection | null>(null);
   const [remotePhotoUrl, setRemotePhotoUrl] = useState<string | null>(null);
   const [pendingPhotoAction, setPendingPhotoAction] = useState<PendingPhotoAction>(null);
@@ -150,7 +150,7 @@ export function OnboardingWizard() {
     setPayload(parsed.data);
     setDraftId(draft.id);
     setLastSavedSignature(draftSignature(parsed.data));
-    setSelectedProperty(null);
+    setSelectedRoom(null);
     setPhotoSelection(null);
     setPendingPhotoAction(null);
     setRemotePhotoUrl(null);
@@ -303,8 +303,8 @@ export function OnboardingWizard() {
       setFieldErrors(errors);
       return false;
     }
-    if (step === 3 && !payload.propertyUnitId) {
-      setFieldErrors({ propertyUnitId: 'Selecione um quarto disponível.' });
+    if (step === 3 && !payload.roomId) {
+      setFieldErrors({ roomId: 'Selecione um quarto disponível.' });
       return false;
     }
     setFieldErrors({});
@@ -337,7 +337,7 @@ export function OnboardingWizard() {
       return;
     }
     const review = reviewSchema.safeParse({
-      propertyUnitId: payload.propertyUnitId,
+      roomId: payload.roomId,
       moveInDate: payload.moveInDate,
       monthlyBaseValueCents: payload.monthlyBaseValueCents,
     });
@@ -370,12 +370,11 @@ export function OnboardingWizard() {
         isUnitOccupancyConflict(error.problem.detail)
       ) {
         setFieldErrors({
-          propertyUnitId:
-            'Este quarto acabou de ser ocupado. Escolha outra unidade para continuar.',
+          roomId: 'Este quarto acabou de ser ocupado. Escolha outro quarto para continuar.',
         });
-        setCompletionError('A unidade selecionada não está mais disponível.');
-        setSelectedProperty(null);
-        setPayload((current) => ({ ...current, propertyUnitId: null }));
+        setCompletionError('O quarto selecionado não está mais disponível.');
+        setSelectedRoom(null);
+        setPayload((current) => ({ ...current, roomId: null }));
         setActiveStep(3);
         return;
       }
@@ -478,12 +477,12 @@ export function OnboardingWizard() {
         return (
           <RoomSearchStep
             moveInDate={payload.moveInDate}
-            selectedId={payload.propertyUnitId}
-            error={fieldErrors.propertyUnitId}
+            selectedId={payload.roomId}
+            error={fieldErrors.roomId}
             onDateChange={(moveInDate) => updatePayload({ ...payload, moveInDate })}
-            onSelect={(property) => {
-              setSelectedProperty(property);
-              updatePayload({ ...payload, propertyUnitId: property.id });
+            onSelect={(room) => {
+              setSelectedRoom(room);
+              updatePayload({ ...payload, roomId: room.id });
             }}
           />
         );
@@ -491,7 +490,7 @@ export function OnboardingWizard() {
         return (
           <ReviewStep
             payload={payload}
-            selectedProperty={selectedProperty}
+            selectedRoom={selectedRoom}
             photoPreviewUrl={photoSelection?.previewUrl ?? remotePhotoUrl}
             errors={fieldErrors}
             onMoveInDateChange={(moveInDate) => updatePayload({ ...payload, moveInDate })}

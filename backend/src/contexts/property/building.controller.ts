@@ -1,8 +1,18 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsNotEmpty, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsNotEmpty,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { BuildingService } from './building.service';
 import type { PaginatedBuildingsView } from './building.service';
+import type { BuildingVacancyFilter } from './domain/building.repository';
 import { UserRole } from '../auth/domain/entities/user.entity';
 import { Roles } from '../auth/infrastructure/security/roles.decorator';
 import {
@@ -26,6 +36,13 @@ import {
   ApiProtected,
   ApiUnprocessableProblem,
 } from '../../core/infrastructure/http/openapi.decorators';
+import { IsCivilDate } from '../../core/infrastructure/http/is-civil-date.decorator';
+
+export enum BuildingVacancyFilterDto {
+  WITH_VACANCY = 'WITH_VACANCY',
+  FULL = 'FULL',
+  NO_ROOMS = 'NO_ROOMS',
+}
 
 export class CreateBuildingDto {
   @ApiProperty({ minLength: 1, maxLength: 120, example: 'Edifício Aurora' })
@@ -74,6 +91,23 @@ export class BuildingPaginationDto {
   @IsString()
   @MaxLength(120)
   q?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date', description: 'Padrão: data civil atual.' })
+  @IsOptional()
+  @IsCivilDate()
+  date?: string;
+
+  @ApiPropertyOptional({ enum: BuildingVacancyFilterDto, enumName: 'BuildingVacancyFilter' })
+  @IsOptional()
+  @IsEnum(BuildingVacancyFilterDto)
+  vacancy?: BuildingVacancyFilter;
+}
+
+export class BuildingDetailQueryDto {
+  @ApiPropertyOptional({ type: String, format: 'date', description: 'Padrão: data civil atual.' })
+  @IsOptional()
+  @IsCivilDate()
+  date?: string;
 }
 
 @ApiProtected()
@@ -96,8 +130,10 @@ export class BuildingController {
       neighborhood: building.neighborhood,
       address: building.address,
       createdAt: building.createdAt,
-      totalUnits: 0,
-      occupiedUnits: 0,
+      totalRooms: 0,
+      occupiedRooms: 0,
+      vacantRooms: 0,
+      vacancyPercentage: null,
     });
   }
 
@@ -132,7 +168,8 @@ export class BuildingController {
   @ApiNotFoundProblem('Prédio não encontrado.')
   async get(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Query() query: BuildingDetailQueryDto,
   ): Promise<BuildingDetailResponseDto> {
-    return BuildingDetailResponseDto.fromDetail(await this.service.getById(id));
+    return BuildingDetailResponseDto.fromDetail(await this.service.getById(id, query.date));
   }
 }

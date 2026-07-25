@@ -15,21 +15,21 @@ export class DashboardPeriodDto {
   forecastThrough!: string;
 }
 
-export class DashboardPropertyBreakdownDto {
+export class DashboardRoomBreakdownDto {
   @ApiProperty({ format: 'uuid' })
-  propertyUnitId!: string;
+  roomId!: string;
 
-  @ApiProperty({ type: String, format: 'uuid', nullable: true })
-  buildingId!: string | null;
+  @ApiProperty({ format: 'uuid' })
+  buildingId!: string;
 
-  @ApiProperty({ type: String, nullable: true })
-  buildingName!: string | null;
+  @ApiProperty()
+  buildingName!: string;
 
   @ApiProperty()
   neighborhood!: string;
 
   @ApiProperty()
-  unitNumber!: string;
+  roomNumber!: string;
 
   @ApiProperty({ minimum: 0 })
   receivedCents!: number;
@@ -42,22 +42,17 @@ export class DashboardPropertyBreakdownDto {
 }
 
 export class DashboardBuildingBreakdownDto {
-  @ApiProperty({
-    type: String,
-    format: 'uuid',
-    nullable: true,
-    description: 'Nulo para o grupo de imóveis sem prédio do bairro informado.',
-  })
-  buildingId!: string | null;
+  @ApiProperty({ format: 'uuid' })
+  buildingId!: string;
 
-  @ApiProperty({ type: String, nullable: true })
-  buildingName!: string | null;
+  @ApiProperty()
+  buildingName!: string;
 
   @ApiProperty()
   neighborhood!: string;
 
   @ApiProperty({ minimum: 1 })
-  propertyUnitCount!: number;
+  roomCount!: number;
 
   @ApiProperty({ minimum: 0 })
   receivedCents!: number;
@@ -99,13 +94,10 @@ export class DashboardFinancialSummaryDto {
   })
   forecastRenewalsCents!: number;
 
-  @ApiProperty({ type: [DashboardPropertyBreakdownDto] })
-  byProperty!: DashboardPropertyBreakdownDto[];
+  @ApiProperty({ type: [DashboardRoomBreakdownDto] })
+  byRoom!: DashboardRoomBreakdownDto[];
 
-  @ApiProperty({
-    type: [DashboardBuildingBreakdownDto],
-    description: 'Totais por prédio; imóveis sem prédio são agrupados por bairro.',
-  })
+  @ApiProperty({ type: [DashboardBuildingBreakdownDto] })
   byBuilding!: DashboardBuildingBreakdownDto[];
 
   @ApiProperty({ type: [DashboardDailyPointDto] })

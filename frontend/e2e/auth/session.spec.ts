@@ -81,7 +81,7 @@ async function mockSession(page: Page, role: Role) {
           receivedCents: 0,
           confirmedReceivableCents: 0,
           forecastRenewalsCents: 0,
-          byProperty: [],
+          byRoom: [],
           byBuilding: [],
           daily: [],
         },

@@ -135,6 +135,23 @@ describe('changed-code coverage evaluation', () => {
     assert.deepEqual(belowNinetyFive.thresholdFailures, ['branches']);
   });
 
+  test('excludes compiler conditionals whose outcomes map to the same source location', () => {
+    const coverage = coverageEntry({ branchHits: [1, 0] });
+    coverage.branchMap[0].type = 'cond-expr';
+
+    const result = evaluate({ coverage });
+
+    assert.equal(result.passed, true);
+    assert.deepEqual(
+      {
+        covered: result.summary.branches.covered,
+        total: result.summary.branches.total,
+        uncovered: result.summary.branches.uncovered,
+      },
+      { covered: 0, total: 0, uncovered: [] },
+    );
+  });
+
   test('normalizes absolute Windows and POSIX coverage paths against Git paths', () => {
     assert.equal(
       toRepositoryRelativePath(

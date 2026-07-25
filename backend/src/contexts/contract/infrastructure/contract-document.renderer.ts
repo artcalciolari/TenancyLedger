@@ -9,7 +9,7 @@ export interface ContractDocumentTemplateData {
   tenantName: string;
   tenantCpf: string;
   tenantRg: string;
-  propertyDescription: string;
+  roomDescription: string;
   monthlyValueCents: number;
   moveInDate: string;
   firstPeriodEnd: string;
@@ -35,7 +35,7 @@ export class ContractDocumentRenderer {
           { align: 'justify', lineGap: 4 },
         );
         document.moveDown();
-        document.text(`UNIDADE LOCADA: ${data.propertyDescription}.`, {
+        document.text(`QUARTO LOCADO: ${data.roomDescription}.`, {
           align: 'justify',
           lineGap: 4,
         });

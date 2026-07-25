@@ -4,7 +4,6 @@ type Schemas = components['schemas'];
 
 export type UserRole = Schemas['UserRole'];
 export type TenantCivilStatus = Schemas['TenantCivilStatus'];
-export type UnitType = Schemas['UnitType'];
 export type CashClosingStatus = Schemas['CashClosingStatus'];
 export type ContractBadge = Schemas['ContractBadge'];
 export type ContractDocumentKind = Schemas['ContractDocumentKind'];
@@ -26,13 +25,6 @@ export const TENANT_CIVIL_STATUSES = [
   'WIDOWED',
   'STABLE_UNION',
 ] as const satisfies readonly TenantCivilStatus[];
-export const UNIT_TYPES = [
-  'KITNET',
-  'ROOM',
-  'APARTMENT',
-  'HOUSE',
-  'COMMERCIAL',
-] as const satisfies readonly UnitType[];
 export const CONTRACT_STATUSES = [
   'PENDING_SIGNATURE',
   'PAYMENT_PENDING',
@@ -114,14 +106,16 @@ export type ChangePasswordInput = Schemas['ChangePasswordDto'];
 export type CreateTenantInput = Schemas['CreateTenantDto'];
 export type UpdateTenantInput = Schemas['UpdateTenantDto'];
 export type TenantView = Schemas['TenantResponseDto'];
-export type CreatePropertyInput = Schemas['CreatePropertyDto'];
-export type UpdatePropertyInput = Schemas['UpdatePropertyDto'];
-export type PropertyView = Schemas['PropertyResponseDto'];
+export type CreateRoomInput = Schemas['CreateRoomDto'];
+export type UpdateRoomInput = Schemas['UpdateRoomDto'];
+export type RoomView = Schemas['RoomResponseDto'];
+export type RoomAvailabilityStatus = Schemas['RoomAvailabilityStatus'];
 export type CreateBuildingInput = Schemas['CreateBuildingDto'];
 export type UpdateBuildingInput = Schemas['UpdateBuildingDto'];
 export type BuildingView = Schemas['BuildingResponseDto'];
 export type BuildingDetailView = Schemas['BuildingDetailResponseDto'];
-export type BuildingUnitView = Schemas['BuildingUnitResponseDto'];
+export type BuildingRoomView = Schemas['BuildingRoomResponseDto'];
+export type BuildingVacancyFilter = Schemas['BuildingVacancyFilter'];
 export type CreateContractInput = Schemas['CreateContractDto'];
 export type ContractView = Schemas['ContractResponseDto'];
 export type RenewContractInput = Schemas['RenewContractDto'];
@@ -160,18 +154,21 @@ export interface TenantListFilters {
   civilStatus?: TenantCivilStatus;
 }
 
-export interface PropertyListFilters {
+export interface RoomListFilters {
   page: number;
   limit: number;
   q?: string;
-  type?: UnitType;
   buildingId?: string;
+  status?: RoomAvailabilityStatus;
+  date?: string;
 }
 
 export interface BuildingListFilters {
   page: number;
   limit: number;
   q?: string;
+  date?: string;
+  vacancy?: BuildingVacancyFilter;
 }
 
 export interface ContractListFilters {
@@ -179,7 +176,7 @@ export interface ContractListFilters {
   limit: number;
   status?: ContractStatus;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   q?: string;
   moveInFrom?: string;
   moveInTo?: string;
@@ -199,7 +196,7 @@ export interface InvoiceListFilters {
   dueFrom?: string;
   dueTo?: string;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   paymentMethod?: PaymentMethod;
   paymentStatus?: PaymentStatus;
 }
@@ -213,7 +210,7 @@ export interface PaymentReviewFilters {
   submittedFrom?: string;
   submittedTo?: string;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
 }
 
 export interface SubmitPaymentInput {
