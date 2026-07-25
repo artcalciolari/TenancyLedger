@@ -24,8 +24,9 @@ function accessToken(): string {
   return `eyJhbGciOiJIUzI1NiJ9.${payload}.test-signature`;
 }
 
-async function mockAuthenticatedApi(page: Page): Promise<void> {
-  await suppressOnboardingPrompt(page, '66f7fae3-51ff-4f80-8d1c-160a35760479');
+// Sem esta rota o refresh do boot vaza para o proxy do Vite e falha por ECONNREFUSED
+// com latência variável, derrubando `restoring` no meio da interação do teste.
+async function mockAnonymousSession(page: Page): Promise<void> {
   await page.route('**/api/auth/refresh', (route) =>
     route.fulfill({
       status: 401,
@@ -33,6 +34,11 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       body: JSON.stringify({ title: 'Unauthorized', status: 401 }),
     }),
   );
+}
+
+async function mockAuthenticatedApi(page: Page): Promise<void> {
+  await suppressOnboardingPrompt(page, '66f7fae3-51ff-4f80-8d1c-160a35760479');
+  await mockAnonymousSession(page);
   await page.route('**/api/auth/login', (route) =>
     route.fulfill({
       status: 200,
@@ -137,14 +143,21 @@ test('shell autenticado e estado vazio não possuem violações WCAG AA', async 
 });
 
 test('login mantém ordem de foco e direciona o primeiro erro', async ({ page }) => {
+  await mockAnonymousSession(page);
   await page.goto('/login');
   const email = page.getByLabel('E-mail');
   const password = page.getByLabel('Senha', { exact: true });
   const togglePassword = page.getByRole('button', { name: 'Mostrar senha' });
   const submit = page.getByRole('button', { name: 'Entrar' });
 
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press('Tab');
+  // `goto` resolve no `load`, mas a rota de login é lazy: sem esperar o formulário
+  // montar, o primeiro Tab é disparado contra o fallback vazio do Suspense.
+  await expect(submit).toBeVisible();
+
+  // O campo de e-mail recebe o foco inicial (`autoFocus` + rAF em LoginPage).
+  // Não use blur+Tab para chegar até ele: cada engine trata o ponto de partida da
+  // navegação sequencial de forma diferente após um blur, e o Chromium continua
+  // do campo anterior, pulando para a senha.
   await expect(email).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(password).toBeFocused();
