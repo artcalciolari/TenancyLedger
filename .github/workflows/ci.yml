@@ -673,6 +673,15 @@ jobs:
           docker compose --env-file .env ${COMPOSE_FILES} up \
             --build --detach --remove-orphans
 
+      - name: Dump the stack state when the deploy fails
+        # `up` só reporta "container X is unhealthy" e não diz por quê. Sem este despejo
+        # a causa (crash no boot, validação de env, migração) só aparece via SSH no servidor.
+        # `|| true` porque diagnóstico não pode abortar no meio por causa de um comando.
+        if: failure()
+        run: |
+          docker compose --env-file .env ${COMPOSE_FILES} ps --all || true
+          docker compose --env-file .env ${COMPOSE_FILES} logs --tail 200 || true
+
       - name: Verify that only the frontend port is published
         run: |
           set -euo pipefail
