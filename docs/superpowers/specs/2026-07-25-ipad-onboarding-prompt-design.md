@@ -10,7 +10,7 @@ When a management user (ADMIN or MANAGER) opens the frontend on an iPad and is a
 ## Scope decisions (confirmed with user)
 
 - **Device:** iPad only. Detection: `/iPad/` in the user agent OR (`Macintosh` in the user agent AND `navigator.maxTouchPoints > 1`), because iPadOS 13+ Safari reports a desktop Mac user agent. Touch-capable Macs matching the heuristic are an accepted edge case.
-- **Frequency:** once per user per device. Dismissal is remembered in `localStorage`; no backend change.
+- **Frequency:** soft dismissal ("Agora não") hides the prompt for the current browser session only (`sessionStorage`); permanent dismissal requires the explicit "Não mostrar novamente" action (`localStorage`). Prevents accidentally silencing the prompt forever when the user logged in for another task. No backend change.
 - **Roles:** ADMIN and MANAGER (`MANAGEMENT_ROLES`), matching the existing `/onboarding` route guard.
 
 ## Components
@@ -31,17 +31,19 @@ MUI `Dialog` rendered inside `AppShell` (mounts for both fresh logins and restor
 
 - `session` exists and `hasRole(session.user.role, MANAGEMENT_ROLES)`;
 - `isIpad()` is true;
-- `localStorage` key `tenancy-ledger:onboarding-prompt-dismissed:v1:<userId>` is absent;
+- permanent-dismissal `localStorage` key `tenancy-ledger:onboarding-prompt-dismissed:v1:<userId>` is absent;
+- soft-dismissal `sessionStorage` key `tenancy-ledger:onboarding-prompt-snoozed:v1:<userId>` is absent;
 - current path is not `/onboarding`.
 
-Content (pt-BR, matching app language): title "Cadastro assistido", body inviting the user to open the onboarding wizard. Actions:
+Content (pt-BR, matching app language): title "Cadastro assistido", body inviting the user to open the onboarding wizard. Three actions:
 
-- **"Abrir assistente"** — set the dismissal key, navigate to `/onboarding`.
-- **"Agora não"** — set the dismissal key, close.
+- **"Abrir assistente"** — set the permanent key (goal reached, no need to prompt again), navigate to `/onboarding`.
+- **"Agora não"** — set the soft key only, close. Prompt reappears on the next browser session/login.
+- **"Não mostrar novamente"** — set the permanent key, close.
 
-Closing via backdrop/Escape also sets the key (any dismissal counts — the prompt never nags twice). `localStorage` access wrapped in `try/catch` (private-mode Safari); on failure the prompt simply won't persist dismissal but must not crash.
+Closing via backdrop/Escape behaves like "Agora não" (soft) — accidental closes must never permanently silence the prompt. Storage access wrapped in `try/catch` (private-mode Safari); on failure the prompt simply won't persist dismissal but must not crash.
 
-Component tests cover: renders for admin on iPad, absent for VIEWER, absent when key present, both actions set the key, "Abrir assistente" navigates.
+Component tests cover: renders for admin on iPad, absent for VIEWER, absent when either key present, each action sets the correct key, backdrop close sets only the soft key, "Abrir assistente" navigates.
 
 ### 3. Navigation entry in `AppShell.tsx`
 
@@ -64,7 +66,7 @@ Plus a `pageMeta` entry: `'/onboarding': { title: 'Cadastro assistido', crumb: '
 
 ## Error handling
 
-- `localStorage` unavailable: prompt still shows, dismissal not persisted, no crash.
+- `localStorage`/`sessionStorage` unavailable: prompt still shows, dismissal not persisted, no crash.
 - No session / restoring: dialog renders nothing (AppShell already sits behind `RequireAuth`, but the guard is cheap).
 
 ## Testing
