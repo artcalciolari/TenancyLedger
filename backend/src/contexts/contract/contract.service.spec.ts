@@ -333,6 +333,16 @@ describe('ContractService', () => {
   });
 
   describe('exportCsv', () => {
+    it('serializes a null helper value as an empty cell', () => {
+      expect(
+        (
+          ContractService as unknown as {
+            csvCell(value: null): string;
+          }
+        ).csvCell(null),
+      ).toBe('');
+    });
+
     it('neutralizes =, +, -, and @ formula prefixes in exported contract cells', async () => {
       const first = persistedContract();
       const second = assignPersistenceFields(

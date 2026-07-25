@@ -88,6 +88,31 @@ describe('metrics infrastructure', () => {
     expect(recordHttpRequest).toHaveBeenCalledWith('GET', '/tenants', 401, expect.any(Number));
   });
 
+  it('records unexpected errors against an unmatched route', async () => {
+    const recordHttpRequest = jest.fn();
+    const interceptor = new MetricsInterceptor({
+      recordHttpRequest,
+    } as unknown as MetricsService);
+    const context = {
+      getType: () => 'http',
+      switchToHttp: () => ({
+        getRequest: () => ({ method: 'POST', route: null }),
+        getResponse: () => ({ statusCode: 200 }),
+      }),
+    } as unknown as ExecutionContext;
+    const error = new Error('unexpected');
+
+    await expect(
+      firstValueFrom(
+        interceptor.intercept(context, {
+          handle: () => throwError(() => error),
+        } as CallHandler),
+      ),
+    ).rejects.toBe(error);
+
+    expect(recordHttpRequest).toHaveBeenCalledWith('POST', 'unmatched', 500, expect.any(Number));
+  });
+
   it('serves metrics only with a constant-time token check', async () => {
     const metrics = {
       contentType: 'text/plain; version=0.0.4',

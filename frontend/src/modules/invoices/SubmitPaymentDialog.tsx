@@ -125,11 +125,7 @@ export function SubmitPaymentDialog({
     },
   });
   const verification = useMutation({
-    mutationFn: () => {
-      const pending = pendingRef.current;
-      if (!pending) throw new Error('Não há envio pendente para verificar.');
-      return invoicesApi.lookupPayment(invoiceId, pending.key);
-    },
+    mutationFn: () => invoicesApi.lookupPayment(invoiceId, pendingRef.current!.key),
     retry: false,
     onSuccess: async () => {
       pendingRef.current = null;
@@ -364,7 +360,7 @@ export function SubmitPaymentDialog({
               Descartar e editar
             </Button>
             <Button
-              onClick={() => pendingRef.current && mutation.mutate(pendingRef.current)}
+              onClick={() => mutation.mutate(pendingRef.current!)}
               disabled={mutation.isPending}
             >
               Tentar novamente

@@ -10,12 +10,7 @@ import { API_BASE_URL } from './client';
 import { ApiError, normalizeProblem } from './problem';
 
 const sessionEndpoints = new Set(['/auth/login', '/auth/logout', '/auth/refresh']);
-const retryableRequests = new Map<string, Request>();
-
-function authorizationToken(request: Request): string | null {
-  const value = request.headers.get('Authorization');
-  return value?.startsWith('Bearer ') ? value.slice('Bearer '.length) : null;
-}
+const retryableRequests = new Map<string, { accessToken: string; request: Request }>();
 
 function withAccessToken(request: Request, accessToken: string): Request {
   const headers = new Headers(request.headers);
@@ -40,31 +35,32 @@ const authenticationMiddleware: Middleware = {
 
     const authenticatedRequest = new Request(request, { headers });
     if (accessToken && !sessionEndpoints.has(schemaPath)) {
-      retryableRequests.set(id, authenticatedRequest.clone());
+      retryableRequests.set(id, { accessToken, request: authenticatedRequest.clone() });
     }
     return authenticatedRequest;
   },
   async onResponse({ id, options, response, schemaPath }) {
-    const retryableRequest = retryableRequests.get(id);
+    const retryable = retryableRequests.get(id);
     retryableRequests.delete(id);
-    if (response.status !== 401 || sessionEndpoints.has(schemaPath) || !retryableRequest) {
+    if (response.status !== 401 || sessionEndpoints.has(schemaPath) || !retryable) {
       return response;
     }
 
-    const rejectedToken = authorizationToken(retryableRequest);
-    if (!rejectedToken) return response;
-
     try {
       const currentToken = readAccessToken();
-      const nextToken =
-        currentToken && currentToken !== rejectedToken
-          ? currentToken
-          : (await refreshSession()).accessToken;
-      const retriedResponse = await options.fetch(withAccessToken(retryableRequest, nextToken));
+      let nextToken: string;
+      if (currentToken === null) {
+        nextToken = (await refreshSession()).accessToken;
+      } else if (currentToken === retryable.accessToken) {
+        nextToken = (await refreshSession()).accessToken;
+      } else {
+        nextToken = currentToken;
+      }
+      const retriedResponse = await options.fetch(withAccessToken(retryable.request, nextToken));
       if (retriedResponse.status === 401) invalidateUnauthorizedSession(nextToken);
       return retriedResponse;
     } catch {
-      invalidateUnauthorizedSession(rejectedToken);
+      invalidateUnauthorizedSession(retryable.accessToken);
       return response;
     }
   },

@@ -14,8 +14,7 @@ export function parseBrlToCents(value: string): number | null {
     : compact;
   if (!/^\d{1,10}(?:[.,]\d{1,2})?$/.test(normalized)) return null;
   const [integerPart, decimalPart = ''] = normalized.replace(',', '.').split('.');
-  const cents = Number(integerPart) * 100 + Number(decimalPart.padEnd(2, '0'));
-  return Number.isSafeInteger(cents) ? cents : null;
+  return Number(integerPart) * 100 + Number(decimalPart.padEnd(2, '0'));
 }
 
 export function availableToSubmit(

@@ -5,8 +5,11 @@ describe('money utilities', () => {
   it('converte entrada BRL sem usar ponto flutuante', () => {
     expect(parseBrlToCents('1.500,25')).toBe(150025);
     expect(parseBrlToCents('1500,25')).toBe(150025);
+    expect(parseBrlToCents('1500.25')).toBe(150025);
     expect(parseBrlToCents('10')).toBe(1000);
     expect(parseBrlToCents('10,5')).toBe(1050);
+    expect(parseBrlToCents('R$ 10,50')).toBe(1050);
+    expect(parseBrlToCents('inválido')).toBeNull();
   });
 
   it('formata centavos em reais', () => {
@@ -21,5 +24,6 @@ describe('money utilities', () => {
         { amountCents: 10_000, status: 'REJECTED' },
       ]),
     ).toBe(50_000);
+    expect(availableToSubmit(10_000, [{ amountCents: 20_000, status: 'APPROVED' }])).toBe(0);
   });
 });

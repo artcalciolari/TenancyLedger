@@ -179,10 +179,10 @@ export function refreshSession(): Promise<AuthSession> {
   refreshInFlight = operation;
   void operation.then(
     () => {
-      if (refreshInFlight === operation) refreshInFlight = null;
+      refreshInFlight = null;
     },
     () => {
-      if (refreshInFlight === operation) refreshInFlight = null;
+      refreshInFlight = null;
     },
   );
   return operation;

@@ -103,7 +103,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         clearStoredSession();
         queryClient.clear();
         setSession(null);
-        setReason(initialSession ? 'expired' : null);
+        setReason(null);
       })
       .finally(() => {
         if (active) setRestoring(false);

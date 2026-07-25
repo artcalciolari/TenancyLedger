@@ -114,4 +114,19 @@ describe('UpdateTenantUseCase', () => {
       new TenantAlreadyExistsError('Já existe um locatário com este e-mail ou telefone.'),
     );
   });
+
+  it('preserves an unexpected persistence error', async () => {
+    const error = new Error('database unavailable');
+    repository.save.mockRejectedValue(error);
+
+    await expect(useCase.execute(TENANT_ID, {})).rejects.toBe(error);
+  });
+
+  it('preserves a query failure with invalid driver metadata', async () => {
+    const error = new QueryFailedError('UPDATE tenants', [], new Error('invalid metadata'));
+    Object.assign(error, { driverError: null });
+    repository.save.mockRejectedValue(error);
+
+    await expect(useCase.execute(TENANT_ID, {})).rejects.toBe(error);
+  });
 });

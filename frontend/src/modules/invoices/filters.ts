@@ -29,10 +29,10 @@ function competence(value: string | null): string | undefined {
 function civilDate(value: string | null): string | undefined {
   const normalized = nonEmpty(value);
   if (!normalized || !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return undefined;
-  const [year, month, day] = normalized.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year ?? 0, (month ?? 0) - 1, day ?? 0));
+  const [year, month, day] = normalized.split('-').map(Number) as [number, number, number];
+  const parsed = new Date(Date.UTC(year, month - 1, day));
   return parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === (month ?? 0) - 1 &&
+    parsed.getUTCMonth() === month - 1 &&
     parsed.getUTCDate() === day
     ? normalized
     : undefined;

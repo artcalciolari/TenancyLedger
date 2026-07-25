@@ -484,4 +484,15 @@ describe('AuthService', () => {
       ]);
     });
   });
+
+  it('ignora códigos de banco ausentes ou não textuais', () => {
+    const internals = service as unknown as {
+      databaseErrorCode(error: unknown): string | undefined;
+    };
+    const primitiveDriverError = new QueryFailedError('INSERT', [], 'unavailable' as never);
+    const numericCode = new QueryFailedError('INSERT', [], { code: 23505 } as never);
+
+    expect(internals.databaseErrorCode(primitiveDriverError)).toBeUndefined();
+    expect(internals.databaseErrorCode(numericCode)).toBeUndefined();
+  });
 });

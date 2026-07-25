@@ -196,6 +196,45 @@ describe('InvoiceGenerationWorker', () => {
     });
   });
 
+  it('advances an older month-to-month period into the generation window', async () => {
+    const value = Contract.create(
+      TENANT_ID,
+      PROPERTY_ID,
+      '2026-05-18',
+      123_45,
+      null,
+      true,
+      18,
+      ContractType.MONTH_TO_MONTH,
+    );
+    Object.defineProperty(value, 'id', { value: CONTRACT_ID });
+    const invoices = new FakeInvoiceRepository();
+
+    const result = await createWorker(invoices, [value]).generateUpcomingInvoices();
+
+    expect(result.created).toBe(2);
+    expect([...invoices.stored.values()]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          periodStart: '2026-06-18',
+          periodEnd: '2026-07-17',
+        }),
+      ]),
+    );
+  });
+
+  it('uses an empty component when Intl omits a requested date part', () => {
+    jest.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts').mockReturnValue([]);
+
+    expect(
+      (
+        InvoiceGenerationWorker as unknown as {
+          dateInTimeZone(date: Date, timeZone: string): string;
+        }
+      ).dateInTimeZone(new Date('2026-07-12T14:00:00.000Z'), 'UTC'),
+    ).toBe('--');
+  });
+
   it('clamps an early monthly due day to the occupancy period and remains idempotent', async () => {
     const value = Contract.create(
       TENANT_ID,

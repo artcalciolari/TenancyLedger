@@ -41,6 +41,25 @@ describe('parseContractFilters', () => {
     expect(filters.moveInFrom).toBeUndefined();
   });
 
+  it('aceita datas civis e cobre cada forma de entrada vazia ou inválida', () => {
+    const filters = parseContractFilters(
+      new URLSearchParams({
+        q: '   ',
+        moveInFrom: '2026-07-12',
+        moveInTo: '12/07/2026',
+        endFrom: '2026-01-32',
+        endTo: '2026-02-29',
+      }),
+    );
+    expect(filters).toMatchObject({
+      q: undefined,
+      moveInFrom: '2026-07-12',
+      moveInTo: undefined,
+      endFrom: undefined,
+      endTo: undefined,
+    });
+  });
+
   it('ativa somente badges conhecidos', () => {
     expect(parseContractFilters(new URLSearchParams({ badge: 'RENEWAL_DUE' })).badge).toBe(
       'RENEWAL_DUE',

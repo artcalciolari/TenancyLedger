@@ -199,4 +199,17 @@ describe('environmentSchema', () => {
     expect(result.value).not.toHaveProperty('JWT_SECRET');
     expect(result.value).not.toHaveProperty('MINIO_ENDPOINT');
   });
+
+  it('rejeita credenciais padrão do PostgreSQL em jobs de produção', () => {
+    const { error } = databaseEnvironmentSchema.validate({
+      NODE_ENV: 'production',
+      DB_HOST: 'postgres.internal',
+      DB_USERNAME: 'postgres',
+      DB_PASSWORD: 'a-strong-database-password',
+      DB_DATABASE: 'tenancy_ledger',
+      DB_SSL: true,
+    });
+
+    expect(error?.details[0]?.type).toBe('environment.productionDatabaseCredentials');
+  });
 });

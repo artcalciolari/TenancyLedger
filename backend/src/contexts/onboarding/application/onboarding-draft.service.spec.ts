@@ -198,6 +198,19 @@ describe('OnboardingDraftService', () => {
     expect(deleteObject).toHaveBeenCalledWith(previousKey);
   });
 
+  it('keeps the object when upload resolves to the already associated key', async () => {
+    const current = draft();
+    current.setPhotoStorageKey(DRAFT_PHOTO_KEY);
+    repository.findOne.mockResolvedValue(current);
+
+    await service.uploadPhoto(DRAFT_ID, USER_ID, false, {
+      contentType: 'image/jpeg',
+      body: Buffer.from('photo'),
+    });
+
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
   it('keeps the upload successful even if cleaning up the previous photo object fails', async () => {
     const current = draft();
     current.setPhotoStorageKey(

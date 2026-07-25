@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   configureSessionRefresh,
+  clearStoredSession,
   readStoredSession,
   SESSION_UNAUTHORIZED_EVENT,
   writeStoredSession,
@@ -44,6 +45,10 @@ const success = () =>
   });
 
 describe('OpenAPI client execution', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('retorna a resposta tipada de sucesso', async () => {
     const data = { id: '123' };
     await expect(
@@ -74,14 +79,44 @@ describe('OpenAPI client execution', () => {
     });
   });
 
+  it('recusa resposta de sucesso sem corpo tipado', async () => {
+    await expect(
+      executeOpenApi(Promise.resolve({ response: new Response(null, { status: 200 }) })),
+    ).rejects.toMatchObject({ status: 200 });
+  });
+
+  it('preserva cancelamentos AbortError', async () => {
+    const error = new DOMException('cancelled', 'AbortError');
+    await expect(executeOpenApi(Promise.reject(error))).rejects.toBe(error);
+    await expect(executeOpenApiVoid(Promise.reject(error))).rejects.toBe(error);
+  });
+
   it('aceita respostas sem conteúdo', async () => {
     await expect(
       executeOpenApiVoid(Promise.resolve({ response: new Response(null, { status: 204 }) })),
     ).resolves.toBeUndefined();
   });
+
+  it('normaliza erro HTTP e falha de rede em respostas sem conteúdo', async () => {
+    await expect(
+      executeOpenApiVoid(
+        Promise.resolve({
+          error: { title: 'Conflict', status: 409 },
+          response: new Response(null, { status: 409 }),
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      executeOpenApiVoid(Promise.reject(new TypeError('offline'))),
+    ).rejects.toMatchObject({ status: 0 });
+  });
 });
 
 describe('OpenAPI client authentication', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('inclui credenciais e coordena um único refresh para respostas 401 concorrentes', async () => {
     const original = session('original');
     const renewed = session('renewed');
@@ -130,7 +165,9 @@ describe('OpenAPI client authentication', () => {
     configureSessionRefresh(requestRefresh);
     const unauthorizedListener = vi.fn();
     window.addEventListener(SESSION_UNAUTHORIZED_EVENT, unauthorizedListener);
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(unauthorized());
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() => Promise.resolve(unauthorized()));
 
     const first = executeOpenApi(openApiClient.GET('/auth/users'));
     const second = executeOpenApi(openApiClient.GET('/auth/users'));
@@ -172,5 +209,108 @@ describe('OpenAPI client authentication', () => {
     ).resolves.toBeUndefined();
     expect(bodies).toHaveLength(2);
     expect(bodies[1]).toBe(bodies[0]);
+  });
+
+  it('não tenta refresh em endpoint de sessão ou chamada anônima', async () => {
+    configureSessionRefresh(vi.fn());
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() => Promise.resolve(unauthorized()));
+
+    await expect(
+      executeOpenApi(
+        openApiClient.POST('/auth/login', {
+          body: { email: 'admin@example.com', password: 'Password-123!' },
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(executeOpenApi(openApiClient.GET('/auth/users'))).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('encerra a sessão quando a repetição também recebe 401', async () => {
+    const original = session('rejected');
+    const renewed = session('renewed-rejected');
+    writeStoredSession(original);
+    configureSessionRefresh(() => Promise.resolve(renewed));
+    const listener = vi.fn();
+    window.addEventListener(SESSION_UNAUTHORIZED_EVENT, listener);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(unauthorized());
+
+    await expect(executeOpenApi(openApiClient.GET('/auth/users'))).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(readStoredSession()).toBeNull();
+    expect(listener).toHaveBeenCalledOnce();
+    window.removeEventListener(SESSION_UNAUTHORIZED_EVENT, listener);
+  });
+
+  it('preserva uma sessão mais nova criada durante a repetição', async () => {
+    const original = session('stale');
+    const renewed = session('renewed');
+    const newest = session('newest');
+    writeStoredSession(original);
+    configureSessionRefresh(() => Promise.resolve(renewed));
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const request = input instanceof Request ? input : new Request(input);
+      if (request.headers.get('Authorization') === `Bearer ${renewed.accessToken}`) {
+        writeStoredSession(newest);
+      }
+      return Promise.resolve(unauthorized());
+    });
+
+    await expect(executeOpenApi(openApiClient.GET('/auth/users'))).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(readStoredSession()).toEqual(newest);
+  });
+
+  it('repete diretamente com token atualizado por outra chamada', async () => {
+    const original = session('original-request');
+    const newest = session('newest-request');
+    writeStoredSession(original);
+    const refresh = vi.fn();
+    configureSessionRefresh(refresh);
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const request = input instanceof Request ? input : new Request(input);
+      if (request.headers.get('Authorization') === `Bearer ${original.accessToken}`) {
+        writeStoredSession(newest);
+        return Promise.resolve(unauthorized());
+      }
+      return Promise.resolve(success());
+    });
+
+    await expect(executeOpenApi(openApiClient.GET('/auth/users'))).resolves.toEqual(usersPage);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('renova quando a sessão some enquanto a requisição está em trânsito', async () => {
+    const original = session('removed');
+    const renewed = session('restored');
+    writeStoredSession(original);
+    configureSessionRefresh(() => Promise.resolve(renewed));
+    let calls = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        clearStoredSession();
+        return Promise.resolve(unauthorized());
+      }
+      return Promise.resolve(success());
+    });
+
+    await expect(executeOpenApi(openApiClient.GET('/auth/users'))).resolves.toEqual(usersPage);
+    expect(readStoredSession()).toEqual(renewed);
+  });
+
+  it('remove requisição retentável quando o fetch falha', async () => {
+    writeStoredSession(session('offline'));
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('offline'));
+
+    await expect(executeOpenApi(openApiClient.GET('/auth/users'))).rejects.toMatchObject({
+      status: 0,
+    });
   });
 });
