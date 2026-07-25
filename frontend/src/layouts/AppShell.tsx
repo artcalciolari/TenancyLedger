@@ -1,4 +1,5 @@
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
+import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
@@ -32,6 +33,7 @@ import { hasRole, MANAGEMENT_ROLES, roleLabel } from '../lib/roles/roles';
 import { useAuth } from '../modules/auth/useAuth';
 import { dashboardApi } from '../modules/dashboard/api';
 import { NotificationsMenu } from '../modules/notifications/NotificationsMenu';
+import { OnboardingPromptDialog } from '../modules/onboarding/OnboardingPromptDialog';
 
 const sidebarWidth = 262;
 const topbarHeight = 68;
@@ -82,6 +84,12 @@ const navigationGroups: NavigationGroup[] = [
         icon: <ApartmentOutlinedIcon />,
         matchPrefixes: ['/portfolio', '/buildings', '/rooms'],
       },
+      {
+        label: 'Cadastro assistido',
+        to: '/onboarding',
+        icon: <AutoFixHighOutlinedIcon />,
+        roles: MANAGEMENT_ROLES,
+      },
     ],
   },
   {
@@ -105,6 +113,7 @@ const pageMeta: Record<string, { title: string; crumb: string }> = {
   '/contracts': { title: 'Contratos', crumb: 'Cadastros' },
   '/contracts/new': { title: 'Novo contrato', crumb: 'Cadastros · Contratos' },
   '/portfolio': { title: 'Prédios e quartos', crumb: 'Cadastros' },
+  '/onboarding': { title: 'Cadastro assistido', crumb: 'Cadastros' },
   '/tenants': { title: 'Locatários', crumb: 'Cadastros' },
   '/tenants/new': { title: 'Novo locatário', crumb: 'Cadastros · Locatários' },
   '/rooms/new': { title: 'Novo quarto', crumb: 'Cadastros · Prédios e quartos' },
@@ -535,6 +544,7 @@ export function AppShell() {
       >
         <Outlet />
       </Box>
+      <OnboardingPromptDialog />
     </Box>
   );
 }
