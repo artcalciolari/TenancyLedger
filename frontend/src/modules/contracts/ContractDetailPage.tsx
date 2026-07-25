@@ -11,7 +11,7 @@ import { brand } from '../../app/theme/theme';
 import { StatusChip } from '../../components/data-display/StatusChip';
 import { TechnicalDetails } from '../../components/data-display/TechnicalDetails';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
-import { LoadingState } from '../../components/feedback/QueryState';
+import { DetailPageSkeleton } from '../../components/feedback/QueryState';
 import { formatCivilDate, formatDateTime } from '../../lib/dates/dates';
 import { formatCents } from '../../lib/money/money';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
@@ -74,7 +74,7 @@ export function ContractDetailPage() {
     enabled: Boolean(contractId),
   });
 
-  if (contract.isPending) return <LoadingState label="Carregando contrato…" />;
+  if (contract.isPending) return <DetailPageSkeleton label="Carregando contrato…" />;
   if (contract.isError) {
     return <ProblemAlert error={contract.error} onRetry={() => void contract.refetch()} />;
   }

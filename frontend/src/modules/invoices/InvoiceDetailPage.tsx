@@ -27,7 +27,7 @@ import { queryKeys } from '../../api/query-keys';
 import { brand, statusTones } from '../../app/theme/theme';
 import { StatusChip, StatusStamp } from '../../components/data-display/StatusChip';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
-import { LoadingState } from '../../components/feedback/QueryState';
+import { DetailPageSkeleton } from '../../components/feedback/QueryState';
 import { formatCivilDate, formatCompetence, formatDateTime } from '../../lib/dates/dates';
 import { availableToSubmit, formatCents } from '../../lib/money/money';
 import { MANAGEMENT_ROLES, hasRole } from '../../lib/roles/roles';
@@ -81,7 +81,7 @@ export function InvoiceDetailPage() {
   });
   const canManage = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
 
-  if (query.isPending) return <LoadingState label="Carregando fatura…" />;
+  if (query.isPending) return <DetailPageSkeleton label="Carregando fatura…" />;
   if (query.isError) return <ProblemAlert error={query.error} onRetry={() => query.refetch()} />;
 
   const invoice = query.data;

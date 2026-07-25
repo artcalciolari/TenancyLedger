@@ -45,7 +45,7 @@ import {
 } from '../../components/data-display/useListSearchParams';
 import { StatusChip } from '../../components/data-display/StatusChip';
 import { CsvExportButton } from '../../components/data-display/CsvExportButton';
-import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
+import { EmptyState, ListPageSkeleton } from '../../components/feedback/QueryState';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { formatCivilDate, formatCompetence } from '../../lib/dates/dates';
 import { isUuidV4 } from '../../lib/identifiers/uuid';
@@ -245,6 +245,7 @@ export function InvoiceListPage() {
     resetTo: 'last',
     preserveLimitParam: true,
   });
+  const showInitialLoading = (query.isPending || pageOutOfRange) && !query.data;
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState(filters.q ?? '');
   const [lastSyncedQ, setLastSyncedQ] = useState(filters.q ?? '');
@@ -362,8 +363,8 @@ export function InvoiceListPage() {
           </Box>
         )}
       </Card>
-      {query.isPending || pageOutOfRange ? (
-        <LoadingState label="Carregando faturas…" />
+      {showInitialLoading ? (
+        <ListPageSkeleton label="Carregando faturas…" />
       ) : query.isError ? (
         <ProblemAlert error={query.error} onRetry={() => query.refetch()} />
       ) : query.data.data.length === 0 ? (

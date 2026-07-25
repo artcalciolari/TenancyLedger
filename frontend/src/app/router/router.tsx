@@ -2,126 +2,82 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { PlaceholderPage } from '../../components/feedback/PlaceholderPage';
 import { RouteErrorPage } from '../../components/feedback/AppErrorBoundary';
-import { LoadingState } from '../../components/feedback/QueryState';
+import {
+  AuthFormSkeleton,
+  DashboardSkeleton,
+  DetailPageSkeleton,
+  FormPageSkeleton,
+  ListPageSkeleton,
+} from '../../components/feedback/QueryState';
 import { AppShell } from '../../layouts/AppShell';
 import { AuthLayout } from '../../layouts/AuthLayout';
 import { RequireAuth, RequireRole } from './guards';
+import {
+  loadBuildingDetailPage,
+  loadCashboxPage,
+  loadChangePasswordPage,
+  loadContractDetailPage,
+  loadContractsPage,
+  loadDashboardPage,
+  loadInvoiceDetailPage,
+  loadInvoiceListPage,
+  loadLoginPage,
+  loadNewBuildingPage,
+  loadNewContractPage,
+  loadNewRoomPage,
+  loadNewTenantPage,
+  loadNewUserPage,
+  loadOnboardingWizard,
+  loadPortfolioPage,
+  loadReviewPaymentsPage,
+  loadRoomDetailPage,
+  loadTenantDetailPage,
+  loadTenantsPage,
+  loadUsersPage,
+} from './routePrefetch';
 
-const LoginPage = lazy(() =>
-  import('../../modules/auth/LoginPage').then((module) => ({ default: module.LoginPage })),
-);
-const DashboardPage = lazy(() =>
-  import('../../modules/dashboard/DashboardPage').then((module) => ({
-    default: module.DashboardPage,
-  })),
-);
-const ChangePasswordPage = lazy(() =>
-  import('../../modules/auth/ChangePasswordPage').then((module) => ({
-    default: module.ChangePasswordPage,
-  })),
-);
-const ContractsPage = lazy(() =>
-  import('../../modules/contracts/ContractsPage').then((module) => ({
-    default: module.ContractsPage,
-  })),
-);
-const NewContractPage = lazy(() =>
-  import('../../modules/contracts/NewContractPage').then((module) => ({
-    default: module.NewContractPage,
-  })),
-);
-const ContractDetailPage = lazy(() =>
-  import('../../modules/contracts/ContractDetailPage').then((module) => ({
-    default: module.ContractDetailPage,
-  })),
-);
-const InvoiceListPage = lazy(() =>
-  import('../../modules/invoices/InvoiceListPage').then((module) => ({
-    default: module.InvoiceListPage,
-  })),
-);
-const InvoiceDetailPage = lazy(() =>
-  import('../../modules/invoices/InvoiceDetailPage').then((module) => ({
-    default: module.InvoiceDetailPage,
-  })),
-);
-const ReviewPaymentsPage = lazy(() =>
-  import('../../modules/invoices/ReviewPaymentsPage').then((module) => ({
-    default: module.ReviewPaymentsPage,
-  })),
-);
-const PortfolioPage = lazy(() =>
-  import('../../modules/portfolio/PortfolioPage').then((module) => ({
-    default: module.PortfolioPage,
-  })),
-);
-const NewRoomPage = lazy(() =>
-  import('../../modules/rooms/NewRoomPage').then((module) => ({
-    default: module.NewRoomPage,
-  })),
-);
-const RoomDetailPage = lazy(() =>
-  import('../../modules/rooms/RoomDetailPage').then((module) => ({
-    default: module.RoomDetailPage,
-  })),
-);
-const NewBuildingPage = lazy(() =>
-  import('../../modules/buildings/NewBuildingPage').then((module) => ({
-    default: module.NewBuildingPage,
-  })),
-);
-const BuildingDetailPage = lazy(() =>
-  import('../../modules/buildings/BuildingDetailPage').then((module) => ({
-    default: module.BuildingDetailPage,
-  })),
-);
-const TenantsPage = lazy(() =>
-  import('../../modules/tenants/TenantsPage').then((module) => ({ default: module.TenantsPage })),
-);
-const NewTenantPage = lazy(() =>
-  import('../../modules/tenants/NewTenantPage').then((module) => ({
-    default: module.NewTenantPage,
-  })),
-);
-const TenantDetailPage = lazy(() =>
-  import('../../modules/tenants/TenantDetailPage').then((module) => ({
-    default: module.TenantDetailPage,
-  })),
-);
-const UsersPage = lazy(() =>
-  import('../../modules/users/UsersPage').then((module) => ({ default: module.UsersPage })),
-);
-const NewUserPage = lazy(() =>
-  import('../../modules/users/NewUserPage').then((module) => ({ default: module.NewUserPage })),
-);
-const OnboardingWizard = lazy(() =>
-  import('../../modules/onboarding/OnboardingWizard').then((module) => ({
-    default: module.OnboardingWizard,
-  })),
-);
-const CashboxPage = lazy(() =>
-  import('../../modules/cashbox/CashboxPage').then((module) => ({
-    default: module.CashboxPage,
-  })),
-);
+const LoginPage = lazy(loadLoginPage);
+const DashboardPage = lazy(loadDashboardPage);
+const ChangePasswordPage = lazy(loadChangePasswordPage);
+const ContractsPage = lazy(loadContractsPage);
+const NewContractPage = lazy(loadNewContractPage);
+const ContractDetailPage = lazy(loadContractDetailPage);
+const InvoiceListPage = lazy(loadInvoiceListPage);
+const InvoiceDetailPage = lazy(loadInvoiceDetailPage);
+const ReviewPaymentsPage = lazy(loadReviewPaymentsPage);
+const PortfolioPage = lazy(loadPortfolioPage);
+const NewRoomPage = lazy(loadNewRoomPage);
+const RoomDetailPage = lazy(loadRoomDetailPage);
+const NewBuildingPage = lazy(loadNewBuildingPage);
+const BuildingDetailPage = lazy(loadBuildingDetailPage);
+const TenantsPage = lazy(loadTenantsPage);
+const NewTenantPage = lazy(loadNewTenantPage);
+const TenantDetailPage = lazy(loadTenantDetailPage);
+const UsersPage = lazy(loadUsersPage);
+const NewUserPage = lazy(loadNewUserPage);
+const OnboardingWizard = lazy(loadOnboardingWizard);
+const CashboxPage = lazy(loadCashboxPage);
 
 const managementRoles = ['ADMIN', 'MANAGER'] as const;
 
-const page = (element: ReactNode) => (
-  <Suspense fallback={<LoadingState label="Carregando página…" />}>{element}</Suspense>
-);
+const page = (
+  element: ReactNode,
+  fallback: ReactNode = <ListPageSkeleton label="Carregando página…" />,
+) => <Suspense fallback={fallback}>{element}</Suspense>;
 
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: <AuthLayout>{page(<LoginPage />)}</AuthLayout>,
+    element: <AuthLayout>{page(<LoginPage />, <AuthFormSkeleton />)}</AuthLayout>,
     errorElement: <RouteErrorPage />,
   },
   {
     path: '/onboarding',
     element: (
       <RequireAuth>
-        <RequireRole roles={managementRoles}>{page(<OnboardingWizard />)}</RequireRole>
+        <RequireRole roles={managementRoles}>
+          {page(<OnboardingWizard />, <FormPageSkeleton />)}
+        </RequireRole>
       </RequireAuth>
     ),
     errorElement: <RouteErrorPage />,
@@ -138,51 +94,67 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       {
         path: 'dashboard',
-        element: page(<DashboardPage />),
+        element: page(<DashboardPage />, <DashboardSkeleton />),
       },
       {
         path: 'invoices',
-        element: page(<InvoiceListPage />),
+        element: page(<InvoiceListPage />, <ListPageSkeleton label="Carregando faturas…" />),
       },
       {
         path: 'invoices/:invoiceId',
-        element: page(<InvoiceDetailPage />),
+        element: page(<InvoiceDetailPage />, <DetailPageSkeleton label="Carregando fatura…" />),
       },
       {
         path: 'payments/review',
-        element: <RequireRole roles={managementRoles}>{page(<ReviewPaymentsPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={managementRoles}>
+            {page(<ReviewPaymentsPage />, <ListPageSkeleton label="Carregando pagamentos…" />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'cashbox',
-        element: <RequireRole roles={managementRoles}>{page(<CashboxPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={managementRoles}>
+            {page(<CashboxPage />, <ListPageSkeleton label="Carregando caixa…" />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'contracts',
-        element: page(<ContractsPage />),
+        element: page(<ContractsPage />, <ListPageSkeleton label="Carregando contratos…" />),
       },
       {
         path: 'contracts/new',
-        element: <RequireRole roles={managementRoles}>{page(<NewContractPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={managementRoles}>
+            {page(<NewContractPage />, <FormPageSkeleton />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'contracts/:contractId',
-        element: page(<ContractDetailPage />),
+        element: page(<ContractDetailPage />, <DetailPageSkeleton label="Carregando contrato…" />),
       },
       {
         path: 'tenants',
-        element: page(<TenantsPage />),
+        element: page(<TenantsPage />, <ListPageSkeleton label="Carregando locatários…" />),
       },
       {
         path: 'tenants/new',
-        element: <RequireRole roles={managementRoles}>{page(<NewTenantPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={managementRoles}>
+            {page(<NewTenantPage />, <FormPageSkeleton />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'tenants/:tenantId',
-        element: page(<TenantDetailPage />),
+        element: page(<TenantDetailPage />, <DetailPageSkeleton label="Carregando locatário…" />),
       },
       {
         path: 'portfolio',
-        element: page(<PortfolioPage />),
+        element: page(<PortfolioPage />, <ListPageSkeleton label="Carregando portfólio…" />),
       },
       {
         path: 'rooms',
@@ -190,11 +162,15 @@ export const router = createBrowserRouter([
       },
       {
         path: 'rooms/new',
-        element: <RequireRole roles={managementRoles}>{page(<NewRoomPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={managementRoles}>
+            {page(<NewRoomPage />, <FormPageSkeleton />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'rooms/:roomId',
-        element: page(<RoomDetailPage />),
+        element: page(<RoomDetailPage />, <DetailPageSkeleton label="Carregando quarto…" />),
       },
       {
         path: 'buildings',
@@ -202,23 +178,33 @@ export const router = createBrowserRouter([
       },
       {
         path: 'buildings/new',
-        element: <RequireRole roles={managementRoles}>{page(<NewBuildingPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={managementRoles}>
+            {page(<NewBuildingPage />, <FormPageSkeleton />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'buildings/:buildingId',
-        element: page(<BuildingDetailPage />),
+        element: page(<BuildingDetailPage />, <DetailPageSkeleton label="Carregando prédio…" />),
       },
       {
         path: 'users',
-        element: <RequireRole roles={['ADMIN']}>{page(<UsersPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={['ADMIN']}>
+            {page(<UsersPage />, <ListPageSkeleton label="Carregando usuários…" />)}
+          </RequireRole>
+        ),
       },
       {
         path: 'users/new',
-        element: <RequireRole roles={['ADMIN']}>{page(<NewUserPage />)}</RequireRole>,
+        element: (
+          <RequireRole roles={['ADMIN']}>{page(<NewUserPage />, <FormPageSkeleton />)}</RequireRole>
+        ),
       },
       {
         path: 'account/password',
-        element: page(<ChangePasswordPage />),
+        element: page(<ChangePasswordPage />, <FormPageSkeleton />),
       },
       {
         path: 'forbidden',

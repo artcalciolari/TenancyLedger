@@ -37,7 +37,7 @@ import {
 import { StatusChip } from '../../components/data-display/StatusChip';
 import { CsvExportButton } from '../../components/data-display/CsvExportButton';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
-import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
+import { EmptyState, ListPageSkeleton } from '../../components/feedback/QueryState';
 import { formatCivilDate } from '../../lib/dates/dates';
 import { formatCents } from '../../lib/money/money';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
@@ -216,6 +216,7 @@ export function ContractsPage() {
     resetTo: 'last',
     preserveLimitParam: true,
   });
+  const showInitialLoading = (contracts.isPending || pageOutOfRange) && !contracts.data;
 
   // Aplica a busca com um pequeno atraso, sem alterar a forma como o filtro é consultado.
   useEffect(() => {
@@ -335,8 +336,8 @@ export function ContractsPage() {
           </Box>
         )}
       </Card>
-      {contracts.isPending || pageOutOfRange ? (
-        <LoadingState label="Carregando contratos…" />
+      {showInitialLoading ? (
+        <ListPageSkeleton label="Carregando contratos…" />
       ) : contracts.isError ? (
         <ProblemAlert error={contracts.error} onRetry={() => void contracts.refetch()} />
       ) : rows.length === 0 ? (

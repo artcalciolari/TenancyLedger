@@ -21,7 +21,7 @@ import { queryKeys } from '../../api/query-keys';
 import { PageHeader } from '../../components/data-display/PageHeader';
 import { StatusChip } from '../../components/data-display/StatusChip';
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
-import { LoadingState } from '../../components/feedback/QueryState';
+import { DashboardSkeleton } from '../../components/feedback/QueryState';
 import { brand, statusTones, type StatusTone } from '../../app/theme/theme';
 import { formatCivilDate, formatCompetence, formatDateTime } from '../../lib/dates/dates';
 import { formatCents } from '../../lib/money/money';
@@ -238,7 +238,9 @@ export function DashboardPage() {
     staleTime: 15_000,
   });
 
-  if (summary.isPending) return <LoadingState label="Carregando visão geral…" />;
+  if (summary.isPending && !summary.data) {
+    return <DashboardSkeleton label="Carregando visão geral…" />;
+  }
   if (summary.isError) {
     return <ProblemAlert error={summary.error} onRetry={() => void summary.refetch()} />;
   }

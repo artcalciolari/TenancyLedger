@@ -26,6 +26,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import { Link as RouterLink, Outlet, useLocation } from 'react-router';
 import { queryKeys } from '../api/query-keys';
 import type { UserRole } from '../api/contract';
+import { prefetchRoute } from '../app/router/routePrefetch';
 import { brand } from '../app/theme/theme';
 import { hasRole, MANAGEMENT_ROLES, roleLabel } from '../lib/roles/roles';
 import { useAuth } from '../modules/auth/useAuth';
@@ -249,6 +250,8 @@ export function AppShell() {
                   key={item.to}
                   component={RouterLink}
                   to={item.to}
+                  onMouseEnter={() => prefetchRoute(item.to)}
+                  onFocus={() => prefetchRoute(item.to)}
                   onClick={() => setMobileOpen(false)}
                   sx={{
                     position: 'relative',
@@ -331,6 +334,8 @@ export function AppShell() {
           spacing={1.4}
           component={RouterLink}
           to="/account/password"
+          onMouseEnter={() => prefetchRoute('/account/password')}
+          onFocus={() => prefetchRoute('/account/password')}
           onClick={() => setMobileOpen(false)}
           sx={{
             alignItems: 'center',
