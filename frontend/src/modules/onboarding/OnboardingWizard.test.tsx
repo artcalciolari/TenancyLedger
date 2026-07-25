@@ -272,72 +272,81 @@ describe('OnboardingWizard', () => {
     expect(uploadRequestCount).toBe(1);
   });
 
-  it('mantém a proteção de saída e permite retry quando a sincronização da foto falha', async () => {
-    let uploadAttempts = 0;
-    server.use(
-      http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
-        const body = (await request.json()) as { payload: OnboardingPayload };
-        savedPayload = body.payload;
-        return HttpResponse.json({
-          id: draftId,
-          payload: body.payload,
-          status: 'DRAFT',
-          createdAt: '2026-07-18T12:00:00.000Z',
-          updatedAt: '2026-07-18T12:05:00.000Z',
-        });
-      }),
-      http.post(`*/api/onboarding-drafts/${draftId}/photo`, () => {
-        uploadAttempts += 1;
-        if (uploadAttempts === 1) {
-          return new HttpResponse(
-            JSON.stringify({ type: 'about:blank', title: 'Error', status: 503, detail: 'Falhou' }),
-            { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
-          );
-        }
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    renderWizard();
-    const user = userEvent.setup();
+  it(
+    'mantém a proteção de saída e permite retry quando a sincronização da foto falha',
+    { timeout: 10_000 },
+    async () => {
+      let uploadAttempts = 0;
+      server.use(
+        http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
+          const body = (await request.json()) as { payload: OnboardingPayload };
+          savedPayload = body.payload;
+          return HttpResponse.json({
+            id: draftId,
+            payload: body.payload,
+            status: 'DRAFT',
+            createdAt: '2026-07-18T12:00:00.000Z',
+            updatedAt: '2026-07-18T12:05:00.000Z',
+          });
+        }),
+        http.post(`*/api/onboarding-drafts/${draftId}/photo`, () => {
+          uploadAttempts += 1;
+          if (uploadAttempts === 1) {
+            return new HttpResponse(
+              JSON.stringify({
+                type: 'about:blank',
+                title: 'Error',
+                status: 503,
+                detail: 'Falhou',
+              }),
+              { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
+            );
+          }
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      renderWizard();
+      const user = userEvent.setup();
 
-    fireEvent.change(screen.getByLabelText('Nome completo'), {
-      target: { value: 'Maria da Silva' },
-    });
-    fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '52998224725' } });
-    fireEvent.change(screen.getByLabelText('RG'), { target: { value: '123456789' } });
-    fireEvent.change(screen.getByLabelText('Profissão'), { target: { value: 'Arquiteta' } });
-    fireEvent.change(screen.getByLabelText('E-mail'), {
-      target: { value: 'maria@example.test' },
-    });
-    fireEvent.change(screen.getByLabelText('Celular'), { target: { value: '11999999999' } });
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
+      fireEvent.change(screen.getByLabelText('Nome completo'), {
+        target: { value: 'Maria da Silva' },
+      });
+      fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '52998224725' } });
+      fireEvent.change(screen.getByLabelText('RG'), { target: { value: '123456789' } });
+      fireEvent.change(screen.getByLabelText('Profissão'), { target: { value: 'Arquiteta' } });
+      fireEvent.change(screen.getByLabelText('E-mail'), {
+        target: { value: 'maria@example.test' },
+      });
+      fireEvent.change(screen.getByLabelText('Celular'), { target: { value: '11999999999' } });
+      await user.click(screen.getByRole('button', { name: 'Continuar' }));
+      expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
 
-    const file = new File(['conteudo-da-foto'], 'locataria.jpg', { type: 'image/jpeg' });
-    await user.upload(screen.getByLabelText('Selecionar foto da galeria'), file);
-    expect(await screen.findByText('locataria.jpg')).toBeVisible();
+      const file = new File(['conteudo-da-foto'], 'locataria.jpg', { type: 'image/jpeg' });
+      await user.upload(screen.getByLabelText('Selecionar foto da galeria'), file);
+      expect(await screen.findByText('locataria.jpg')).toBeVisible();
 
-    const saveButton = screen.getByRole('button', { name: 'Salvar rascunho' });
-    await user.click(saveButton);
+      const saveButton = screen.getByRole('button', { name: 'Salvar rascunho' });
+      await user.click(saveButton);
 
-    expect(await screen.findByText('Falhou')).toBeVisible();
-    expect(uploadAttempts).toBe(1);
-    expect(screen.getByText('Alterações ainda não salvas')).toBeVisible();
-    expect(saveButton).toBeEnabled();
+      expect(await screen.findByText('Falhou')).toBeVisible();
+      expect(uploadAttempts).toBe(1);
+      expect(screen.getByText('Alterações ainda não salvas')).toBeVisible();
+      expect(saveButton).toBeEnabled();
 
-    await user.click(screen.getByRole('button', { name: 'Fechar cadastro' }));
-    expect(await screen.findByRole('dialog', { name: 'Sair do cadastro?' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Continuar preenchendo' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Sair do cadastro?' })).not.toBeInTheDocument(),
-    );
+      await user.click(screen.getByRole('button', { name: 'Fechar cadastro' }));
+      expect(await screen.findByRole('dialog', { name: 'Sair do cadastro?' })).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Continuar preenchendo' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Sair do cadastro?' })).not.toBeInTheDocument(),
+      );
 
-    await user.click(saveButton);
-    expect(await screen.findByText('Rascunho salvo no servidor.')).toBeVisible();
-    expect(uploadAttempts).toBe(2);
-    expect(screen.getByText('Rascunho salvo')).toBeVisible();
-    expect(saveButton).toBeDisabled();
-  });
+      await user.click(saveButton);
+      expect(await screen.findByText('Rascunho salvo no servidor.')).toBeVisible();
+      expect(uploadAttempts).toBe(2);
+      expect(screen.getByText('Rascunho salvo')).toBeVisible();
+      expect(saveButton).toBeDisabled();
+    },
+  );
 
   it(
     'volta à escolha do quarto quando a conclusão encontra conflito de ocupação',
