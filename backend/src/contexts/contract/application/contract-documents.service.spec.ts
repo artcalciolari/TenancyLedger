@@ -1,7 +1,8 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { EntityManager, Repository } from 'typeorm';
 import type { StorageService } from '../../../infrastructure/storage.service';
-import { PropertyUnit, UnitType } from '../../property/domain/property-unit.entity';
+import { Room } from '../../property/domain/room.entity';
+import { Building } from '../../property/domain/building.entity';
 import { Tenant } from '../../tenant/domain/entities/tenant.entity';
 import {
   ContractDocument,
@@ -13,7 +14,8 @@ import { ContractDocumentsService } from './contract-documents.service';
 
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
 const USER_ID = '957a3866-f282-48d7-9180-5cbf99c74982';
 const DOCUMENT_ID = 'df248760-6617-4dae-a7f2-3e80d7eac89a';
 const CREATED_AT = new Date('2026-07-18T15:30:00.000Z');
@@ -23,13 +25,13 @@ function assignId(target: object, id: string): void {
 }
 
 function pendingContract(): Contract {
-  const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 185_000);
+  const contract = Contract.createPendingSignature(TENANT_ID, ROOM_ID, '2026-07-18', 185_000);
   assignId(contract, CONTRACT_ID);
   return contract;
 }
 
 function fixedContract(): Contract {
-  const contract = Contract.create(TENANT_ID, PROPERTY_ID, '2026-07-18', 185_000, 12, true);
+  const contract = Contract.create(TENANT_ID, ROOM_ID, '2026-07-18', 185_000, 12, true);
   assignId(contract, CONTRACT_ID);
   return contract;
 }
@@ -55,7 +57,8 @@ describe('ContractDocumentsService', () => {
   };
   let contracts: jest.Mocked<Pick<Repository<Contract>, 'findOneBy' | 'existsBy'>>;
   let tenants: jest.Mocked<Pick<Repository<Tenant>, 'findOneBy'>>;
-  let properties: jest.Mocked<Pick<Repository<PropertyUnit>, 'findOneBy'>>;
+  let rooms: jest.Mocked<Pick<Repository<Room>, 'findOneBy'>>;
+  let buildings: jest.Mocked<Pick<Repository<Building>, 'findOneBy'>>;
   let transaction: jest.Mock;
   let manager: EntityManager;
   let transactionalContractFind: jest.Mock;
@@ -120,11 +123,17 @@ describe('ContractDocumentsService', () => {
         rg: '12.345.678-9',
       }),
     };
-    properties = {
+    rooms = {
       findOneBy: jest.fn().mockResolvedValue({
-        id: PROPERTY_ID,
-        type: UnitType.APARTMENT,
-        unitNumber: '101-A',
+        id: ROOM_ID,
+        number: '101-A',
+        buildingId: BUILDING_ID,
+      }),
+    };
+    buildings = {
+      findOneBy: jest.fn().mockResolvedValue({
+        id: BUILDING_ID,
+        name: 'Edifício Aurora',
         neighborhood: 'Centro',
       }),
     };
@@ -143,7 +152,8 @@ describe('ContractDocumentsService', () => {
       documents as unknown as Repository<ContractDocument>,
       contracts as unknown as Repository<Contract>,
       tenants as unknown as Repository<Tenant>,
-      properties as unknown as Repository<PropertyUnit>,
+      rooms as unknown as Repository<Room>,
+      buildings as unknown as Repository<Building>,
       { uploadDocument, createDocumentReadUrl, deleteObject } as unknown as StorageService,
       { render } as unknown as ContractDocumentRenderer,
     );
@@ -157,7 +167,7 @@ describe('ContractDocumentsService', () => {
         tenantName: 'Maria da Silva',
         tenantCpf: '52998224725',
         tenantRg: '12.345.678-9',
-        propertyDescription: 'APARTMENT 101-A — Centro',
+        roomDescription: 'Quarto 101-A — Edifício Aurora, Centro',
         monthlyValueCents: 185_000,
         moveInDate: '2026-07-18',
         firstPeriodEnd: '2026-08-17',
@@ -180,11 +190,12 @@ describe('ContractDocumentsService', () => {
     );
   });
 
-  it.each(['tenant', 'property'] as const)(
+  it.each(['tenant', 'room', 'building'] as const)(
     'rejects preview when the related %s is missing',
     async (relation) => {
       if (relation === 'tenant') tenants.findOneBy.mockResolvedValue(null);
-      else properties.findOneBy.mockResolvedValue(null);
+      else if (relation === 'room') rooms.findOneBy.mockResolvedValue(null);
+      else buildings.findOneBy.mockResolvedValue(null);
       await expect(service.preview(CONTRACT_ID)).rejects.toEqual(
         new NotFoundException('Relacionamentos do contrato não encontrados.'),
       );
@@ -318,7 +329,7 @@ describe('ContractDocumentsService', () => {
         tenantName: 'Maria da Silva',
         tenantCpf: '52998224725',
         tenantRg: '12.345.678-9',
-        propertyDescription: 'APARTMENT 101-A — Centro',
+        roomDescription: 'Quarto 101-A — Edifício Aurora, Centro',
         monthlyValueCents: 185_000,
         moveInDate: '2026-07-18',
         firstPeriodEnd: '2026-08-17',
@@ -383,11 +394,12 @@ describe('ContractDocumentsService', () => {
     expect(deleteObject).not.toHaveBeenCalled();
   });
 
-  it.each(['tenant', 'property'] as const)(
+  it.each(['tenant', 'room', 'building'] as const)(
     'rejects generation when the related %s is missing',
     async (relation) => {
       if (relation === 'tenant') tenants.findOneBy.mockResolvedValue(null);
-      else properties.findOneBy.mockResolvedValue(null);
+      else if (relation === 'room') rooms.findOneBy.mockResolvedValue(null);
+      else buildings.findOneBy.mockResolvedValue(null);
 
       await expect(service.generate(CONTRACT_ID, USER_ID)).rejects.toEqual(
         new NotFoundException('Relacionamentos do contrato não encontrados.'),

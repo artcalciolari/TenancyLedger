@@ -257,6 +257,26 @@ function changedLinesInLocation(changedLines, location) {
   );
 }
 
+function sameLocation(left, right) {
+  return (
+    isLocation(left) &&
+    isLocation(right) &&
+    left.start.line === right.start.line &&
+    left.start.column === right.start.column &&
+    left.end.line === right.end.line &&
+    left.end.column === right.end.column
+  );
+}
+
+function isIndistinguishableCompilerConditional(branchMetadata) {
+  const locations = Array.isArray(branchMetadata.locations) ? branchMetadata.locations : [];
+  return (
+    branchMetadata.type === 'cond-expr' &&
+    locations.length > 1 &&
+    locations.every((location) => sameLocation(location, locations[0]))
+  );
+}
+
 function numericHitCount(value) {
   const count = Number(value);
   return Number.isFinite(count) && count > 0 ? count : 0;
@@ -306,6 +326,11 @@ function analyzeFileCoverage(filePath, changedLines, fileCoverage) {
   }
 
   for (const [branchId, branchMetadata] of Object.entries(fileCoverage.branchMap ?? {})) {
+    // TypeScript decorator metadata can be emitted as a conditional whose outcomes collapse to
+    // the same source location. Istanbul cannot distinguish those outcomes, so counting the
+    // synthetic zero-hit side would measure compiler instrumentation rather than behavior.
+    if (isIndistinguishableCompilerConditional(branchMetadata)) continue;
+
     const locations = Array.isArray(branchMetadata.locations) ? branchMetadata.locations : [];
     const branchLocation = isLocation(branchMetadata.loc) ? branchMetadata.loc : locations[0];
     const touchedLines = changedLinesInLocation(changedLines, branchLocation);

@@ -13,6 +13,7 @@ interface TestFilters {
   limit: number;
   q?: string;
   kind?: 'a' | 'b';
+  date?: string;
 }
 
 const config: ListSearchConfig<TestFilters> = {
@@ -27,6 +28,24 @@ const config: ListSearchConfig<TestFilters> = {
       kind: rawKind === 'a' || rawKind === 'b' ? rawKind : undefined,
     };
   },
+};
+
+const scopedConfig: ListSearchConfig<TestFilters> = {
+  filterKeys: ['q', 'kind', 'date'],
+  hasFiltersKeys: ['q', 'kind'],
+  pageParam: 'roomsPage',
+  limitParam: 'roomsLimit',
+  paramNames: { q: 'roomsQ', kind: 'roomsKind', date: 'date' },
+  parse: (searchParams, page, limit) => ({
+    page,
+    limit,
+    q: searchParams.get('q')?.trim() ?? undefined,
+    kind:
+      searchParams.get('kind') === 'a' || searchParams.get('kind') === 'b'
+        ? (searchParams.get('kind') as 'a' | 'b')
+        : undefined,
+    date: searchParams.get('date') ?? undefined,
+  }),
 };
 
 function wrapperAt(entry: string) {
@@ -164,6 +183,44 @@ describe('useListSearchParams', () => {
       expect(params.get('q')).toBe('teste');
       expect(params.get('kind')).toBe('a');
       expect(result.current.navigationType).toBe('REPLACE');
+    });
+  });
+
+  it('suporta chaves namespaced sem contaminar parâmetros paralelos', async () => {
+    const { result } = renderHook(
+      () => {
+        const list = useListSearchParams(scopedConfig);
+        return { list, search: useLocation().search };
+      },
+      {
+        wrapper: wrapperAt(
+          '/?tab=rooms&date=2026-07-24&roomsPage=3&roomsLimit=50&roomsQ=101&roomsKind=a&buildingsQ=aurora',
+        ),
+      },
+    );
+
+    expect(result.current.list.filters).toEqual({
+      page: 3,
+      limit: 50,
+      q: '101',
+      kind: 'a',
+      date: '2026-07-24',
+    });
+    expect(result.current.list.hasFilters).toBe(true);
+
+    act(() => result.current.list.updateFilters({ q: '102', kind: undefined }));
+
+    await waitFor(() => {
+      const params = currentParams(result.current.search);
+      expect(params.get('tab')).toBe('rooms');
+      expect(params.get('date')).toBe('2026-07-24');
+      expect(params.get('roomsPage')).toBe('1');
+      expect(params.get('roomsLimit')).toBe('50');
+      expect(params.get('roomsQ')).toBe('102');
+      expect(params.has('roomsKind')).toBe(false);
+      expect(params.get('buildingsQ')).toBe('aurora');
+      expect(params.has('q')).toBe(false);
+      expect(params.has('kind')).toBe(false);
     });
   });
 });

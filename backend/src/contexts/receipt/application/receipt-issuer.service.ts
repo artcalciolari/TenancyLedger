@@ -7,8 +7,9 @@ import {
   PaymentStatus,
   PaymentTransaction,
 } from '../../invoice/domain/entities/payment-transaction.entity';
-import { PropertyUnit } from '../../property/domain/property-unit.entity';
-import { describePropertyUnit } from '../../property/domain/property-unit.description';
+import { Room } from '../../property/domain/room.entity';
+import { Building } from '../../property/domain/building.entity';
+import { describeRoom } from '../../property/domain/room-description';
 import { Tenant } from '../../tenant/domain/entities/tenant.entity';
 import { Receipt } from '../domain/receipt.entity';
 import { ReceiptDocumentRenderer } from '../infrastructure/receipt-document.renderer';
@@ -36,11 +37,15 @@ export class ReceiptIssuerService {
 
     const contract = await manager.getRepository(Contract).findOneBy({ id: invoice.contractId });
     if (!contract) throw new NotFoundException('Contrato do recibo não encontrado.');
-    const [tenant, property] = await Promise.all([
+    const [tenant, room] = await Promise.all([
       manager.getRepository(Tenant).findOneBy({ id: contract.tenantId }),
-      manager.getRepository(PropertyUnit).findOneBy({ id: contract.propertyUnitId }),
+      manager.getRepository(Room).findOneBy({ id: contract.roomId }),
     ]);
-    if (!tenant || !property) {
+    if (!tenant || !room) {
+      throw new NotFoundException('Dados relacionados do recibo não encontrados.');
+    }
+    const building = await manager.getRepository(Building).findOneBy({ id: room.buildingId });
+    if (!building) {
       throw new NotFoundException('Dados relacionados do recibo não encontrados.');
     }
 
@@ -57,8 +62,8 @@ export class ReceiptIssuerService {
         tenantId: tenant.id,
         tenantName: tenant.name,
         tenantCpf: tenant.cpf,
-        propertyUnitId: property.id,
-        propertyDescription: describePropertyUnit(property),
+        roomId: room.id,
+        roomDescription: describeRoom(room, building),
         periodStart: invoice.periodStart,
         periodEnd: invoice.periodEnd,
         amountCents: payment.amountCents,

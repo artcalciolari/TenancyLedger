@@ -6,7 +6,8 @@ import {
   PaymentMethod,
   type PaymentTransaction,
 } from '../../invoice/domain/entities/payment-transaction.entity';
-import { PropertyUnit, UnitType } from '../../property/domain/property-unit.entity';
+import { Room } from '../../property/domain/room.entity';
+import { Building } from '../../property/domain/building.entity';
 import { Tenant, TenantCivilStatus } from '../../tenant/domain/entities/tenant.entity';
 import type { StorageService } from '../../../infrastructure/storage.service';
 import { Receipt } from '../domain/receipt.entity';
@@ -17,7 +18,8 @@ const PAYMENT_ID = '283b10d3-58f2-42d8-aa93-777f55ec9476';
 const INVOICE_ID = '0a60a4ca-1a8e-4f0a-b0ee-2196db87ac51';
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
 const USER_ID = '957a3866-f282-48d7-9180-5cbf99c74982';
 const NOW = new Date('2026-07-18T15:30:00.000Z');
 
@@ -61,7 +63,8 @@ describe('ReceiptIssuerService', () => {
   let receiptRepository: jest.Mocked<Pick<Repository<Receipt>, 'findOne'>>;
   let contractRepository: jest.Mocked<Pick<Repository<Contract>, 'findOneBy'>>;
   let tenantRepository: jest.Mocked<Pick<Repository<Tenant>, 'findOneBy'>>;
-  let propertyRepository: jest.Mocked<Pick<Repository<PropertyUnit>, 'findOneBy'>>;
+  let roomRepository: jest.Mocked<Pick<Repository<Room>, 'findOneBy'>>;
+  let buildingRepository: jest.Mocked<Pick<Repository<Building>, 'findOneBy'>>;
   let manager: EntityManager;
   let query: jest.Mock;
   let save: jest.Mock;
@@ -75,7 +78,7 @@ describe('ReceiptIssuerService', () => {
       findOneBy: jest.fn().mockResolvedValue({
         id: CONTRACT_ID,
         tenantId: TENANT_ID,
-        propertyUnitId: PROPERTY_ID,
+        roomId: ROOM_ID,
       }),
     };
     tenantRepository = {
@@ -86,11 +89,17 @@ describe('ReceiptIssuerService', () => {
         civilStatus: TenantCivilStatus.SINGLE,
       }),
     };
-    propertyRepository = {
+    roomRepository = {
       findOneBy: jest.fn().mockResolvedValue({
-        id: PROPERTY_ID,
-        type: UnitType.APARTMENT,
-        unitNumber: '101-A',
+        id: ROOM_ID,
+        number: '101-A',
+        buildingId: BUILDING_ID,
+      }),
+    };
+    buildingRepository = {
+      findOneBy: jest.fn().mockResolvedValue({
+        id: BUILDING_ID,
+        name: 'Edifício Aurora',
         neighborhood: 'Centro',
       }),
     };
@@ -101,7 +110,8 @@ describe('ReceiptIssuerService', () => {
         if (entity === Receipt) return receiptRepository;
         if (entity === Contract) return contractRepository;
         if (entity === Tenant) return tenantRepository;
-        if (entity === PropertyUnit) return propertyRepository;
+        if (entity === Room) return roomRepository;
+        if (entity === Building) return buildingRepository;
         throw new Error('unexpected repository');
       }),
       query,
@@ -137,8 +147,8 @@ describe('ReceiptIssuerService', () => {
       tenantId: TENANT_ID,
       tenantName: 'Maria da Silva',
       tenantCpf: '52998224725',
-      propertyUnitId: PROPERTY_ID,
-      propertyDescription: 'APARTMENT 101-A — Centro',
+      roomId: ROOM_ID,
+      roomDescription: 'Quarto 101-A — Edifício Aurora, Centro',
       periodStart: '2026-07-18',
       periodEnd: '2026-08-17',
       amountCents: 185_000,
@@ -194,10 +204,19 @@ describe('ReceiptIssuerService', () => {
     );
   });
 
-  it.each(['tenant', 'property'] as const)('rejects a missing related %s', async (relation) => {
+  it.each(['tenant', 'room'] as const)('rejects a missing related %s', async (relation) => {
     const { invoice, payment } = approvedPayment();
     if (relation === 'tenant') tenantRepository.findOneBy.mockResolvedValue(null);
-    else propertyRepository.findOneBy.mockResolvedValue(null);
+    else roomRepository.findOneBy.mockResolvedValue(null);
+
+    await expect(service.issue(invoice, payment, manager)).rejects.toEqual(
+      new NotFoundException('Dados relacionados do recibo não encontrados.'),
+    );
+  });
+
+  it('rejects a missing related building', async () => {
+    const { invoice, payment } = approvedPayment();
+    buildingRepository.findOneBy.mockResolvedValue(null);
 
     await expect(service.issue(invoice, payment, manager)).rejects.toEqual(
       new NotFoundException('Dados relacionados do recibo não encontrados.'),
@@ -215,8 +234,8 @@ describe('ReceiptIssuerService', () => {
         tenantId: TENANT_ID,
         tenantName: 'Maria da Silva',
         tenantCpf: '52998224725',
-        propertyUnitId: PROPERTY_ID,
-        propertyDescription: 'Apartamento 101 — Centro',
+        roomId: ROOM_ID,
+        roomDescription: 'Quarto 101 — Edifício Aurora, Centro',
         periodStart: invoice.periodStart,
         periodEnd: invoice.periodEnd,
         amountCents: payment.amountCents,

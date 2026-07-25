@@ -10,7 +10,7 @@ describe('ContractDocumentRenderer', () => {
       tenantName: 'Maria da Silva',
       tenantCpf: '52998224725',
       tenantRg: '12.345.678-9',
-      propertyDescription: 'Apartamento 101-A — Centro',
+      roomDescription: 'Quarto 101-A — Centro',
       monthlyValueCents: 185_050,
       moveInDate: '2026-07-18',
       firstPeriodEnd: '2026-08-17',

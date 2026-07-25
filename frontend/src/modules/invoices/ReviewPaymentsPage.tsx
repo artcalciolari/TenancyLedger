@@ -182,7 +182,7 @@ export function ReviewPaymentsPage() {
             name="q"
             label="Buscar pagamento"
             defaultValue={filters.q ?? ''}
-            helperText="CPF, bairro, profissão ou unidade"
+            helperText="CPF, bairro, profissão ou quarto"
             sx={{ gridColumn: { xl: 'span 2' } }}
           />
           <TextField
@@ -264,9 +264,8 @@ export function ReviewPaymentsPage() {
                     <Typography
                       sx={{ fontSize: '0.95rem', fontWeight: 700, color: brand.textPrimary }}
                     >
-                      Fatura {formatCompetence(first.invoice.competence)} ·{' '}
-                      {first.contract.propertyUnit.neighborhood}, unidade{' '}
-                      {first.contract.propertyUnit.unitNumber}
+                      Fatura {formatCompetence(first.invoice.competence)} · Quarto{' '}
+                      {first.contract.room.number}, {first.contract.room.buildingName}
                     </Typography>
                     <Typography sx={{ fontSize: '0.82rem', color: brand.textTertiary, mt: 0.25 }}>
                       {first.contract.tenant.name} · CPF {first.contract.tenant.cpf} ·{' '}

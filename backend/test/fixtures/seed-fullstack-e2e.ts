@@ -6,8 +6,9 @@ const ids = {
   manager: '10000000-0000-4000-8000-000000000002',
   viewer: '10000000-0000-4000-8000-000000000003',
   tenant: '20000000-0000-4000-8000-000000000001',
-  property: '30000000-0000-4000-8000-000000000001',
-  onboardingProperty: '30000000-0000-4000-8000-000000000002',
+  building: '25000000-0000-4000-8000-000000000001',
+  room: '30000000-0000-4000-8000-000000000001',
+  onboardingRoom: '30000000-0000-4000-8000-000000000002',
   contract: '40000000-0000-4000-8000-000000000001',
   openInvoice: '50000000-0000-4000-8000-000000000001',
   reviewInvoice: '50000000-0000-4000-8000-000000000002',
@@ -40,7 +41,8 @@ async function seed(): Promise<void> {
         payment_transactions,
         invoices,
         contracts,
-        property_units,
+        rooms,
+        buildings,
         tenants,
         users
       RESTART IDENTITY CASCADE
@@ -71,18 +73,27 @@ async function seed(): Promise<void> {
 
     await manager.query(
       `
-        INSERT INTO property_units (id, neighborhood, type, unit_number, created_at)
+        INSERT INTO buildings (id, name, neighborhood, address, created_at)
         VALUES
-          ($1, 'Bairro Seed E2E', 'APARTMENT', 'E2E-101', '2026-01-01T10:01:00Z'),
-          ($2, 'Onboarding E2E', 'ROOM', 'E2E-ONB-01', '2026-01-01T10:01:30Z')
+          ($1, 'Prédio Seed E2E', 'Bairro Seed E2E', NULL, '2026-01-01T10:00:30Z')
       `,
-      [ids.property, ids.onboardingProperty],
+      [ids.building],
+    );
+
+    await manager.query(
+      `
+        INSERT INTO rooms (id, building_id, number, created_at)
+        VALUES
+          ($1, $3, 'E2E-101', '2026-01-01T10:01:00Z'),
+          ($2, $3, 'E2E-ONB-01', '2026-01-01T10:01:30Z')
+      `,
+      [ids.room, ids.onboardingRoom, ids.building],
     );
 
     await manager.query(
       `
         INSERT INTO contracts
-          (id, tenant_id, property_unit_id, move_in_date, end_date,
+          (id, tenant_id, room_id, move_in_date, end_date,
            monthly_base_value_cents, duration_in_months, billing_day,
            is_renewable, contract_type, status, status_reason, status_changed_at,
            created_at, updated_at)
@@ -91,7 +102,7 @@ async function seed(): Promise<void> {
            true, 'FIXED_TERM', 'ACTIVE', NULL, '2026-01-01T10:02:00Z',
            '2026-01-01T10:02:00Z', '2026-01-01T10:02:00Z')
       `,
-      [ids.contract, ids.tenant, ids.property],
+      [ids.contract, ids.tenant, ids.room],
     );
 
     await manager.query(
@@ -130,7 +141,7 @@ async function seed(): Promise<void> {
       users: ['admin.e2e@example.test', 'manager.e2e@example.test', 'viewer.e2e@example.test'],
       openInvoiceId: ids.openInvoice,
       reviewInvoiceId: ids.reviewInvoice,
-      onboardingPropertyId: ids.onboardingProperty,
+      onboardingRoomId: ids.onboardingRoom,
     }),
   );
 }

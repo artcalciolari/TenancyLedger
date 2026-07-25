@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Building } from '../domain/building.entity';
 import {
   BuildingListOptions,
   BuildingListResult,
   BuildingOccupancyView,
-  BuildingUnitView,
+  BuildingRoomView,
+  BuildingVacancyFilter,
   IBuildingRepository,
 } from '../domain/building.repository';
 
@@ -16,8 +17,12 @@ interface BuildingOccupancyRow {
   neighborhood: string;
   address: string | null;
   createdAt: Date;
-  totalUnits: string;
-  occupiedUnits: string;
+  totalRooms: string;
+  occupiedRooms: string;
+}
+
+interface AggregateCountRow {
+  total: string;
 }
 
 @Injectable()
@@ -31,22 +36,6 @@ export class BuildingTypeOrmRepository implements IBuildingRepository {
     return this.repository.save(building);
   }
 
-  saveWithUnitNeighborhoodPropagation(
-    building: Building,
-    propagateNeighborhood: boolean,
-  ): Promise<Building> {
-    return this.repository.manager.transaction(async (manager) => {
-      const saved = await manager.getRepository(Building).save(building);
-      if (propagateNeighborhood) {
-        await manager.query(
-          `UPDATE "property_units" SET "neighborhood" = $1 WHERE "building_id" = $2`,
-          [building.neighborhood, building.id],
-        );
-      }
-      return saved;
-    });
-  }
-
   findById(id: string): Promise<Building | null> {
     return this.repository.findOne({ where: { id } });
   }
@@ -58,20 +47,8 @@ export class BuildingTypeOrmRepository implements IBuildingRepository {
       .getOne();
   }
 
-  async list({ page, limit, q, asOf }: BuildingListOptions): Promise<BuildingListResult> {
-    const countQuery = this.repository.createQueryBuilder('building');
-    const baseQuery = this.repository
-      .createQueryBuilder('building')
-      .leftJoin('property_units', 'unit', 'unit.building_id = building.id')
-      .leftJoin(
-        'contracts',
-        'contract',
-        `contract.property_unit_id = unit.id
-          AND contract.status = :activeStatus
-          AND contract.move_in_date <= :asOf
-          AND contract.end_date >= :asOf`,
-        { activeStatus: 'ACTIVE', asOf },
-      );
+  async list({ page, limit, q, asOf, vacancy }: BuildingListOptions): Promise<BuildingListResult> {
+    const query = this.aggregateQuery(asOf);
     const term = q?.trim();
     if (term) {
       const escaped = term.replace(/[\\%_]/g, (character) => `\\${character}`);
@@ -80,88 +57,118 @@ export class BuildingTypeOrmRepository implements IBuildingRepository {
           OR building.neighborhood ILIKE :q ESCAPE '\\'
           OR building.address ILIKE :q ESCAPE '\\'
         )`;
-      countQuery.andWhere(filter, { q: `%${escaped}%` });
-      baseQuery.andWhere(filter, { q: `%${escaped}%` });
+      query.andWhere(filter, { q: `%${escaped}%` });
     }
+    if (vacancy) query.having(BuildingTypeOrmRepository.vacancyHaving(vacancy));
 
-    const total = await countQuery.getCount();
-    const rows = await baseQuery
-      .select('building.id', 'id')
-      .addSelect('building.name', 'name')
-      .addSelect('building.neighborhood', 'neighborhood')
-      .addSelect('building.address', 'address')
-      .addSelect('building.createdAt', 'createdAt')
-      .addSelect('COUNT(DISTINCT unit.id)', 'totalUnits')
-      .addSelect('COUNT(DISTINCT contract.property_unit_id)', 'occupiedUnits')
-      .groupBy('building.id')
-      .orderBy('building.createdAt', 'DESC')
+    const countSource = query.clone();
+    const countRow = await this.repository.manager
+      .createQueryBuilder()
+      .select('COUNT(*)', 'total')
+      .from(`(${countSource.getQuery()})`, 'filtered_buildings')
+      .setParameters(countSource.getParameters())
+      .getRawOne<AggregateCountRow>();
+    const rows = await query
+      .orderBy(BuildingTypeOrmRepository.vacancyOrderExpression(), 'DESC', 'NULLS LAST')
+      .addOrderBy('lower(building.name)', 'ASC')
       .addOrderBy('building.id', 'ASC')
       .offset((page - 1) * limit)
       .limit(limit)
       .getRawMany<BuildingOccupancyRow>();
-
+    const total = Number(countRow?.total ?? 0);
     return { items: rows.map((row) => BuildingTypeOrmRepository.toOccupancyView(row)), total };
   }
 
   async occupancyFor(id: string, asOf: string): Promise<BuildingOccupancyView | null> {
-    const row = await this.repository
+    const row = await this.aggregateQuery(asOf)
+      .andWhere('building.id = :id', { id })
+      .getRawOne<BuildingOccupancyRow>();
+    return row ? BuildingTypeOrmRepository.toOccupancyView(row) : null;
+  }
+
+  async listRooms(buildingId: string, asOf: string): Promise<BuildingRoomView[]> {
+    return this.repository.manager
+      .createQueryBuilder()
+      .select('room.id', 'id')
+      .addSelect('room.number', 'number')
+      .addSelect(
+        `EXISTS (
+          SELECT 1 FROM contracts contract
+          WHERE contract.room_id = room.id
+            AND contract.status::text NOT IN ('TERMINATED', 'CANCELLED')
+            AND contract.move_in_date <= :asOf
+            AND COALESCE(contract.end_date, 'infinity'::date) >= :asOf
+        )`,
+        'occupied',
+      )
+      .from('rooms', 'room')
+      .where('room.building_id = :buildingId', { buildingId })
+      .setParameters({ asOf })
+      .orderBy('room.number', 'ASC')
+      .getRawMany<BuildingRoomView>();
+  }
+
+  private aggregateQuery(asOf: string): SelectQueryBuilder<Building> {
+    return this.repository
       .createQueryBuilder('building')
-      .leftJoin('property_units', 'unit', 'unit.building_id = building.id')
+      .leftJoin('rooms', 'room', 'room.building_id = building.id')
       .leftJoin(
         'contracts',
         'contract',
-        `contract.property_unit_id = unit.id
-          AND contract.status = :activeStatus
+        `contract.room_id = room.id
+          AND contract.status::text NOT IN ('TERMINATED', 'CANCELLED')
           AND contract.move_in_date <= :asOf
-          AND contract.end_date >= :asOf`,
-        { activeStatus: 'ACTIVE', asOf },
+          AND COALESCE(contract.end_date, 'infinity'::date) >= :asOf`,
+        { asOf },
       )
-      .where('building.id = :id', { id })
       .select('building.id', 'id')
       .addSelect('building.name', 'name')
       .addSelect('building.neighborhood', 'neighborhood')
       .addSelect('building.address', 'address')
       .addSelect('building.createdAt', 'createdAt')
-      .addSelect('COUNT(DISTINCT unit.id)', 'totalUnits')
-      .addSelect('COUNT(DISTINCT contract.property_unit_id)', 'occupiedUnits')
-      .groupBy('building.id')
-      .getRawOne<BuildingOccupancyRow>();
-    return row ? BuildingTypeOrmRepository.toOccupancyView(row) : null;
+      .addSelect('COUNT(DISTINCT room.id)', 'totalRooms')
+      .addSelect('COUNT(DISTINCT contract.room_id)', 'occupiedRooms')
+      .groupBy('building.id');
   }
 
-  async listUnits(buildingId: string, asOf: string): Promise<BuildingUnitView[]> {
-    return this.repository.manager
-      .createQueryBuilder()
-      .select('unit.id', 'id')
-      .addSelect('unit.unit_number', 'unitNumber')
-      .addSelect('unit.type', 'type')
-      .addSelect('unit.neighborhood', 'neighborhood')
-      .addSelect(
-        `EXISTS (
-          SELECT 1 FROM contracts contract
-          WHERE contract.property_unit_id = unit.id
-            AND contract.status = :activeStatus
-            AND contract.move_in_date <= :asOf
-            AND contract.end_date >= :asOf
-        )`,
-        'occupied',
+  private static vacancyHaving(vacancy: BuildingVacancyFilter): string {
+    switch (vacancy) {
+      case 'NO_ROOMS':
+        return 'COUNT(DISTINCT room.id) = 0';
+      case 'FULL':
+        return 'COUNT(DISTINCT room.id) > 0 AND COUNT(DISTINCT room.id) = COUNT(DISTINCT contract.room_id)';
+      case 'WITH_VACANCY':
+      default:
+        return 'COUNT(DISTINCT room.id) > COUNT(DISTINCT contract.room_id)';
+    }
+  }
+
+  private static vacancyOrderExpression(): string {
+    return `CASE
+      WHEN COUNT(DISTINCT room.id) = 0 THEN NULL
+      ELSE (
+        (COUNT(DISTINCT room.id) - COUNT(DISTINCT contract.room_id))::decimal
+        / COUNT(DISTINCT room.id)
       )
-      .from('property_units', 'unit')
-      .where('unit.building_id = :buildingId', { buildingId })
-      .setParameters({ activeStatus: 'ACTIVE', asOf })
-      .orderBy('unit.unit_number', 'ASC')
-      .getRawMany<BuildingUnitView>();
+    END`;
   }
 
   private static toOccupancyView(row: BuildingOccupancyRow): BuildingOccupancyView {
+    const totalRooms = Number(row.totalRooms);
+    const occupiedRooms = Number(row.occupiedRooms);
+    const vacantRooms = totalRooms - occupiedRooms;
+    const vacancyPercentage =
+      totalRooms === 0 ? null : Math.round((vacantRooms / totalRooms) * 1000) / 10;
     return {
       id: row.id,
       name: row.name,
       neighborhood: row.neighborhood,
       address: row.address,
       createdAt: row.createdAt,
-      totalUnits: Number(row.totalUnits),
-      occupiedUnits: Number(row.occupiedUnits),
+      totalRooms,
+      occupiedRooms,
+      vacantRooms,
+      vacancyPercentage,
     };
   }
 }

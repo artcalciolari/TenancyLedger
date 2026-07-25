@@ -31,7 +31,7 @@ export function createEmptyPayload(): OnboardingPayload {
     personalData: { ...emptyPersonalData },
     photo: null,
     references: [emptyReference(), emptyReference()],
-    propertyUnitId: null,
+    roomId: null,
     moveInDate: todayIso(),
     monthlyBaseValueCents: null,
   };

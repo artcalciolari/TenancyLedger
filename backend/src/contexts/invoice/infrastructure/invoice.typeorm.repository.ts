@@ -5,7 +5,8 @@ import { Invoice } from '../domain/entities/invoice.entity';
 import { PaymentStatus, PaymentTransaction } from '../domain/entities/payment-transaction.entity';
 import { Contract } from '../../contract/domain/entities/contract.entity';
 import { Tenant } from '../../tenant/domain/entities/tenant.entity';
-import { PropertyUnit } from '../../property/domain/property-unit.entity';
+import { Room } from '../../property/domain/room.entity';
+import { Building } from '../../property/domain/building.entity';
 import {
   IInvoiceRepository,
   InvoiceFilterOptions,
@@ -62,16 +63,17 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
       .innerJoin('payment.invoice', 'invoice')
       .innerJoin(Contract, 'contract', 'contract.id = invoice.contract_id')
       .innerJoin(Tenant, 'tenant', 'tenant.id = contract.tenant_id')
-      .innerJoin(PropertyUnit, 'property', 'property.id = contract.property_unit_id')
+      .innerJoin(Room, 'room', 'room.id = contract.room_id')
+      .innerJoin(Building, 'building', 'building.id = room.building_id')
       .where('payment.status = :submitted', { submitted: PaymentStatus.SUBMITTED });
     if (options.method) query.andWhere('payment.method = :method', { method: options.method });
     if (options.competence)
       query.andWhere('invoice.competence = :competence', { competence: options.competence });
     if (options.tenantId)
       query.andWhere('contract.tenant_id = :tenantId', { tenantId: options.tenantId });
-    if (options.propertyUnitId)
-      query.andWhere('contract.property_unit_id = :propertyUnitId', {
-        propertyUnitId: options.propertyUnitId,
+    if (options.roomId)
+      query.andWhere('contract.room_id = :roomId', {
+        roomId: options.roomId,
       });
     if (options.submittedFrom)
       query.andWhere('payment.submitted_at >= :submittedFrom', {
@@ -93,8 +95,10 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
           OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'
-          OR property.neighborhood ILIKE :q ESCAPE '\\'
-          OR property.unit_number ILIKE :q ESCAPE '\\'
+          OR room.number ILIKE :q ESCAPE '\\'
+          OR building.name ILIKE :q ESCAPE '\\'
+          OR building.neighborhood ILIKE :q ESCAPE '\\'
+          OR building.address ILIKE :q ESCAPE '\\'
         )`,
         { q: `%${escaped}%`, digits: `%${digits || escaped}%` },
       );
@@ -135,10 +139,11 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
       .addSelect('tenant.civil_status', 'tenantCivilStatus')
       .addSelect('tenant.email', 'tenantEmail')
       .addSelect('tenant.mobile_phone', 'tenantMobilePhone')
-      .addSelect('property.id', 'propertyUnitId')
-      .addSelect('property.neighborhood', 'propertyNeighborhood')
-      .addSelect('property.type', 'propertyType')
-      .addSelect('property.unit_number', 'propertyUnitNumber')
+      .addSelect('room.id', 'roomId')
+      .addSelect('room.number', 'roomNumber')
+      .addSelect('building.id', 'buildingId')
+      .addSelect('building.name', 'buildingName')
+      .addSelect('building.neighborhood', 'buildingNeighborhood')
       .orderBy('payment.submitted_at', 'ASC')
       .addOrderBy('payment.id', 'ASC')
       .offset((options.page - 1) * options.limit)
@@ -153,7 +158,8 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
       .leftJoinAndSelect('invoice._transactions', 'transaction')
       .leftJoin(Contract, 'contract', 'contract.id = invoice.contract_id')
       .leftJoin(Tenant, 'tenant', 'tenant.id = contract.tenant_id')
-      .leftJoin(PropertyUnit, 'property', 'property.id = contract.property_unit_id');
+      .leftJoin(Room, 'room', 'room.id = contract.room_id')
+      .leftJoin(Building, 'building', 'building.id = room.building_id');
     if (options.contractId)
       query.andWhere('invoice.contract_id = :contractId', { contractId: options.contractId });
     if (options.competence)
@@ -161,9 +167,9 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
     if (options.status) query.andWhere('invoice.status = :status', { status: options.status });
     if (options.tenantId)
       query.andWhere('contract.tenant_id = :tenantId', { tenantId: options.tenantId });
-    if (options.propertyUnitId)
-      query.andWhere('contract.property_unit_id = :propertyUnitId', {
-        propertyUnitId: options.propertyUnitId,
+    if (options.roomId)
+      query.andWhere('contract.room_id = :roomId', {
+        roomId: options.roomId,
       });
     if (options.dueFrom)
       query.andWhere('invoice.due_date >= :dueFrom', { dueFrom: options.dueFrom });
@@ -198,8 +204,10 @@ export class InvoiceTypeOrmRepository implements IInvoiceRepository {
           OR tenant.profession ILIKE :q ESCAPE '\\'
           OR tenant.email ILIKE :q ESCAPE '\\'
           OR tenant.cpf LIKE :digits ESCAPE '\\'
-          OR property.neighborhood ILIKE :q ESCAPE '\\'
-          OR property.unit_number ILIKE :q ESCAPE '\\'
+          OR room.number ILIKE :q ESCAPE '\\'
+          OR building.name ILIKE :q ESCAPE '\\'
+          OR building.neighborhood ILIKE :q ESCAPE '\\'
+          OR building.address ILIKE :q ESCAPE '\\'
         )`,
         { q: `%${escaped}%`, digits: `%${digits || escaped}%` },
       );

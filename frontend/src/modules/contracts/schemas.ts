@@ -19,7 +19,7 @@ function isCivilDate(value: string): boolean {
 
 export const createContractSchema = z.object({
   tenantId: z.string().uuid('Selecione um locatário.'),
-  propertyUnitId: z.string().uuid('Selecione um imóvel.'),
+  roomId: z.string().uuid('Selecione um quarto.'),
   moveInDate: z.string().refine(isCivilDate, 'Informe uma data de entrada válida.'),
   monthlyBaseValue: z
     .string()

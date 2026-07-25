@@ -54,7 +54,7 @@ export class PaymentReviewPaginationDto {
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID('4')
-  propertyUnitId?: string;
+  roomId?: string;
 
   @ApiPropertyOptional({ type: String, format: 'date-time' })
   @IsOptional()
@@ -68,7 +68,7 @@ export class PaymentReviewPaginationDto {
 
   @ApiPropertyOptional({
     maxLength: 120,
-    description: 'Busca por fatura, contrato, locatário, CPF, bairro ou unidade.',
+    description: 'Busca por fatura, contrato, locatário, CPF, bairro ou quarto.',
   })
   @IsOptional()
   @IsString()

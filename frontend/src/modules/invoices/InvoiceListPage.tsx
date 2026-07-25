@@ -71,7 +71,7 @@ const invoiceSearchConfig: ListSearchConfig<InvoiceListFilters> = {
     'dueFrom',
     'dueTo',
     'tenantId',
-    'propertyUnitId',
+    'roomId',
     'paymentMethod',
     'paymentStatus',
   ],
@@ -280,7 +280,7 @@ export function InvoiceListPage() {
           <TextField
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
-            placeholder="Buscar por bairro, unidade, CPF ou profissão"
+            placeholder="Buscar por bairro, quarto, CPF ou profissão"
             aria-label="Buscar fatura"
             slotProps={{
               input: {
@@ -392,8 +392,7 @@ export function InvoiceListPage() {
                       <Typography
                         sx={{ fontSize: '1rem', fontWeight: 700, color: brand.textPrimary }}
                       >
-                        {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
-                        {invoice.contract.propertyUnit.unitNumber}
+                        Quarto {invoice.contract.room.number} · {invoice.contract.room.buildingName}
                       </Typography>
                       <Typography sx={{ fontSize: '0.79rem', color: brand.textTertiary }}>
                         {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}
@@ -483,8 +482,8 @@ export function InvoiceListPage() {
                             textDecoration: 'none',
                           }}
                         >
-                          {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
-                          {invoice.contract.propertyUnit.unitNumber}
+                          Quarto {invoice.contract.room.number} ·{' '}
+                          {invoice.contract.room.buildingName}
                         </Typography>
                         <Typography
                           sx={{ fontSize: '0.8rem', color: brand.textTertiary, mt: 0.25 }}

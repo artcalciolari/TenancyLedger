@@ -5,7 +5,7 @@ import { contractsApi } from './api';
 const contract: ContractView = {
   id: '0299d386-f780-4592-9537-8dac4c65ea54',
   tenantId: '7d9cdddc-8661-44ee-af5d-b420099509ca',
-  propertyUnitId: 'd0208cb2-3688-4778-a056-93cb82e31166',
+  roomId: 'd0208cb2-3688-4778-a056-93cb82e31166',
   tenant: {
     id: '7d9cdddc-8661-44ee-af5d-b420099509ca',
     name: 'Maria da Silva',
@@ -15,11 +15,12 @@ const contract: ContractView = {
     profession: 'Engenheiro civil',
     civilStatus: 'SINGLE',
   },
-  propertyUnit: {
+  room: {
     id: 'd0208cb2-3688-4778-a056-93cb82e31166',
+    buildingId: '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c',
+    buildingName: 'Edifício Aurora',
     neighborhood: 'Centro',
-    unitNumber: '101-A',
-    type: 'APARTMENT',
+    number: '101-A',
   },
   moveInDate: '2026-07-12',
   endDate: '2027-07-11',

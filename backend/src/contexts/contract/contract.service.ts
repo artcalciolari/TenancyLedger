@@ -2,7 +2,8 @@ import { ConflictException, Inject, Injectable, NotFoundException, Optional } fr
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, QueryFailedError, Repository } from 'typeorm';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
-import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import {
   Contract,
   ContractBadge,
@@ -20,7 +21,7 @@ import { canActivateContract } from './domain/contract-activation.policy';
 
 export interface CreateContractInput {
   tenantId: string;
-  propertyUnitId: string;
+  roomId: string;
   moveInDate: string;
   monthlyBaseValueCents: number;
   durationInMonths?: number | null;
@@ -36,7 +37,7 @@ export interface ListContractsInput {
   badge?: ContractBadge;
   renewalAttention?: boolean;
   tenantId?: string;
-  propertyUnitId?: string;
+  roomId?: string;
   q?: string;
   moveInFrom?: string;
   moveInTo?: string;
@@ -54,17 +55,18 @@ export interface ContractTenantSummary {
   mobilePhone: string;
 }
 
-export interface ContractPropertySummary {
+export interface ContractRoomSummary {
   id: string;
+  number: string;
+  buildingId: string;
+  buildingName: string;
   neighborhood: string;
-  type: PropertyUnit['type'];
-  unitNumber: string;
 }
 
 export interface ContractView {
   id: string;
   tenantId: string;
-  propertyUnitId: string;
+  roomId: string;
   moveInDate: string;
   endDate: string | null;
   monthlyBaseValueCents: number;
@@ -81,12 +83,12 @@ export interface ContractView {
   createdAt: Date;
   updatedAt: Date;
   tenant?: ContractTenantSummary;
-  propertyUnit?: ContractPropertySummary;
+  room?: ContractRoomSummary;
 }
 
 export interface DetailedContractView extends ContractView {
   tenant: ContractTenantSummary;
-  propertyUnit: ContractPropertySummary;
+  room: ContractRoomSummary;
 }
 
 export interface PaginatedContractsView {
@@ -107,8 +109,10 @@ export class ContractService {
     private readonly repository: IContractRepository,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
-    @InjectRepository(PropertyUnit)
-    private readonly propertyRepository: Repository<PropertyUnit>,
+    @InjectRepository(Room)
+    private readonly roomRepository: Repository<Room>,
+    @InjectRepository(Building)
+    private readonly buildingRepository: Repository<Building>,
     @Optional()
     @InjectRepository(Invoice)
     private readonly invoiceRepository?: Repository<Invoice>,
@@ -117,7 +121,7 @@ export class ContractService {
   async create(input: CreateContractInput): Promise<Contract> {
     const contract = Contract.create(
       input.tenantId,
-      input.propertyUnitId,
+      input.roomId,
       input.moveInDate,
       input.monthlyBaseValueCents,
       input.durationInMonths ?? null,
@@ -126,21 +130,15 @@ export class ContractService {
       input.contractType ?? ContractType.FIXED_TERM,
     );
 
-    const [tenantExists, propertyExists] = await Promise.all([
+    const [tenantExists, roomExists] = await Promise.all([
       this.tenantRepository.existsBy({ id: contract.tenantId }),
-      this.propertyRepository.existsBy({ id: contract.propertyUnitId }),
+      this.roomRepository.existsBy({ id: contract.roomId }),
     ]);
     if (!tenantExists) throw new NotFoundException('Inquilino não encontrado.');
-    if (!propertyExists) throw new NotFoundException('Unidade imobiliária não encontrada.');
+    if (!roomExists) throw new NotFoundException('Quarto não encontrado.');
 
-    if (
-      await this.repository.hasOverlap(
-        contract.propertyUnitId,
-        contract.moveInDate,
-        contract.endDate,
-      )
-    ) {
-      throw new ConflictException('A unidade já possui um contrato com vigência sobreposta.');
+    if (await this.repository.hasOverlap(contract.roomId, contract.moveInDate, contract.endDate)) {
+      throw new ConflictException('O quarto já possui um contrato com vigência sobreposta.');
     }
 
     return this.saveWithoutOverlap(contract);
@@ -166,7 +164,7 @@ export class ContractService {
         this.detailedView(
           contract,
           relations.tenants.get(contract.tenantId),
-          relations.properties.get(contract.propertyUnitId),
+          relations.rooms.get(contract.roomId),
           billing.get(contract.id),
         ),
       ),
@@ -188,13 +186,13 @@ export class ContractService {
       contract.renew(extraMonths);
       if (
         await repository.hasOverlap(
-          contract.propertyUnitId,
+          contract.roomId,
           contract.moveInDate,
           contract.endDate,
           contract.id,
         )
       ) {
-        throw new ConflictException('A renovação sobrepõe outro contrato desta unidade.');
+        throw new ConflictException('A renovação sobrepõe outro contrato deste quarto.');
       }
       return this.saveWithoutOverlap(contract, repository);
     });
@@ -257,7 +255,7 @@ export class ContractService {
     return this.detailedView(
       contract,
       relations.tenants.get(contract.tenantId),
-      relations.properties.get(contract.propertyUnitId),
+      relations.rooms.get(contract.roomId),
       billing.get(contract.id),
     );
   }
@@ -280,14 +278,14 @@ export class ContractService {
       'tenantName',
       'tenantCpf',
       'tenantProfession',
-      'propertyUnitId',
-      'propertyNeighborhood',
-      'propertyUnitNumber',
-      'propertyType',
+      'roomId',
+      'roomNumber',
+      'buildingName',
+      'buildingNeighborhood',
     ];
     const rows = contracts.map((contract) => {
       const tenant = relations.tenants.get(contract.tenantId);
-      const property = relations.properties.get(contract.propertyUnitId);
+      const room = relations.rooms.get(contract.roomId);
       return [
         contract.id,
         contract.status,
@@ -301,10 +299,10 @@ export class ContractService {
         tenant?.name ?? '',
         tenant?.cpf ?? '',
         tenant?.profession ?? '',
-        contract.propertyUnitId,
-        property?.neighborhood ?? '',
-        property?.unitNumber ?? '',
-        property?.type ?? '',
+        contract.roomId,
+        room?.number ?? '',
+        room?.buildingName ?? '',
+        room?.neighborhood ?? '',
       ];
     });
     return [header, ...rows]
@@ -315,7 +313,7 @@ export class ContractService {
   static toView(
     contract: Contract,
     tenant?: ContractTenantSummary,
-    propertyUnit?: ContractPropertySummary,
+    room?: ContractRoomSummary,
     billing?: ContractBillingSummary,
     asOf = civilDateInTimeZone(new Date()),
   ): ContractView {
@@ -334,7 +332,7 @@ export class ContractService {
     return {
       id: contract.id,
       tenantId: contract.tenantId,
-      propertyUnitId: contract.propertyUnitId,
+      roomId: contract.roomId,
       moveInDate: contract.moveInDate,
       endDate: contract.endDate,
       monthlyBaseValueCents: contract.monthlyBaseValueCents,
@@ -351,7 +349,7 @@ export class ContractService {
       createdAt: contract.createdAt,
       updatedAt: contract.updatedAt,
       ...(tenant ? { tenant } : {}),
-      ...(propertyUnit ? { propertyUnit } : {}),
+      ...(room ? { room } : {}),
     };
   }
 
@@ -360,14 +358,19 @@ export class ContractService {
     role?: UserRole,
   ): Promise<{
     tenants: Map<string, ContractTenantSummary>;
-    properties: Map<string, ContractPropertySummary>;
+    rooms: Map<string, ContractRoomSummary>;
   }> {
     const tenantIds = [...new Set(contracts.map((contract) => contract.tenantId))];
-    const propertyIds = [...new Set(contracts.map((contract) => contract.propertyUnitId))];
-    const [tenants, properties] = await Promise.all([
+    const roomIds = [...new Set(contracts.map((contract) => contract.roomId))];
+    const [tenants, rooms] = await Promise.all([
       tenantIds.length ? this.tenantRepository.findBy({ id: In(tenantIds) }) : [],
-      propertyIds.length ? this.propertyRepository.findBy({ id: In(propertyIds) }) : [],
+      roomIds.length ? this.roomRepository.findBy({ id: In(roomIds) }) : [],
     ]);
+    const buildingIds = [...new Set(rooms.map((room) => room.buildingId))];
+    const buildings = buildingIds.length
+      ? await this.buildingRepository.findBy({ id: In(buildingIds) })
+      : [];
+    const buildingsById = new Map(buildings.map((building) => [building.id, building]));
     return {
       tenants: new Map(
         tenants.map((tenant) => {
@@ -375,16 +378,23 @@ export class ContractService {
           return [tenant.id, view];
         }),
       ),
-      properties: new Map(
-        properties.map((property) => [
-          property.id,
-          {
-            id: property.id,
-            neighborhood: property.neighborhood,
-            type: property.type,
-            unitNumber: property.unitNumber,
-          },
-        ]),
+      rooms: new Map(
+        rooms.flatMap((room) => {
+          const building = buildingsById.get(room.buildingId);
+          if (!building) return [];
+          return [
+            [
+              room.id,
+              {
+                id: room.id,
+                number: room.number,
+                buildingId: room.buildingId,
+                buildingName: building.name,
+                neighborhood: building.neighborhood,
+              },
+            ] as const,
+          ];
+        }),
       ),
     };
   }
@@ -392,16 +402,16 @@ export class ContractService {
   private detailedView(
     contract: Contract,
     tenant: ContractTenantSummary | undefined,
-    propertyUnit: ContractPropertySummary | undefined,
+    room: ContractRoomSummary | undefined,
     billing?: ContractBillingSummary,
   ): DetailedContractView {
-    if (!tenant || !propertyUnit) {
+    if (!tenant || !room) {
       throw new NotFoundException('Relacionamentos do contrato não encontrados.');
     }
     return ContractService.toView(
       contract,
       tenant,
-      propertyUnit,
+      room,
       billing,
       this.currentCivilDate(),
     ) as DetailedContractView;
@@ -466,7 +476,7 @@ export class ContractService {
       return await repository.save(contract);
     } catch (error: unknown) {
       if (this.databaseErrorCode(error) === '23P01') {
-        throw new ConflictException('A unidade já possui um contrato com vigência sobreposta.');
+        throw new ConflictException('O quarto já possui um contrato com vigência sobreposta.');
       }
       throw error;
     }

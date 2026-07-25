@@ -1,4 +1,4 @@
-import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
+import BedOutlinedIcon from '@mui/icons-material/BedOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import {
   Alert,
@@ -15,19 +15,18 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { UNIT_TYPES, type UnitType } from '../../../api/contract';
 import { ProblemAlert } from '../../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../../components/feedback/QueryState';
-import { unitTypeLabel } from '../../properties/labels';
+import { buildingsApi } from '../../buildings/api';
 import { onboardingApi } from '../api';
-import type { AvailableProperty, AvailablePropertyFilters } from '../types';
+import type { AvailableRoom, AvailableRoomFilters } from '../types';
 
 interface RoomSearchStepProps {
   moveInDate: string;
   selectedId: string | null;
   error?: string;
   onDateChange: (date: string) => void;
-  onSelect: (property: AvailableProperty) => void;
+  onSelect: (room: AvailableRoom) => void;
 }
 
 function formValue(data: FormData, key: string): string {
@@ -42,22 +41,26 @@ export function RoomSearchStep({
   onDateChange,
   onSelect,
 }: RoomSearchStepProps) {
-  const [filters, setFilters] = useState<AvailablePropertyFilters>({ date: moveInDate });
+  const [filters, setFilters] = useState<AvailableRoomFilters>({ date: moveInDate });
   const [formKey, setFormKey] = useState(0);
-  const properties = useQuery({
-    queryKey: ['properties', 'available', filters],
-    queryFn: () => onboardingApi.availableProperties(filters),
+  const buildings = useQuery({
+    queryKey: ['buildings', 'onboarding-options'],
+    queryFn: () => buildingsApi.list({ page: 1, limit: 100 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const rooms = useQuery({
+    queryKey: ['rooms', 'available', filters],
+    queryFn: () => onboardingApi.availableRooms(filters),
   });
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const date = formValue(data, 'date');
-    const neighborhood = formValue(data, 'neighborhood');
-    const rawType = formValue(data, 'type');
-    const type = UNIT_TYPES.includes(rawType as UnitType) ? (rawType as UnitType) : undefined;
+    const q = formValue(data, 'q');
+    const buildingId = formValue(data, 'buildingId');
     onDateChange(date);
-    setFilters({ date, neighborhood: neighborhood || undefined, type });
+    setFilters({ date, q: q || undefined, buildingId: buildingId || undefined });
   };
 
   const clear = () => {
@@ -83,7 +86,10 @@ export function RoomSearchStep({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '190px minmax(220px, 1fr) 210px auto' },
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: '190px minmax(180px, 0.8fr) minmax(220px, 1fr) auto',
+              },
               gap: 1.5,
               alignItems: 'start',
             }}
@@ -97,19 +103,27 @@ export function RoomSearchStep({
               required
             />
             <TextField
-              name="neighborhood"
-              label="Bairro"
-              defaultValue={filters.neighborhood ?? ''}
-              slotProps={{ htmlInput: { maxLength: 120 } }}
-            />
-            <TextField name="type" select label="Tipo" defaultValue={filters.type ?? ''}>
-              <MenuItem value="">Todos</MenuItem>
-              {UNIT_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {unitTypeLabel(type)}
+              select
+              name="buildingId"
+              label="Prédio"
+              defaultValue={filters.buildingId ?? ''}
+              disabled={buildings.isPending}
+              error={buildings.isError}
+              helperText={buildings.isError ? 'Não foi possível carregar os prédios.' : undefined}
+            >
+              <MenuItem value="">Todos os prédios</MenuItem>
+              {(buildings.data?.data ?? []).map((building) => (
+                <MenuItem key={building.id} value={building.id}>
+                  {building.name}
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              name="q"
+              label="Prédio, bairro, endereço ou número"
+              defaultValue={filters.q ?? ''}
+              slotProps={{ htmlInput: { maxLength: 120 } }}
+            />
             <Stack direction="row" spacing={1}>
               <Button type="submit" startIcon={<SearchOutlinedIcon />}>
                 Buscar
@@ -122,14 +136,14 @@ export function RoomSearchStep({
         </CardContent>
       </Card>
 
-      {properties.isPending ? (
+      {rooms.isPending ? (
         <LoadingState label="Buscando quartos disponíveis…" />
-      ) : properties.isError ? (
-        <ProblemAlert error={properties.error} onRetry={() => void properties.refetch()} />
-      ) : properties.data.length === 0 ? (
+      ) : rooms.isError ? (
+        <ProblemAlert error={rooms.error} onRetry={() => void rooms.refetch()} />
+      ) : rooms.data.length === 0 ? (
         <EmptyState
           title="Nenhum quarto disponível"
-          description="Tente outra data, bairro ou tipo de unidade."
+          description="Tente outra data ou termo de busca."
         />
       ) : (
         <Box
@@ -141,11 +155,11 @@ export function RoomSearchStep({
             gap: 2,
           }}
         >
-          {properties.data.map((property) => {
-            const selected = property.id === selectedId;
+          {rooms.data.map((room) => {
+            const selected = room.id === selectedId;
             return (
               <Card
-                key={property.id}
+                key={room.id}
                 sx={{
                   borderColor: selected ? 'primary.main' : undefined,
                   borderWidth: selected ? 2 : 1,
@@ -155,24 +169,20 @@ export function RoomSearchStep({
                 <CardActionArea
                   role="radio"
                   aria-checked={selected}
-                  onClick={() => onSelect(property)}
+                  onClick={() => onSelect(room)}
                   sx={{ minHeight: 132, alignItems: 'stretch' }}
                 >
                   <CardContent>
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
-                      <ApartmentOutlinedIcon color={selected ? 'primary' : 'action'} />
+                      <BedOutlinedIcon color={selected ? 'primary' : 'action'} />
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
                           <Typography variant="h2" sx={{ flex: 1 }}>
-                            Unidade {property.unitNumber}
+                            Quarto {room.number}
                           </Typography>
                           {selected && <Chip color="primary" size="small" label="Selecionado" />}
                         </Stack>
-                        <Typography>{property.neighborhood}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {unitTypeLabel(property.type)}
-                          {property.buildingName ? ` · ${property.buildingName}` : ''}
-                        </Typography>
+                        <Typography>{room.buildingName ?? '—'}</Typography>
                       </Box>
                     </Stack>
                   </CardContent>

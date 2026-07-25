@@ -30,7 +30,7 @@ export class ReceiptDocumentRenderer {
             { align: 'justify', lineGap: 5 },
           );
         document.moveDown();
-        document.text(`Unidade: ${receipt.propertyDescription}`);
+        document.text(`Quarto: ${receipt.roomDescription}`);
         document.text(
           `Período: ${ReceiptDocumentRenderer.formatDate(receipt.periodStart)} a ${ReceiptDocumentRenderer.formatDate(receipt.periodEnd)}`,
         );

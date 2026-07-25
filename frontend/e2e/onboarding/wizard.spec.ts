@@ -3,7 +3,8 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 const ids = {
   user: '10000000-0000-4000-8000-000000000001',
   draft: '90000000-0000-4000-8000-000000000001',
-  property: '30000000-0000-4000-8000-000000000001',
+  building: '25000000-0000-4000-8000-000000000001',
+  room: '30000000-0000-4000-8000-000000000001',
   tenant: '20000000-0000-4000-8000-000000000001',
   contract: '40000000-0000-4000-8000-000000000001',
 } as const;
@@ -120,19 +121,22 @@ async function mockWizardApi(page: Page, existingDraft?: ExistingDraft) {
         expiresInSeconds: 300,
       });
     }
-    if (path === '/api/properties/available') {
-      return json(route, [
-        {
-          id: ids.property,
-          neighborhood: 'Centro',
-          type: 'ROOM',
-          unitNumber: '12-B',
-          buildingId: null,
-          buildingName: 'Residencial Aurora',
-          occupied: false,
-          createdAt: '2026-01-01T12:00:00.000Z',
-        },
-      ]);
+    if (path === '/api/rooms' && request.method() === 'GET') {
+      return json(route, {
+        data: [
+          {
+            id: ids.room,
+            buildingId: ids.building,
+            number: '12-B',
+            createdAt: '2026-01-01T12:00:00.000Z',
+            buildingName: 'Residencial Aurora',
+            buildingNeighborhood: 'Centro',
+            buildingAddress: null,
+            occupied: false,
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      });
     }
     if (path === '/api/notifications') {
       return json(route, {
@@ -145,7 +149,7 @@ async function mockWizardApi(page: Page, existingDraft?: ExistingDraft) {
       return json(route, {
         id: ids.contract,
         tenantId: ids.tenant,
-        propertyUnitId: ids.property,
+        roomId: ids.room,
         moveInDate: '2026-07-18',
         endDate: '2027-07-17',
         monthlyBaseValueCents: 150000,
@@ -210,7 +214,7 @@ test('conclui o wizard presencial no projeto iPad', async ({ page }, testInfo) =
   await expect(page).toHaveURL(`/contracts/${ids.contract}`);
   await expect.poll(readDraftPayload).toMatchObject({
     personalData: { name: 'Marina Oliveira' },
-    propertyUnitId: ids.property,
+    roomId: ids.room,
     monthlyBaseValueCents: 150000,
   });
 });
@@ -237,7 +241,7 @@ test('retoma um rascunho com foto persistida sem exigir nova seleção', async (
         { name: 'Joana Oliveira', relationship: 'Irmã', phone: '11988888888' },
         { name: 'Carlos Souza', relationship: 'Colega', phone: '11977777777' },
       ],
-      propertyUnitId: null,
+      roomId: null,
       moveInDate: '2026-07-18',
       monthlyBaseValueCents: null,
     },

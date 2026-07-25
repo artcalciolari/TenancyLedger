@@ -11,7 +11,7 @@ import { environmentSchema } from './config/environment';
 import { AuthModule } from './contexts/auth/auth.module';
 import { ContractModule } from './contexts/contract/contract.module';
 import { BillingModule } from './contexts/invoice/billing.module';
-import { PropertyModule } from './contexts/property/property.module';
+import { RoomModule } from './contexts/property/room.module';
 import { TenantModule } from './contexts/tenant/tenant.module';
 import { NotificationModule } from './contexts/notification/notification.module';
 import { AuditModule } from './core/infrastructure/audit/audit.module';
@@ -84,7 +84,7 @@ import { CashboxModule } from './contexts/cashbox/cashbox.module';
     MetricsModule,
     AuthModule,
     TenantModule,
-    PropertyModule,
+    RoomModule,
     ContractModule,
     BillingModule,
     DashboardModule,

@@ -2,7 +2,8 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { calendarPeriodFrom } from '../../core/domain/calendar-period';
 import { Invoice } from '../invoice/domain/entities/invoice.entity';
-import { PropertyUnit, UnitType } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import { Tenant, TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
 import { ContractService } from './contract.service';
 import {
@@ -16,7 +17,8 @@ import type { IContractRepository } from './domain/repositories/contract.reposit
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
 const SECOND_CONTRACT_ID = '80e7dd97-eb89-4a3c-bfcf-e5669e560c06';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
 
 function assignId(target: object, id: string): void {
   Object.defineProperty(target, 'id', { value: id, configurable: true });
@@ -33,7 +35,7 @@ function assignId(target: object, id: string): void {
 function activeContract(id = CONTRACT_ID): Contract {
   const contract = Contract.create(
     TENANT_ID,
-    PROPERTY_ID,
+    ROOM_ID,
     '2026-07-18',
     185_000,
     null,
@@ -46,7 +48,7 @@ function activeContract(id = CONTRACT_ID): Contract {
 }
 
 function pendingContract(): Contract {
-  const contract = Contract.createPendingSignature(TENANT_ID, PROPERTY_ID, '2026-07-18', 185_000);
+  const contract = Contract.createPendingSignature(TENANT_ID, ROOM_ID, '2026-07-18', 185_000);
   assignId(contract, CONTRACT_ID);
   return contract;
 }
@@ -173,13 +175,21 @@ describe('ContractService billing summaries and lifecycle transitions', () => {
       {
         findBy: jest.fn().mockResolvedValue([
           {
-            id: PROPERTY_ID,
-            neighborhood: 'Centro',
-            type: UnitType.APARTMENT,
-            unitNumber: '101-A',
-          } as PropertyUnit,
+            id: ROOM_ID,
+            number: '101-A',
+            buildingId: BUILDING_ID,
+          } as Room,
         ]),
-      } as unknown as Repository<PropertyUnit>,
+      } as unknown as Repository<Room>,
+      {
+        findBy: jest.fn().mockResolvedValue([
+          {
+            id: BUILDING_ID,
+            name: 'Edifício Aurora',
+            neighborhood: 'Centro',
+          } as Building,
+        ]),
+      } as unknown as Repository<Building>,
       {
         createQueryBuilder: jest.fn(() => invoiceQuery),
         manager: {

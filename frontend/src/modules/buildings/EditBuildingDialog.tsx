@@ -83,7 +83,7 @@ export function EditBuildingDialog({
             error={Boolean(errors.neighborhood)}
             helperText={
               errors.neighborhood?.message ??
-              'Ao salvar, o bairro também será atualizado nas unidades vinculadas.'
+              'Ao salvar, o bairro também será atualizado nos quartos vinculados.'
             }
           />
           <TextField

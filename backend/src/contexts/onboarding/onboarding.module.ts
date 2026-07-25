@@ -6,20 +6,13 @@ import { OnboardingDraftController } from './infrastructure/http/onboarding-draf
 import { CompleteOnboardingService } from './application/complete-onboarding.service';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
 import { TenantReference } from '../tenant/domain/entities/tenant-reference.entity';
-import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
 import { Contract } from '../contract/domain/entities/contract.entity';
 import { Invoice } from '../invoice/domain/entities/invoice.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      OnboardingDraft,
-      Tenant,
-      TenantReference,
-      PropertyUnit,
-      Contract,
-      Invoice,
-    ]),
+    TypeOrmModule.forFeature([OnboardingDraft, Tenant, TenantReference, Room, Contract, Invoice]),
   ],
   controllers: [OnboardingDraftController],
   providers: [OnboardingDraftService, CompleteOnboardingService],

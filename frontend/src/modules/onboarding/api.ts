@@ -1,8 +1,8 @@
-import type { OnboardingDraftView, PropertyView } from '../../api/contract';
+import type { OnboardingDraftView, RoomView } from '../../api/contract';
 import { executeOpenApi, executeOpenApiVoid, openApiClient } from '../../api/openapi-client';
 import { onboardingPayloadSchema } from './schemas';
 import type {
-  AvailablePropertyFilters,
+  AvailableRoomFilters,
   CompleteOnboardingResult,
   OnboardingDraft,
   OnboardingDraftList,
@@ -51,19 +51,20 @@ export const onboardingApi = {
     );
   },
 
-  async availableProperties(filters: AvailablePropertyFilters): Promise<PropertyView[]> {
-    return executeOpenApi(
-      openApiClient.GET('/properties/available', {
+  async availableRooms(filters: AvailableRoomFilters): Promise<RoomView[]> {
+    const result = await executeOpenApi(
+      openApiClient.GET('/rooms', {
         params: {
           query: {
             date: filters.date,
-            neighborhood: filters.neighborhood,
-            type: filters.type,
+            q: filters.q,
             buildingId: filters.buildingId,
+            status: 'VACANT',
           },
         },
       }),
     );
+    return result.data;
   },
 
   uploadDraftPhoto(draftId: string, photo: File): Promise<void> {

@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
-import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import { ContractController } from './contract.controller';
 import { ContractService } from './contract.service';
 import { Contract } from './domain/entities/contract.entity';
@@ -13,7 +14,9 @@ import { ContractDocumentsService } from './application/contract-documents.servi
 import { ContractDocumentRenderer } from './infrastructure/contract-document.renderer';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Contract, ContractDocument, Tenant, PropertyUnit, Invoice])],
+  imports: [
+    TypeOrmModule.forFeature([Contract, ContractDocument, Tenant, Room, Building, Invoice]),
+  ],
   controllers: [ContractController],
   providers: [
     ContractService,

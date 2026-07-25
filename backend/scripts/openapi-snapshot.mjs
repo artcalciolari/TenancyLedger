@@ -23,7 +23,7 @@ function assertCompleteContract(document) {
     'LoginResponseDto',
     'UserResponseDto',
     'TenantResponseDto',
-    'PropertyResponseDto',
+    'RoomResponseDto',
     'BuildingResponseDto',
     'ContractResponseDto',
     'InvoiceResponseDto',
@@ -85,7 +85,7 @@ function assertCompleteContract(document) {
     '/contracts/export.csv',
     '/invoices/export.csv',
     '/client-errors',
-    '/properties/available',
+    '/rooms',
     '/invoices/{id}/settle-cash',
     '/receipts/{id}',
     '/contracts/{id}/document/preview',
@@ -99,6 +99,15 @@ function assertCompleteContract(document) {
       throw new Error(`OpenAPI incompleto: a operação ${path} não está documentada.`);
     }
   }
+  const legacyPropertyPaths = Object.keys(document?.paths ?? {}).filter((path) =>
+    path.startsWith('/properties'),
+  );
+  if (legacyPropertyPaths.length > 0 || document?.components?.schemas?.PropertyResponseDto) {
+    throw new Error(
+      'OpenAPI inválido: contrato legado de /properties ainda presente após a unificação em /rooms.',
+    );
+  }
+  assertNoLegacyTerminology(document);
 
   const refreshCookie = document?.components?.securitySchemes?.refreshCookie;
   if (
@@ -117,6 +126,24 @@ function assertCompleteContract(document) {
     );
     if (!usesRefreshCookie) {
       throw new Error('OpenAPI incompleto: refresh/logout deve declarar refreshCookie.');
+    }
+  }
+}
+
+function assertNoLegacyTerminology(document) {
+  // Termos funcionais legados da unificação de prédios e quartos (docs/plano-unificacao-predios-quartos.md).
+  // "unidade" isoladamente não é bloqueado: usos legítimos como unidade de tempo (ex.: JWT) não violam o contrato.
+  const legacyTerms = [
+    { label: 'imóvel/imóveis', pattern: /im[oó]ve(l|is)\b/i },
+    { label: 'unidade imobiliária', pattern: /unidade\s+imobili[aá]ria/i },
+    { label: 'tipo de unidade', pattern: /tipo\s+de\s+unidade/i },
+  ];
+  const serialized = JSON.stringify(document);
+  for (const { label, pattern } of legacyTerms) {
+    if (pattern.test(serialized)) {
+      throw new Error(
+        `OpenAPI inválido: terminologia legada "${label}" ainda presente no contrato gerado.`,
+      );
     }
   }
 }

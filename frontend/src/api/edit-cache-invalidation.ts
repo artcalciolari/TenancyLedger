@@ -8,7 +8,12 @@ const embeddedLedgerQueryKeys: readonly QueryKey[] = [
 ];
 
 const tenantEditQueryKeys: readonly QueryKey[] = [['tenants'], ...embeddedLedgerQueryKeys];
-const buildingEditQueryKeys: readonly QueryKey[] = [['buildings'], ['properties'], ['property']];
+const buildingEditQueryKeys: readonly QueryKey[] = [
+  ['buildings'],
+  ['rooms'],
+  ['room'],
+  ...embeddedLedgerQueryKeys,
+];
 
 async function invalidateQueryKeys(
   queryClient: QueryClient,
@@ -21,14 +26,6 @@ export function invalidateTenantEditCaches(queryClient: QueryClient): Promise<vo
   return invalidateQueryKeys(queryClient, tenantEditQueryKeys);
 }
 
-export function invalidateBuildingEditCaches(
-  queryClient: QueryClient,
-  neighborhoodChanged: boolean,
-): Promise<void> {
-  return invalidateQueryKeys(
-    queryClient,
-    neighborhoodChanged
-      ? [...buildingEditQueryKeys, ...embeddedLedgerQueryKeys]
-      : buildingEditQueryKeys,
-  );
+export function invalidateBuildingEditCaches(queryClient: QueryClient): Promise<void> {
+  return invalidateQueryKeys(queryClient, buildingEditQueryKeys);
 }

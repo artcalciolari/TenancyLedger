@@ -26,7 +26,7 @@ export const contractsApi = {
             limit: filters.limit,
             status: filters.status,
             tenantId: filters.tenantId,
-            propertyUnitId: filters.propertyUnitId,
+            roomId: filters.roomId,
             q: filters.q,
             moveInFrom: filters.moveInFrom,
             moveInTo: filters.moveInTo,
@@ -56,7 +56,7 @@ export const contractsApi = {
           query: {
             status: filters.status,
             tenantId: filters.tenantId,
-            propertyUnitId: filters.propertyUnitId,
+            roomId: filters.roomId,
             q: filters.q,
             moveInFrom: filters.moveInFrom,
             moveInTo: filters.moveInTo,

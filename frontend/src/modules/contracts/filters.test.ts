@@ -8,14 +8,14 @@ describe('parseContractFilters', () => {
       limit: '50',
       status: 'ACTIVE',
       tenantId: '7d9cdddc-8661-44ee-af5d-b420099509ca',
-      propertyUnitId: 'd0208cb2-3688-4778-a056-93cb82e31166',
+      roomId: 'd0208cb2-3688-4778-a056-93cb82e31166',
     });
     expect(parseContractFilters(search)).toEqual({
       page: 2,
       limit: 50,
       status: 'ACTIVE',
       tenantId: search.get('tenantId'),
-      propertyUnitId: search.get('propertyUnitId'),
+      roomId: search.get('roomId'),
     });
   });
 
@@ -29,7 +29,7 @@ describe('parseContractFilters', () => {
       limit: 20,
       status: undefined,
       tenantId: undefined,
-      propertyUnitId: undefined,
+      roomId: undefined,
     });
   });
 

@@ -85,7 +85,7 @@ describe('HttpExceptionAuditFilter', () => {
     'returns and audits denied requests as HTTP %s',
     async (exception, expectedStatus, expectedDetail) => {
       const response = harnessFor({
-        path: '/properties/property-1',
+        path: '/rooms/room-1',
         user: {
           sub: 'operator-1',
           role: 'operator',
@@ -100,19 +100,19 @@ describe('HttpExceptionAuditFilter', () => {
         expect.objectContaining({
           status: expectedStatus,
           detail: expectedDetail,
-          instance: '/properties/property-1?include=payments',
+          instance: '/rooms/room-1?include=payments',
           requestId: 'request-123',
         }),
       );
       expect(insert).toHaveBeenCalledWith({
         actorId: 'operator-1',
-        action: `DENIED GET /properties/property-1`,
-        resourceType: 'properties',
+        action: `DENIED GET /rooms/room-1`,
+        resourceType: 'rooms',
         resourceId: null,
         requestId: 'request-123',
         metadata: {
           method: 'GET',
-          path: '/properties/property-1',
+          path: '/rooms/room-1',
           statusCode: expectedStatus,
           role: 'operator',
         },

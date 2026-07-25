@@ -32,7 +32,6 @@ import { formatCivilDate, formatCompetence, formatDateTime } from '../../lib/dat
 import { availableToSubmit, formatCents } from '../../lib/money/money';
 import { MANAGEMENT_ROLES, hasRole } from '../../lib/roles/roles';
 import { useAuth } from '../auth/useAuth';
-import { unitTypeLabel } from '../properties/labels';
 import { civilStatusLabel } from '../tenants/labels';
 import { invoicesApi } from './api';
 import { paymentMethodLabels, proofTypeLabels } from './labels';
@@ -123,8 +122,8 @@ export function InvoiceDetailPage() {
             <StatusChip status={invoice.status} />
           </Stack>
           <Typography sx={{ mt: 1, color: brand.textSecondary }}>
-            {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
-            {invoice.contract.propertyUnit.unitNumber} · vence em {formatCivilDate(invoice.dueDate)}
+            Quarto {invoice.contract.room.number} · {invoice.contract.room.buildingName} · vence em{' '}
+            {formatCivilDate(invoice.dueDate)}
           </Typography>
         </Box>
         {canManage && availableCents > 0 && (
@@ -172,10 +171,9 @@ export function InvoiceDetailPage() {
           >
             Nº {invoice.id.slice(0, 6).toUpperCase()} · {formatCompetence(invoice.competence)}
           </Typography>
-          <Typography sx={{ ...stubLabelSx, mt: 1.75 }}>Imóvel</Typography>
+          <Typography sx={{ ...stubLabelSx, mt: 1.75 }}>Quarto</Typography>
           <Typography sx={{ fontWeight: 600, fontSize: '0.92rem' }}>
-            {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
-            {invoice.contract.propertyUnit.unitNumber}
+            Quarto {invoice.contract.room.number} · {invoice.contract.room.buildingName}
           </Typography>
           <Typography sx={{ ...stubLabelSx, mt: 1.5 }}>Locatário</Typography>
           <Typography sx={{ fontWeight: 600, fontSize: '0.92rem' }}>
@@ -253,11 +251,10 @@ export function InvoiceDetailPage() {
             </Box>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography sx={{ fontWeight: 600, color: brand.textPrimary }}>
-                {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
-                {invoice.contract.propertyUnit.unitNumber}
+                Quarto {invoice.contract.room.number}
               </Typography>
               <Typography sx={{ fontSize: '0.82rem', color: brand.textTertiary }}>
-                {unitTypeLabel(invoice.contract.propertyUnit.type)}
+                {invoice.contract.room.buildingName}
               </Typography>
             </Box>
             <Typography

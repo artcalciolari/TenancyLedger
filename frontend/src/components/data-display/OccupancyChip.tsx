@@ -31,16 +31,16 @@ export function UnitOccupancyChip({ occupied }: { occupied: boolean }) {
 }
 
 export function BuildingOccupancyChip({
-  occupiedUnits,
-  totalUnits,
+  occupiedRooms,
+  totalRooms,
 }: {
-  occupiedUnits: number;
-  totalUnits: number;
+  occupiedRooms: number;
+  totalRooms: number;
 }) {
-  if (totalUnits === 0) {
-    return <ToneChip tone="neutral" label="Sem unidades" />;
+  if (totalRooms === 0) {
+    return <ToneChip tone="neutral" label="Sem quartos" />;
   }
   const tone: StatusTone =
-    occupiedUnits >= totalUnits ? 'success' : occupiedUnits === 0 ? 'neutral' : 'info';
-  return <ToneChip tone={tone} label={`${occupiedUnits} ocupadas / ${totalUnits} unidades`} />;
+    occupiedRooms >= totalRooms ? 'success' : occupiedRooms === 0 ? 'neutral' : 'info';
+  return <ToneChip tone={tone} label={`${occupiedRooms} ocupados / ${totalRooms} quartos`} />;
 }

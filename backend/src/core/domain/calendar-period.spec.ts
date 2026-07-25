@@ -1,5 +1,10 @@
 import { ValidationError } from './errors/validation.error';
-import { addCalendarMonths, addCivilDays, calendarPeriodFrom } from './calendar-period';
+import {
+  addCalendarMonths,
+  addCivilDays,
+  calendarPeriodFrom,
+  isCivilDate,
+} from './calendar-period';
 
 describe('calendar periods', () => {
   it.each([
@@ -33,5 +38,14 @@ describe('calendar periods', () => {
     () => addCivilDays('2026-01-01', Number.MAX_VALUE),
   ])('rejects invalid calendar arithmetic', (operation) => {
     expect(operation).toThrow(ValidationError);
+  });
+
+  it.each([
+    ['2024-02-29', true],
+    ['2026-02-29', false],
+    ['2026-07-20T12:00:00.000Z', false],
+    ['20/07/2026', false],
+  ])('validates civil date %s', (value, expected) => {
+    expect(isCivilDate(value)).toBe(expected);
   });
 });

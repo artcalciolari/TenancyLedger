@@ -45,7 +45,7 @@ export function parseInvoiceFilters(search: URLSearchParams): InvoiceListFilters
   const paymentMethod = search.get('paymentMethod');
   const paymentStatus = search.get('paymentStatus');
   const tenantId = search.get('tenantId')?.trim() ?? '';
-  const propertyUnitId = search.get('propertyUnitId')?.trim() ?? '';
+  const roomId = search.get('roomId')?.trim() ?? '';
 
   return {
     page: positiveInt(search.get('page'), 1),
@@ -59,7 +59,7 @@ export function parseInvoiceFilters(search: URLSearchParams): InvoiceListFilters
     dueFrom: civilDate(search.get('dueFrom')),
     dueTo: civilDate(search.get('dueTo')),
     tenantId: tenantId && isUuidV4(tenantId) ? tenantId : undefined,
-    propertyUnitId: propertyUnitId && isUuidV4(propertyUnitId) ? propertyUnitId : undefined,
+    roomId: roomId && isUuidV4(roomId) ? roomId : undefined,
     paymentMethod: PAYMENT_METHODS.includes(paymentMethod as PaymentMethod)
       ? (paymentMethod as PaymentMethod)
       : undefined,

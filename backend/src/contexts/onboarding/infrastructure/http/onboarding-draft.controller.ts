@@ -196,8 +196,8 @@ export class OnboardingDraftController {
   @ApiOperation({ summary: 'Concluir onboarding e criar locatário, contrato e primeira fatura' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: CompleteOnboardingResponseDto })
-  @ApiNotFoundProblem('Rascunho ou unidade imobiliária não encontrado.')
-  @ApiConflictProblem('Rascunho já concluído, cadastro duplicado ou unidade ocupada.')
+  @ApiNotFoundProblem('Rascunho ou quarto não encontrado.')
+  @ApiConflictProblem('Rascunho já concluído, cadastro duplicado ou quarto ocupado.')
   @ApiUnprocessableProblem('O payload salvo está incompleto ou inválido.')
   complete(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,

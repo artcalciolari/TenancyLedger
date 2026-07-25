@@ -7,7 +7,7 @@ import {
   ProofType,
 } from './domain/entities/payment-transaction.entity';
 import {
-  ContractPropertySummaryDto,
+  ContractRoomSummaryDto,
   ContractTenantSummaryDto,
 } from '../contract/contract-response.dto';
 import { ContractStatus } from '../contract/domain/entities/contract.entity';
@@ -69,13 +69,13 @@ export class InvoiceContractSummaryDto {
   @ApiProperty({ format: 'uuid' })
   tenantId!: string;
   @ApiProperty({ format: 'uuid' })
-  propertyUnitId!: string;
+  roomId!: string;
   @ApiProperty({ enum: ContractStatus, enumName: 'ContractStatus' })
   status!: ContractStatus;
   @ApiProperty({ type: ContractTenantSummaryDto })
   tenant!: ContractTenantSummaryDto;
-  @ApiProperty({ type: ContractPropertySummaryDto })
-  propertyUnit!: ContractPropertySummaryDto;
+  @ApiProperty({ type: ContractRoomSummaryDto })
+  room!: ContractRoomSummaryDto;
 }
 
 export class InvoiceResponseDto {

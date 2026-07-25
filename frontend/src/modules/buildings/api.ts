@@ -12,11 +12,21 @@ export const buildingsApi = {
   list: (filters: BuildingListFilters): Promise<Paginated<BuildingView>> =>
     executeOpenApi(
       openApiClient.GET('/buildings', {
-        params: { query: { page: filters.page, limit: filters.limit, q: filters.q } },
+        params: {
+          query: {
+            page: filters.page,
+            limit: filters.limit,
+            q: filters.q,
+            date: filters.date,
+            vacancy: filters.vacancy,
+          },
+        },
       }),
     ),
-  get: (id: string): Promise<BuildingDetailView> =>
-    executeOpenApi(openApiClient.GET('/buildings/{id}', { params: { path: { id } } })),
+  get: (id: string, date?: string): Promise<BuildingDetailView> =>
+    executeOpenApi(
+      openApiClient.GET('/buildings/{id}', { params: { path: { id }, query: { date } } }),
+    ),
   create: (input: CreateBuildingInput): Promise<BuildingView> =>
     executeOpenApi(openApiClient.POST('/buildings', { body: input })),
   update: (id: string, input: UpdateBuildingInput): Promise<BuildingDetailView> =>

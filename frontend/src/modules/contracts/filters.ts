@@ -38,7 +38,7 @@ export function parseContractFilters(search: URLSearchParams): ContractPageFilte
   const status = search.get('status');
   const limit = positiveInteger(search.get('limit'), 20);
   const tenantId = search.get('tenantId');
-  const propertyUnitId = search.get('propertyUnitId');
+  const roomId = search.get('roomId');
   return {
     page: positiveInteger(search.get('page'), 1),
     limit: allowedLimits.has(limit) ? limit : 20,
@@ -46,7 +46,7 @@ export function parseContractFilters(search: URLSearchParams): ContractPageFilte
       ? (status as ContractStatus)
       : undefined,
     tenantId: tenantId && isUuidV4(tenantId) ? tenantId : undefined,
-    propertyUnitId: propertyUnitId && isUuidV4(propertyUnitId) ? propertyUnitId : undefined,
+    roomId: roomId && isUuidV4(roomId) ? roomId : undefined,
     q: nonEmpty(search.get('q')?.slice(0, 120) ?? null),
     moveInFrom: civilDate(search.get('moveInFrom')),
     moveInTo: civilDate(search.get('moveInTo')),

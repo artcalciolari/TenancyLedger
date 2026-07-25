@@ -855,59 +855,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/properties": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Listar imóveis */
-        get: operations["PropertyController_list"];
-        put?: never;
-        /** Cadastrar imóvel */
-        post: operations["PropertyController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/properties/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Consultar imóvel */
-        get: operations["PropertyController_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Editar imóvel */
-        patch: operations["PropertyController_update"];
-        trace?: never;
-    };
-    "/properties/available": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Listar unidades disponíveis em uma data */
-        get: operations["PropertyController_listAvailable"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/receipts/{id}": {
         parameters: {
             query?: never;
@@ -940,6 +887,42 @@ export type paths = {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar quartos */
+        get: operations["RoomController_list"];
+        put?: never;
+        /** Cadastrar quarto */
+        post: operations["RoomController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rooms/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultar quarto */
+        get: operations["RoomController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Editar quarto */
+        patch: operations["RoomController_update"];
         trace?: never;
     };
     "/tenants": {
@@ -1083,7 +1066,7 @@ export type components = {
         };
         BuildingDetailResponseDto: {
             /** @example Rua das Flores, 123 */
-            address?: string | null;
+            address: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -1093,14 +1076,21 @@ export type components = {
             /** @example Centro */
             neighborhood: string;
             /** @example 8 */
-            occupiedUnits: number;
+            occupiedRooms: number;
+            rooms: components["schemas"]["BuildingRoomResponseDto"][];
             /** @example 12 */
-            totalUnits: number;
-            units: components["schemas"]["BuildingUnitResponseDto"][];
+            totalRooms: number;
+            /**
+             * @description Percentual de vagas com 1 casa decimal; nulo quando o prédio não tem quartos.
+             * @example 33.3
+             */
+            vacancyPercentage: number | null;
+            /** @example 4 */
+            vacantRooms: number;
         };
         BuildingResponseDto: {
             /** @example Rua das Flores, 123 */
-            address?: string | null;
+            address: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -1110,20 +1100,26 @@ export type components = {
             /** @example Centro */
             neighborhood: string;
             /** @example 8 */
-            occupiedUnits: number;
+            occupiedRooms: number;
             /** @example 12 */
-            totalUnits: number;
+            totalRooms: number;
+            /**
+             * @description Percentual de vagas com 1 casa decimal; nulo quando o prédio não tem quartos.
+             * @example 33.3
+             */
+            vacancyPercentage: number | null;
+            /** @example 4 */
+            vacantRooms: number;
         };
-        BuildingUnitResponseDto: {
+        BuildingRoomResponseDto: {
             /** Format: uuid */
             id: string;
-            /** @example Centro */
-            neighborhood: string;
+            /** @example 101 */
+            number: string;
             occupied: boolean;
-            type: components["schemas"]["UnitType"];
-            /** @example 101-A */
-            unitNumber: string;
         };
+        /** @enum {string} */
+        BuildingVacancyFilter: "WITH_VACANCY" | "FULL" | "NO_ROOMS";
         CashClosingResponseDto: {
             /** Format: date-time */
             closedAt: string;
@@ -1217,15 +1213,6 @@ export type components = {
             url: string;
             version: number;
         };
-        ContractPropertySummaryDto: {
-            /** Format: uuid */
-            id: string;
-            /** @example Centro */
-            neighborhood: string;
-            type: components["schemas"]["UnitType"];
-            /** @example 101-A */
-            unitNumber: string;
-        };
         ContractResponseDto: {
             badges: components["schemas"]["ContractBadge"][];
             /** @example 10 */
@@ -1254,9 +1241,9 @@ export type components = {
             nextRenewalDate: string | null;
             /** Format: date */
             paidThroughDate: string | null;
-            propertyUnit: components["schemas"]["ContractPropertySummaryDto"];
+            room: components["schemas"]["ContractRoomSummaryDto"];
             /** Format: uuid */
-            propertyUnitId: string;
+            roomId: string;
             status: components["schemas"]["ContractStatus"];
             /** Format: date-time */
             statusChangedAt: string;
@@ -1266,6 +1253,18 @@ export type components = {
             tenantId: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        ContractRoomSummaryDto: {
+            /** Format: uuid */
+            buildingId: string;
+            /** @example Edifício Aurora */
+            buildingName: string;
+            /** Format: uuid */
+            id: string;
+            /** @example Centro */
+            neighborhood: string;
+            /** @example 101 */
+            number: string;
         };
         /** @enum {string} */
         ContractStatus: "PENDING_SIGNATURE" | "PAYMENT_PENDING" | "ACTIVE" | "ENDING" | "EXPIRED" | "TERMINATED" | "CANCELLED";
@@ -1316,21 +1315,15 @@ export type components = {
              */
             moveInDate: string;
             /** Format: uuid */
-            propertyUnitId: string;
+            roomId: string;
             /** Format: uuid */
             tenantId: string;
         };
-        CreatePropertyDto: {
+        CreateRoomDto: {
             /** Format: uuid */
-            buildingId?: string;
-            /**
-             * @description Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.
-             * @example Centro
-             */
-            neighborhood?: string;
-            type: components["schemas"]["UnitType"];
-            /** @example 101-A */
-            unitNumber: string;
+            buildingId: string;
+            /** @example 101 */
+            number: string;
         };
         CreateTenantDto: {
             civilStatus: components["schemas"]["TenantCivilStatus"];
@@ -1376,17 +1369,14 @@ export type components = {
             role: components["schemas"]["UserRole"];
         };
         DashboardBuildingBreakdownDto: {
-            /**
-             * Format: uuid
-             * @description Nulo para o grupo de imóveis sem prédio do bairro informado.
-             */
-            buildingId: string | null;
-            buildingName: string | null;
+            /** Format: uuid */
+            buildingId: string;
+            buildingName: string;
             confirmedReceivableCents: number;
             forecastRenewalsCents: number;
             neighborhood: string;
-            propertyUnitCount: number;
             receivedCents: number;
+            roomCount: number;
         };
         DashboardContractSummaryDto: {
             active: number;
@@ -1404,9 +1394,8 @@ export type components = {
             receivedCents: number;
         };
         DashboardFinancialSummaryDto: {
-            /** @description Totais por prédio; imóveis sem prédio são agrupados por bairro. */
             byBuilding: components["schemas"]["DashboardBuildingBreakdownDto"][];
-            byProperty: components["schemas"]["DashboardPropertyBreakdownDto"][];
+            byRoom: components["schemas"]["DashboardRoomBreakdownDto"][];
             /** @description Saldo de todas as faturas emitidas OPEN, PARTIALLY_PAID ou OVERDUE. */
             confirmedReceivableCents: number;
             daily: components["schemas"]["DashboardDailyPointDto"][];
@@ -1443,17 +1432,17 @@ export type components = {
              */
             to: string;
         };
-        DashboardPropertyBreakdownDto: {
+        DashboardRoomBreakdownDto: {
             /** Format: uuid */
-            buildingId: string | null;
-            buildingName: string | null;
+            buildingId: string;
+            buildingName: string;
             confirmedReceivableCents: number;
             forecastRenewalsCents: number;
             neighborhood: string;
-            /** Format: uuid */
-            propertyUnitId: string;
             receivedCents: number;
-            unitNumber: string;
+            /** Format: uuid */
+            roomId: string;
+            roomNumber: string;
         };
         DashboardSummaryResponseDto: {
             /** Format: date */
@@ -1471,9 +1460,9 @@ export type components = {
         InvoiceContractSummaryDto: {
             /** Format: uuid */
             id: string;
-            propertyUnit: components["schemas"]["ContractPropertySummaryDto"];
+            room: components["schemas"]["ContractRoomSummaryDto"];
             /** Format: uuid */
-            propertyUnitId: string;
+            roomId: string;
             status: components["schemas"]["ContractStatus"];
             tenant: components["schemas"]["ContractTenantSummaryDto"];
             /** Format: uuid */
@@ -1610,8 +1599,8 @@ export type components = {
             data: components["schemas"]["PaymentReviewItemResponseDto"][];
             meta: components["schemas"]["PageMetaDto"];
         };
-        PaginatedPropertiesResponseDto: {
-            data: components["schemas"]["PropertyResponseDto"][];
+        PaginatedRoomsResponseDto: {
+            data: components["schemas"]["RoomResponseDto"][];
             meta: components["schemas"]["PageMetaDto"];
         };
         PaginatedTenantResponseDto: {
@@ -1702,23 +1691,6 @@ export type components = {
         };
         /** @enum {string} */
         ProofType: "DIGITAL_SLIP" | "SIGNED_RECEIPT" | "BANK_STATEMENT";
-        PropertyResponseDto: {
-            /** Format: uuid */
-            buildingId?: string | null;
-            /** @example Edifício Aurora */
-            buildingName?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: uuid */
-            id: string;
-            /** @example Centro */
-            neighborhood: string;
-            /** @example false */
-            occupied: boolean;
-            type: components["schemas"]["UnitType"];
-            /** @example 101-A */
-            unitNumber: string;
-        };
         ReceiptDownloadUrlDto: {
             expiresInSeconds: number;
             /** Format: uri */
@@ -1743,9 +1715,9 @@ export type components = {
             periodEnd: string;
             /** Format: date */
             periodStart: string;
-            propertyDescription: string;
+            roomDescription: string;
             /** Format: uuid */
-            propertyUnitId: string;
+            roomId: string;
             /** @example 52998224725 */
             tenantCpf: string;
             /** Format: uuid */
@@ -1769,6 +1741,26 @@ export type components = {
         ReversePaymentDto: {
             /** @example Lançamento em caixa incorreto. */
             reason: string;
+        };
+        /** @enum {string} */
+        RoomAvailabilityStatus: "VACANT" | "OCCUPIED";
+        RoomResponseDto: {
+            /** @example Rua das Flores, 123 */
+            buildingAddress: string | null;
+            /** Format: uuid */
+            buildingId: string;
+            /** @example Edifício Aurora */
+            buildingName: string;
+            /** @example Centro */
+            buildingNeighborhood: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            /** @example 101 */
+            number: string;
+            /** @example false */
+            occupied: boolean;
         };
         SaveOnboardingDraftDto: {
             /** @description JSON opaco do wizard, limitado a 64 KiB quando serializado. */
@@ -1848,8 +1840,6 @@ export type components = {
             /** @example Engenheiro civil */
             profession: string;
         };
-        /** @enum {string} */
-        UnitType: "KITNET" | "ROOM" | "APARTMENT" | "HOUSE" | "COMMERCIAL";
         UpdateBuildingDto: {
             /** @example Rua das Flores, 123 */
             address?: string;
@@ -1858,20 +1848,14 @@ export type components = {
             /** @example Centro */
             neighborhood?: string;
         };
-        UpdatePropertyDto: {
+        UpdateRoomDto: {
             /**
              * Format: uuid
              * @description Campo imutável; presente apenas para explicitar a rejeição de alterações.
              */
             buildingId?: string;
-            /**
-             * @description Editável apenas para unidade avulsa. Em unidade vinculada, o bairro é derivado do prédio e alterações retornam 422; buildingId é imutável.
-             * @example Centro
-             */
-            neighborhood?: string;
-            type?: components["schemas"]["UnitType"];
-            /** @example 101-A */
-            unitNumber?: string;
+            /** @example 101 */
+            number?: string;
         };
         UpdateTenantDto: {
             civilStatus?: components["schemas"]["TenantCivilStatus"];
@@ -2551,10 +2535,13 @@ export interface operations {
     BuildingController_list: {
         parameters: {
             query?: {
+                /** @description Padrão: data civil atual. */
+                date?: string;
                 limit?: number;
                 page?: number;
                 /** @description Busca parcial por nome, bairro ou endereço. */
                 q?: string;
+                vacancy?: components["schemas"]["BuildingVacancyFilter"];
             };
             header?: never;
             path?: never;
@@ -2733,7 +2720,10 @@ export interface operations {
     };
     BuildingController_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Padrão: data civil atual. */
+                date?: string;
+            };
             header?: never;
             path: {
                 id: string;
@@ -3425,11 +3415,11 @@ export interface operations {
                 moveInFrom?: string;
                 moveInTo?: string;
                 page?: number;
-                propertyUnitId?: string;
-                /** @description Busca por contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                /** @description Busca por contrato, locatário, CPF, e-mail, bairro ou quarto. */
                 q?: string;
                 /** @description Quando verdadeiro, filtra a união de contratos com renovação próxima (RENEWAL_DUE) ou pagamento em atraso (PAYMENT_OVERDUE). */
                 renewalAttention?: boolean;
+                roomId?: string;
                 status?: components["schemas"]["ContractStatus"];
                 tenantId?: string;
             };
@@ -3562,7 +3552,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
-            /** @description Locatário ou imóvel não encontrado. */
+            /** @description Locatário ou quarto não encontrado. */
             404: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
@@ -3573,7 +3563,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
-            /** @description A unidade possui contrato com vigência sobreposta. */
+            /** @description O quarto possui contrato com vigência sobreposta. */
             409: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
@@ -4862,11 +4852,11 @@ export interface operations {
                 moveInFrom?: string;
                 moveInTo?: string;
                 page?: number;
-                propertyUnitId?: string;
-                /** @description Busca por contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                /** @description Busca por contrato, locatário, CPF, e-mail, bairro ou quarto. */
                 q?: string;
                 /** @description Quando verdadeiro, filtra a união de contratos com renovação próxima (RENEWAL_DUE) ou pagamento em atraso (PAYMENT_OVERDUE). */
                 renewalAttention?: boolean;
+                roomId?: string;
                 status?: components["schemas"]["ContractStatus"];
                 tenantId?: string;
             };
@@ -5306,9 +5296,9 @@ export interface operations {
                 page?: number;
                 paymentMethod?: components["schemas"]["PaymentMethod"];
                 paymentStatus?: components["schemas"]["PaymentStatus"];
-                propertyUnitId?: string;
-                /** @description Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                /** @description Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou quarto. */
                 q?: string;
+                roomId?: string;
                 status?: components["schemas"]["InvoiceStatus"];
                 tenantId?: string;
             };
@@ -6235,9 +6225,9 @@ export interface operations {
                 page?: number;
                 paymentMethod?: components["schemas"]["PaymentMethod"];
                 paymentStatus?: components["schemas"]["PaymentStatus"];
-                propertyUnitId?: string;
-                /** @description Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade. */
+                /** @description Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou quarto. */
                 q?: string;
+                roomId?: string;
                 status?: components["schemas"]["InvoiceStatus"];
                 tenantId?: string;
             };
@@ -7136,7 +7126,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
-            /** @description Rascunho ou unidade imobiliária não encontrado. */
+            /** @description Rascunho ou quarto não encontrado. */
             404: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
@@ -7147,7 +7137,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
-            /** @description Rascunho já concluído, cadastro duplicado ou unidade ocupada. */
+            /** @description Rascunho já concluído, cadastro duplicado ou quarto ocupado. */
             409: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
@@ -7506,9 +7496,9 @@ export interface operations {
                 limit?: number;
                 method?: components["schemas"]["PaymentMethod"];
                 page?: number;
-                propertyUnitId?: string;
-                /** @description Busca por fatura, contrato, locatário, CPF, bairro ou unidade. */
+                /** @description Busca por fatura, contrato, locatário, CPF, bairro ou quarto. */
                 q?: string;
+                roomId?: string;
                 submittedFrom?: string;
                 submittedTo?: string;
                 tenantId?: string;
@@ -7527,477 +7517,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedPaymentReviewResponseDto"];
-                };
-            };
-            /** @description Requisição inválida. */
-            400: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Token ausente, inválido ou expirado. */
-            401: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Papel sem permissão para a operação. */
-            403: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Limite de requisições excedido. */
-            429: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Erro interno inesperado. */
-            500: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-        };
-    };
-    PropertyController_list: {
-        parameters: {
-            query?: {
-                buildingId?: string;
-                limit?: number;
-                page?: number;
-                /** @description Busca parcial por bairro ou número da unidade. */
-                q?: string;
-                type?: components["schemas"]["UnitType"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedPropertiesResponseDto"];
-                };
-            };
-            /** @description Requisição inválida. */
-            400: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Token ausente, inválido ou expirado. */
-            401: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Papel sem permissão para a operação. */
-            403: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Limite de requisições excedido. */
-            429: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Erro interno inesperado. */
-            500: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-        };
-    };
-    PropertyController_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePropertyDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PropertyResponseDto"];
-                };
-            };
-            /** @description Requisição inválida. */
-            400: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Token ausente, inválido ou expirado. */
-            401: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Papel sem permissão para a operação. */
-            403: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Já existe uma unidade com este número no mesmo prédio ou bairro. */
-            409: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Regra de negócio ou valor de domínio inválido. */
-            422: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Limite de requisições excedido. */
-            429: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Erro interno inesperado. */
-            500: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-        };
-    };
-    PropertyController_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PropertyResponseDto"];
-                };
-            };
-            /** @description Requisição inválida. */
-            400: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Token ausente, inválido ou expirado. */
-            401: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Papel sem permissão para a operação. */
-            403: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Unidade imobiliária não encontrada. */
-            404: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Limite de requisições excedido. */
-            429: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Erro interno inesperado. */
-            500: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-        };
-    };
-    PropertyController_update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePropertyDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PropertyResponseDto"];
-                };
-            };
-            /** @description Requisição inválida. */
-            400: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Token ausente, inválido ou expirado. */
-            401: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Papel sem permissão para a operação. */
-            403: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Unidade imobiliária não encontrada. */
-            404: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Já existe uma unidade com este número no mesmo prédio ou bairro. */
-            409: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Regra de negócio ou valor de domínio inválido. */
-            422: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Limite de requisições excedido. */
-            429: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-            /** @description Erro interno inesperado. */
-            500: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
-                };
-            };
-        };
-    };
-    PropertyController_listAvailable: {
-        parameters: {
-            query?: {
-                buildingId?: string;
-                /** @description Padrão: data civil atual. */
-                date?: string;
-                neighborhood?: string;
-                type?: components["schemas"]["UnitType"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    /** @description Identificador de correlação da requisição. */
-                    "X-Request-ID"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PropertyResponseDto"][];
                 };
             };
             /** @description Requisição inválida. */
@@ -8202,6 +7721,408 @@ export interface operations {
             };
             /** @description Recibo não encontrado. */
             404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    RoomController_list: {
+        parameters: {
+            query?: {
+                buildingId?: string;
+                /** @description Padrão: data civil atual. */
+                date?: string;
+                limit?: number;
+                page?: number;
+                /** @description Busca por número do quarto, nome, bairro ou endereço do prédio. */
+                q?: string;
+                status?: components["schemas"]["RoomAvailabilityStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRoomsResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    RoomController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoomDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Prédio não encontrado. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Já existe um quarto com este número neste prédio. */
+            409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Regra de negócio ou valor de domínio inválido. */
+            422: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    RoomController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Quarto não encontrado. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Limite de requisições excedido. */
+            429: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Erro interno inesperado. */
+            500: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    RoomController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoomDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomResponseDto"];
+                };
+            };
+            /** @description Requisição inválida. */
+            400: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Token ausente, inválido ou expirado. */
+            401: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Papel sem permissão para a operação. */
+            403: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Quarto não encontrado. */
+            404: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Já existe um quarto com este número neste prédio. */
+            409: {
+                headers: {
+                    /** @description Identificador de correlação da requisição. */
+                    "X-Request-ID"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            /** @description Regra de negócio ou valor de domínio inválido. */
+            422: {
                 headers: {
                     /** @description Identificador de correlação da requisição. */
                     "X-Request-ID"?: string;

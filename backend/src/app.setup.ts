@@ -58,7 +58,9 @@ function enrichOpenApiDocument(document: OpenAPIObject): OpenAPIObject {
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tenancy Ledger API')
-    .setDescription('API para gestão auditável de inquilinos, imóveis, contratos e cobranças.')
+    .setDescription(
+      'API para gestão auditável de inquilinos, prédios, quartos, contratos e cobranças.',
+    )
     .setVersion('1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'JWT de acesso.' },

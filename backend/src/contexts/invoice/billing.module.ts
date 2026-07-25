@@ -8,7 +8,8 @@ import { Invoice } from './domain/entities/invoice.entity';
 import { PaymentTransaction } from './domain/entities/payment-transaction.entity';
 import { Contract } from '../contract/domain/entities/contract.entity';
 import { Tenant } from '../tenant/domain/entities/tenant.entity';
-import { PropertyUnit } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import { PaymentReviewController } from './payment-review.controller';
 import { INVOICE_REPOSITORY_TOKEN } from './domain/invoice.repository';
 import { InvoiceTypeOrmRepository } from './infrastructure/invoice.typeorm.repository';
@@ -22,7 +23,7 @@ import { CashboxModule } from '../cashbox/cashbox.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, PaymentTransaction, Contract, Tenant, PropertyUnit]),
+    TypeOrmModule.forFeature([Invoice, PaymentTransaction, Contract, Tenant, Room, Building]),
     ScheduleModule.forRoot(),
     ContractModule,
     ReceiptModule,

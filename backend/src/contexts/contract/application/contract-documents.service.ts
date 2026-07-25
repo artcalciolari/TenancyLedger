@@ -3,8 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { calendarPeriodFrom } from '../../../core/domain/calendar-period';
 import { StorageService } from '../../../infrastructure/storage.service';
-import { PropertyUnit } from '../../property/domain/property-unit.entity';
-import { describePropertyUnit } from '../../property/domain/property-unit.description';
+import { Room } from '../../property/domain/room.entity';
+import { Building } from '../../property/domain/building.entity';
+import { describeRoom } from '../../property/domain/room-description';
 import { Tenant } from '../../tenant/domain/entities/tenant.entity';
 import {
   ContractDocument,
@@ -43,14 +44,16 @@ export class ContractDocumentsService {
     private readonly contracts: Repository<Contract>,
     @InjectRepository(Tenant)
     private readonly tenants: Repository<Tenant>,
-    @InjectRepository(PropertyUnit)
-    private readonly properties: Repository<PropertyUnit>,
+    @InjectRepository(Room)
+    private readonly rooms: Repository<Room>,
+    @InjectRepository(Building)
+    private readonly buildings: Repository<Building>,
     private readonly storage: StorageService,
     private readonly renderer: ContractDocumentRenderer,
   ) {}
 
   async preview(contractId: string): Promise<Buffer> {
-    const { contract, tenant, property } = await this.loadContractData(contractId);
+    const { contract, tenant, room, building } = await this.loadContractData(contractId);
     if (contract.contractType !== ContractType.MONTH_TO_MONTH) {
       throw new ConflictException('A prévia mensal está disponível apenas para contratos mensais.');
     }
@@ -59,7 +62,7 @@ export class ContractDocumentsService {
       tenantName: tenant.name,
       tenantCpf: tenant.cpf,
       tenantRg: tenant.rg,
-      propertyDescription: describePropertyUnit(property),
+      roomDescription: describeRoom(room, building),
       monthlyValueCents: contract.monthlyBaseValueCents,
       moveInDate: contract.moveInDate,
       firstPeriodEnd: calendarPeriodFrom(contract.moveInDate).end,
@@ -88,11 +91,15 @@ export class ContractDocumentsService {
           );
         }
 
-        const [tenant, property] = await Promise.all([
+        const [tenant, room] = await Promise.all([
           this.tenants.findOneBy({ id: contract.tenantId }),
-          this.properties.findOneBy({ id: contract.propertyUnitId }),
+          this.rooms.findOneBy({ id: contract.roomId }),
         ]);
-        if (!tenant || !property) {
+        if (!tenant || !room) {
+          throw new NotFoundException('Relacionamentos do contrato não encontrados.');
+        }
+        const building = await this.buildings.findOneBy({ id: room.buildingId });
+        if (!building) {
           throw new NotFoundException('Relacionamentos do contrato não encontrados.');
         }
 
@@ -110,7 +117,7 @@ export class ContractDocumentsService {
           tenantName: tenant.name,
           tenantCpf: tenant.cpf,
           tenantRg: tenant.rg,
-          propertyDescription: describePropertyUnit(property),
+          roomDescription: describeRoom(room, building),
           monthlyValueCents: contract.monthlyBaseValueCents,
           moveInDate: contract.moveInDate,
           firstPeriodEnd: calendarPeriodFrom(contract.moveInDate).end,
@@ -260,17 +267,22 @@ export class ContractDocumentsService {
   private async loadContractData(contractId: string): Promise<{
     contract: Contract;
     tenant: Tenant;
-    property: PropertyUnit;
+    room: Room;
+    building: Building;
   }> {
     const contract = await this.contracts.findOneBy({ id: contractId });
     if (!contract) throw new NotFoundException('Contrato não encontrado.');
-    const [tenant, property] = await Promise.all([
+    const [tenant, room] = await Promise.all([
       this.tenants.findOneBy({ id: contract.tenantId }),
-      this.properties.findOneBy({ id: contract.propertyUnitId }),
+      this.rooms.findOneBy({ id: contract.roomId }),
     ]);
-    if (!tenant || !property) {
+    if (!tenant || !room) {
       throw new NotFoundException('Relacionamentos do contrato não encontrados.');
     }
-    return { contract, tenant, property };
+    const building = await this.buildings.findOneBy({ id: room.buildingId });
+    if (!building) {
+      throw new NotFoundException('Relacionamentos do contrato não encontrados.');
+    }
+    return { contract, tenant, room, building };
   }
 }

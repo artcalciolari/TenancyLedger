@@ -2,7 +2,11 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { QueryFailedError } from 'typeorm';
 import { Building } from './domain/building.entity';
 import { BUILDING_REPOSITORY_TOKEN } from './domain/building.repository';
-import type { BuildingUnitView, IBuildingRepository } from './domain/building.repository';
+import type {
+  BuildingRoomView,
+  BuildingVacancyFilter,
+  IBuildingRepository,
+} from './domain/building.repository';
 import { civilDateInTimeZone } from '../../core/domain/civil-date';
 
 export interface CreateBuildingInput {
@@ -23,12 +27,14 @@ export interface BuildingView {
   neighborhood: string;
   address: string | null;
   createdAt: Date;
-  totalUnits: number;
-  occupiedUnits: number;
+  totalRooms: number;
+  occupiedRooms: number;
+  vacantRooms: number;
+  vacancyPercentage: number | null;
 }
 
 export interface BuildingDetailView extends BuildingView {
-  units: BuildingUnitView[];
+  rooms: BuildingRoomView[];
 }
 
 export interface PaginatedBuildingsView {
@@ -40,6 +46,8 @@ export interface ListBuildingsInput {
   page: number;
   limit: number;
   q?: string;
+  date?: string;
+  vacancy?: BuildingVacancyFilter;
 }
 
 @Injectable()
@@ -70,7 +78,6 @@ export class BuildingService {
     if (!building) {
       throw new NotFoundException('Prédio não encontrado.');
     }
-    const previousNeighborhood = building.neighborhood;
     building.update(input);
 
     const duplicate = await this.repository.findByName(building.name);
@@ -79,10 +86,7 @@ export class BuildingService {
     }
 
     try {
-      await this.repository.saveWithUnitNeighborhoodPropagation(
-        building,
-        building.neighborhood !== previousNeighborhood,
-      );
+      await this.repository.save(building);
     } catch (error: unknown) {
       if (this.databaseErrorCode(error) === '23505') {
         throw new ConflictException('Já existe um prédio com este nome.');
@@ -94,7 +98,7 @@ export class BuildingService {
 
   async list(input: ListBuildingsInput): Promise<PaginatedBuildingsView> {
     const { page, limit } = input;
-    const asOf = this.currentCivilDate();
+    const asOf = input.date ?? this.currentCivilDate();
     const result = await this.repository.list({ ...input, asOf });
     return {
       data: result.items,
@@ -102,16 +106,16 @@ export class BuildingService {
     };
   }
 
-  async getById(id: string): Promise<BuildingDetailView> {
-    const asOf = this.currentCivilDate();
-    const [occupancy, units] = await Promise.all([
+  async getById(id: string, date?: string): Promise<BuildingDetailView> {
+    const asOf = date ?? this.currentCivilDate();
+    const [occupancy, rooms] = await Promise.all([
       this.repository.occupancyFor(id, asOf),
-      this.repository.listUnits(id, asOf),
+      this.repository.listRooms(id, asOf),
     ]);
     if (!occupancy) {
       throw new NotFoundException('Prédio não encontrado.');
     }
-    return { ...occupancy, units };
+    return { ...occupancy, rooms };
   }
 
   private currentCivilDate(): string {

@@ -28,29 +28,29 @@ interface FinancialEventRow {
   eventDate: string | Date;
   kind: FinancialKind;
   amountCents: string | number;
-  propertyUnitId: string;
-  buildingId: string | null;
+  roomId: string;
+  buildingId: string;
+  roomNumber: string;
+  buildingName: string;
   neighborhood: string;
-  unitNumber: string;
-  buildingName: string | null;
 }
 
-export interface DashboardPropertyBreakdown {
-  propertyUnitId: string;
-  buildingId: string | null;
-  buildingName: string | null;
+export interface DashboardRoomBreakdown {
+  roomId: string;
+  buildingId: string;
+  buildingName: string;
   neighborhood: string;
-  unitNumber: string;
+  roomNumber: string;
   receivedCents: number;
   confirmedReceivableCents: number;
   forecastRenewalsCents: number;
 }
 
 export interface DashboardBuildingBreakdown {
-  buildingId: string | null;
-  buildingName: string | null;
+  buildingId: string;
+  buildingName: string;
   neighborhood: string;
-  propertyUnitCount: number;
+  roomCount: number;
   receivedCents: number;
   confirmedReceivableCents: number;
   forecastRenewalsCents: number;
@@ -70,7 +70,7 @@ export interface DashboardSummary {
     receivedCents: number;
     confirmedReceivableCents: number;
     forecastRenewalsCents: number;
-    byProperty: DashboardPropertyBreakdown[];
+    byRoom: DashboardRoomBreakdown[];
     byBuilding: DashboardBuildingBreakdown[];
     daily: DashboardDailyPoint[];
   };
@@ -206,19 +206,19 @@ export class DashboardService {
       confirmedReceivableCents: 0,
       forecastRenewalsCents: 0,
     };
-    const properties = new Map<string, DashboardPropertyBreakdown>();
+    const rooms = new Map<string, DashboardRoomBreakdown>();
     const daily = new Map<string, DashboardDailyPoint>();
 
     for (const row of rows) {
       const amount = Number(row.amountCents);
       const date =
         row.eventDate instanceof Date ? row.eventDate.toISOString().slice(0, 10) : row.eventDate;
-      const property = properties.get(row.propertyUnitId) ?? {
-        propertyUnitId: row.propertyUnitId,
+      const room = rooms.get(row.roomId) ?? {
+        roomId: row.roomId,
         buildingId: row.buildingId,
         buildingName: row.buildingName,
         neighborhood: row.neighborhood,
-        unitNumber: row.unitNumber,
+        roomNumber: row.roomNumber,
         receivedCents: 0,
         confirmedReceivableCents: 0,
         forecastRenewalsCents: 0,
@@ -231,55 +231,49 @@ export class DashboardService {
       };
       const key = DashboardService.kindKey(row.kind);
       totals[key] += amount;
-      property[key] += amount;
+      room[key] += amount;
       point[key] += amount;
-      properties.set(row.propertyUnitId, property);
+      rooms.set(row.roomId, room);
       daily.set(date, point);
     }
 
-    const byProperty = [...properties.values()].sort((left, right) =>
-      `${left.buildingName ?? ''}\u0000${left.neighborhood}\u0000${left.unitNumber}`.localeCompare(
-        `${right.buildingName ?? ''}\u0000${right.neighborhood}\u0000${right.unitNumber}`,
+    const byRoom = [...rooms.values()].sort((left, right) =>
+      `${left.buildingName} ${left.roomNumber}`.localeCompare(
+        `${right.buildingName} ${right.roomNumber}`,
         'pt-BR',
       ),
     );
 
     return {
       ...totals,
-      byProperty,
-      byBuilding: DashboardService.aggregateBuildings(byProperty),
+      byRoom,
+      byBuilding: DashboardService.aggregateBuildings(byRoom),
       daily: [...daily.values()].sort((left, right) => left.date.localeCompare(right.date)),
     };
   }
 
-  private static aggregateBuildings(
-    properties: DashboardPropertyBreakdown[],
-  ): DashboardBuildingBreakdown[] {
+  private static aggregateBuildings(rooms: DashboardRoomBreakdown[]): DashboardBuildingBreakdown[] {
     const buildings = new Map<string, DashboardBuildingBreakdown>();
 
-    for (const property of properties) {
-      const groupKey = property.buildingId ?? `standalone:${property.neighborhood}`;
-      const building = buildings.get(groupKey) ?? {
-        buildingId: property.buildingId,
-        buildingName: property.buildingName,
-        neighborhood: property.neighborhood,
-        propertyUnitCount: 0,
+    for (const room of rooms) {
+      const building = buildings.get(room.buildingId) ?? {
+        buildingId: room.buildingId,
+        buildingName: room.buildingName,
+        neighborhood: room.neighborhood,
+        roomCount: 0,
         receivedCents: 0,
         confirmedReceivableCents: 0,
         forecastRenewalsCents: 0,
       };
-      building.propertyUnitCount += 1;
-      building.receivedCents += property.receivedCents;
-      building.confirmedReceivableCents += property.confirmedReceivableCents;
-      building.forecastRenewalsCents += property.forecastRenewalsCents;
-      buildings.set(groupKey, building);
+      building.roomCount += 1;
+      building.receivedCents += room.receivedCents;
+      building.confirmedReceivableCents += room.confirmedReceivableCents;
+      building.forecastRenewalsCents += room.forecastRenewalsCents;
+      buildings.set(room.buildingId, building);
     }
 
     return [...buildings.values()].sort((left, right) =>
-      `${left.buildingId === null ? '1' : '0'}\u0000${left.buildingName ?? left.neighborhood}`.localeCompare(
-        `${right.buildingId === null ? '1' : '0'}\u0000${right.buildingName ?? right.neighborhood}`,
-        'pt-BR',
-      ),
+      left.buildingName.localeCompare(right.buildingName, 'pt-BR'),
     );
   }
 
@@ -309,15 +303,15 @@ export class DashboardService {
   }
 
   private static readonly financialQuery = `WITH RECURSIVE
-    property_context AS (
+    room_context AS (
       SELECT
-        property.id AS property_unit_id,
-        property.building_id,
-        property.neighborhood,
-        property.unit_number,
-        building.name AS building_name
-      FROM property_units property
-      LEFT JOIN buildings building ON building.id = property.building_id
+        room.id AS room_id,
+        room.building_id,
+        room.number AS room_number,
+        building.name AS building_name,
+        building.neighborhood
+      FROM rooms room
+      JOIN buildings building ON building.id = room.building_id
     ),
     received_events AS (
       SELECT
@@ -328,11 +322,11 @@ export class DashboardService {
       FROM payment_transactions payment
       JOIN invoices invoice ON invoice.id = payment.invoice_id
       JOIN contracts contract ON contract.id = invoice.contract_id
-      JOIN property_context context ON context.property_unit_id = contract.property_unit_id
+      JOIN room_context context ON context.room_id = contract.room_id
       WHERE payment.status = 'APPROVED'
         AND (payment.reviewed_at AT TIME ZONE 'America/Sao_Paulo')::date BETWEEN $2::date AND $3::date
-      GROUP BY event_date, context.property_unit_id, context.building_id,
-        context.neighborhood, context.unit_number, context.building_name
+      GROUP BY event_date, context.room_id, context.building_id,
+        context.room_number, context.building_name, context.neighborhood
     ),
     approved_totals AS (
       SELECT invoice_id, COALESCE(SUM(amount_cents), 0)::bigint AS amount_cents
@@ -348,17 +342,17 @@ export class DashboardService {
         context.*
       FROM invoices invoice
       JOIN contracts contract ON contract.id = invoice.contract_id
-      JOIN property_context context ON context.property_unit_id = contract.property_unit_id
+      JOIN room_context context ON context.room_id = contract.room_id
       LEFT JOIN approved_totals approved ON approved.invoice_id = invoice.id
       WHERE invoice.status IN ('OPEN', 'PARTIALLY_PAID', 'OVERDUE')
         AND invoice.total_value_cents > COALESCE(approved.amount_cents, 0)
-      GROUP BY invoice.due_date, context.property_unit_id, context.building_id,
-        context.neighborhood, context.unit_number, context.building_name
+      GROUP BY invoice.due_date, context.room_id, context.building_id,
+        context.room_number, context.building_name, context.neighborhood
     ),
     renewal_seed AS (
       SELECT
         contract.id AS contract_id,
-        contract.property_unit_id,
+        contract.room_id,
         contract.monthly_base_value_cents,
         COALESCE((MAX(invoice.period_end) + 1), contract.move_in_date) AS period_start
       FROM contracts contract
@@ -370,7 +364,7 @@ export class DashboardService {
     renewal_periods AS (
       SELECT
         seed.contract_id,
-        seed.property_unit_id,
+        seed.room_id,
         seed.monthly_base_value_cents,
         seed.period_start,
         ((seed.period_start + INTERVAL '1 month')::date - 1) AS period_end
@@ -379,7 +373,7 @@ export class DashboardService {
       UNION ALL
       SELECT
         period.contract_id,
-        period.property_unit_id,
+        period.room_id,
         period.monthly_base_value_cents,
         (period.period_end + 1),
         (((period.period_end + 1) + INTERVAL '1 month')::date - 1)
@@ -393,28 +387,28 @@ export class DashboardService {
         SUM(period.monthly_base_value_cents)::bigint AS amount_cents,
         context.*
       FROM renewal_periods period
-      JOIN property_context context ON context.property_unit_id = period.property_unit_id
+      JOIN room_context context ON context.room_id = period.room_id
       WHERE period.period_start BETWEEN $1::date AND $4::date
         AND NOT EXISTS (
           SELECT 1 FROM invoices invoice
           WHERE invoice.contract_id = period.contract_id
             AND invoice.period_start = period.period_start
         )
-      GROUP BY period.period_start, context.property_unit_id, context.building_id,
-        context.neighborhood, context.unit_number, context.building_name
+      GROUP BY period.period_start, context.room_id, context.building_id,
+        context.room_number, context.building_name, context.neighborhood
     )
     SELECT
       event_date AS "eventDate",
       kind,
       amount_cents AS "amountCents",
-      property_unit_id AS "propertyUnitId",
+      room_id AS "roomId",
       building_id AS "buildingId",
-      neighborhood,
-      unit_number AS "unitNumber",
-      building_name AS "buildingName"
+      room_number AS "roomNumber",
+      building_name AS "buildingName",
+      neighborhood
     FROM received_events
-    UNION ALL SELECT event_date, kind, amount_cents, property_unit_id, building_id,
-      neighborhood, unit_number, building_name FROM receivable_events
-    UNION ALL SELECT event_date, kind, amount_cents, property_unit_id, building_id,
-      neighborhood, unit_number, building_name FROM forecast_events`;
+    UNION ALL SELECT event_date, kind, amount_cents, room_id, building_id,
+      room_number, building_name, neighborhood FROM receivable_events
+    UNION ALL SELECT event_date, kind, amount_cents, room_id, building_id,
+      room_number, building_name, neighborhood FROM forecast_events`;
 }

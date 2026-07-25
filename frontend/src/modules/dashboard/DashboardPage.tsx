@@ -330,16 +330,14 @@ export function DashboardPage() {
                   </TableHead>
                   <TableBody>
                     {data.financial.byBuilding.map((building) => (
-                      <TableRow key={building.buildingId ?? `standalone-${building.neighborhood}`}>
+                      <TableRow key={building.buildingId}>
                         <TableCell>
                           <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
-                            {building.buildingName ??
-                              `Imóveis sem prédio · ${building.neighborhood}`}
+                            {building.buildingName}
                           </Typography>
                           <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
-                            {building.buildingName ? `${building.neighborhood} · ` : ''}
-                            {building.propertyUnitCount}{' '}
-                            {building.propertyUnitCount === 1 ? 'unidade' : 'unidades'}
+                            {building.neighborhood} · {building.roomCount}{' '}
+                            {building.roomCount === 1 ? 'quarto' : 'quartos'}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">{formatCents(building.receivedCents)}</TableCell>
@@ -358,45 +356,39 @@ export function DashboardPage() {
           </ListPanel>
         </Grid>
         <Grid size={{ xs: 12 }}>
-          <ListPanel
-            title="Posição por imóvel"
-            count={`${data.financial.byProperty.length} imóveis`}
-          >
-            {data.financial.byProperty.length === 0 ? (
+          <ListPanel title="Posição por quarto" count={`${data.financial.byRoom.length} quartos`}>
+            {data.financial.byRoom.length === 0 ? (
               <Typography sx={{ color: brand.textTertiary, py: 5, textAlign: 'center' }}>
                 Nenhum valor no período.
               </Typography>
             ) : (
               <TableContainer sx={{ maxHeight: 300 }}>
-                <Table stickyHeader size="small" aria-label="Posição financeira por imóvel">
+                <Table stickyHeader size="small" aria-label="Posição financeira por quarto">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Imóvel</TableCell>
+                      <TableCell>Quarto</TableCell>
                       <TableCell align="right">Recebido</TableCell>
                       <TableCell align="right">A receber</TableCell>
                       <TableCell align="right">Previsto</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {data.financial.byProperty.map((property) => (
-                      <TableRow key={property.propertyUnitId}>
+                    {data.financial.byRoom.map((room) => (
+                      <TableRow key={room.roomId}>
                         <TableCell>
                           <Typography sx={{ fontSize: '0.86rem', fontWeight: 600 }}>
-                            {property.buildingName ?? property.neighborhood} · Unid.{' '}
-                            {property.unitNumber}
+                            {room.buildingName} · Quarto {room.roomNumber}
                           </Typography>
-                          {property.buildingName && (
-                            <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
-                              {property.neighborhood}
-                            </Typography>
-                          )}
+                          <Typography sx={{ fontSize: '0.75rem', color: brand.textTertiary }}>
+                            {room.neighborhood}
+                          </Typography>
                         </TableCell>
-                        <TableCell align="right">{formatCents(property.receivedCents)}</TableCell>
+                        <TableCell align="right">{formatCents(room.receivedCents)}</TableCell>
                         <TableCell align="right">
-                          {formatCents(property.confirmedReceivableCents)}
+                          {formatCents(room.confirmedReceivableCents)}
                         </TableCell>
                         <TableCell align="right">
-                          {formatCents(property.forecastRenewalsCents)}
+                          {formatCents(room.forecastRenewalsCents)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -595,8 +587,7 @@ export function DashboardPage() {
                           textDecoration: 'none',
                         }}
                       >
-                        {invoice.contract.propertyUnit.neighborhood} · Unid.{' '}
-                        {invoice.contract.propertyUnit.unitNumber}
+                        Quarto {invoice.contract.room.number} · {invoice.contract.room.buildingName}
                       </Typography>
                       <Typography sx={{ fontSize: '0.79rem', color: brand.textTertiary }}>
                         {invoice.contract.tenant.name} · CPF {invoice.contract.tenant.cpf}

@@ -45,7 +45,7 @@ export function NewBuildingPage() {
         ...values,
         address: values.address === '' ? undefined : values.address,
       });
-      queryClient.setQueryData(['building', created.id], created);
+      queryClient.setQueryData(['building', created.id], { ...created, rooms: [] });
       await queryClient.invalidateQueries({ queryKey: ['buildings'] });
       void navigate(`/buildings/${created.id}`, { replace: true });
     } catch {
@@ -57,7 +57,7 @@ export function NewBuildingPage() {
 
   return (
     <>
-      <PageHeader title="Novo prédio" description="Cadastre um edifício para agrupar unidades." />
+      <PageHeader title="Novo prédio" description="Cadastre um edifício para agrupar quartos." />
       <Card sx={{ maxWidth: 960, p: { xs: 2, sm: 3.5 } }}>
         <Stack component="form" spacing={3} onSubmit={onSubmit} noValidate>
           {apiMessage && <Alert severity="error">{apiMessage}</Alert>}
@@ -109,7 +109,7 @@ export function NewBuildingPage() {
           >
             <Button
               variant="text"
-              onClick={() => void navigate('/buildings')}
+              onClick={() => void navigate('/portfolio')}
               disabled={createBuilding.isPending}
             >
               Cancelar

@@ -16,7 +16,7 @@ import {
 } from '../../../../core/domain/calendar-period';
 import { ConflictError } from '../../../../core/domain/errors/conflict.error';
 import { ValidationError } from '../../../../core/domain/errors/validation.error';
-import { PropertyUnit } from '../../../property/domain/property-unit.entity';
+import { Room } from '../../../property/domain/room.entity';
 import { Tenant } from '../../../tenant/domain/entities/tenant.entity';
 
 export enum ContractType {
@@ -55,10 +55,10 @@ export class ContractStateError extends ConflictError {}
   "(contract_type = 'FIXED_TERM' AND end_date IS NOT NULL AND duration_in_months IS NOT NULL) OR (contract_type = 'MONTH_TO_MONTH' AND end_date IS NULL AND duration_in_months IS NULL)",
 )
 @Index('IDX_contracts_tenant_id', ['_tenantId'])
-@Index('IDX_contracts_property_unit_id', ['_propertyUnitId'])
+@Index('IDX_contracts_room_id', ['_roomId'])
 @Exclusion(
   'EX_contracts_no_overlapping_period',
-  `("property_unit_id" WITH =, daterange("move_in_date", COALESCE("end_date", 'infinity'::date), '[]') WITH &&) WHERE ("status" NOT IN ('TERMINATED'::"contract_status", 'CANCELLED'::"contract_status"))`,
+  `("room_id" WITH =, daterange("move_in_date", COALESCE("end_date", 'infinity'::date), '[]') WITH &&) WHERE ("status" NOT IN ('TERMINATED'::"contract_status", 'CANCELLED'::"contract_status"))`,
 )
 export class Contract {
   static readonly MAX_MONEY_CENTS = 2_147_483_647;
@@ -74,13 +74,13 @@ export class Contract {
   })
   private _tenantId!: string;
 
-  @Column({ name: 'property_unit_id', type: 'uuid' })
-  @ForeignKey(() => PropertyUnit, {
-    name: 'FK_contracts_property_unit',
+  @Column({ name: 'room_id', type: 'uuid' })
+  @ForeignKey(() => Room, {
+    name: 'FK_contracts_room',
     onDelete: 'RESTRICT',
     onUpdate: 'RESTRICT',
   })
-  private _propertyUnitId!: string;
+  private _roomId!: string;
 
   @Column({ name: 'move_in_date', type: 'date' })
   private _moveInDate!: string;
@@ -134,7 +134,7 @@ export class Contract {
 
   static create(
     tenantId: string,
-    propertyUnitId: string,
+    roomId: string,
     moveInDate: string,
     monthlyBaseValueCents: number,
     durationInMonths: number | null,
@@ -144,7 +144,7 @@ export class Contract {
   ): Contract {
     return Contract.createWithStatus(
       tenantId,
-      propertyUnitId,
+      roomId,
       moveInDate,
       monthlyBaseValueCents,
       durationInMonths,
@@ -157,14 +157,14 @@ export class Contract {
 
   static createPendingSignature(
     tenantId: string,
-    propertyUnitId: string,
+    roomId: string,
     moveInDate: string,
     monthlyBaseValueCents: number,
     billingDay?: number,
   ): Contract {
     return Contract.createWithStatus(
       tenantId,
-      propertyUnitId,
+      roomId,
       moveInDate,
       monthlyBaseValueCents,
       null,
@@ -177,7 +177,7 @@ export class Contract {
 
   private static createWithStatus(
     tenantId: string,
-    propertyUnitId: string,
+    roomId: string,
     moveInDate: string,
     monthlyBaseValueCents: number,
     durationInMonths: number | null,
@@ -187,7 +187,7 @@ export class Contract {
     status: ContractStatus,
   ): Contract {
     Contract.assertUuid(tenantId, 'inquilino');
-    Contract.assertUuid(propertyUnitId, 'unidade imobiliária');
+    Contract.assertUuid(roomId, 'quarto');
     Contract.assertDate(moveInDate, 'data de entrada');
     Contract.assertPositiveInteger(monthlyBaseValueCents, 'valor base mensal em centavos');
     if (!Object.values(ContractType).includes(contractType)) {
@@ -216,7 +216,7 @@ export class Contract {
 
     const contract = new Contract();
     contract._tenantId = tenantId;
-    contract._propertyUnitId = propertyUnitId;
+    contract._roomId = roomId;
     contract._moveInDate = moveInDate;
     contract._durationInMonths = durationInMonths;
     contract._endDate =
@@ -381,8 +381,8 @@ export class Contract {
   get tenantId(): string {
     return this._tenantId;
   }
-  get propertyUnitId(): string {
-    return this._propertyUnitId;
+  get roomId(): string {
+    return this._roomId;
   }
   get moveInDate(): string {
     return this._moveInDate;

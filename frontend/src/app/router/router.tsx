@@ -50,24 +50,19 @@ const ReviewPaymentsPage = lazy(() =>
     default: module.ReviewPaymentsPage,
   })),
 );
-const PropertiesPage = lazy(() =>
-  import('../../modules/properties/PropertiesPage').then((module) => ({
-    default: module.PropertiesPage,
+const PortfolioPage = lazy(() =>
+  import('../../modules/portfolio/PortfolioPage').then((module) => ({
+    default: module.PortfolioPage,
   })),
 );
-const NewPropertyPage = lazy(() =>
-  import('../../modules/properties/NewPropertyPage').then((module) => ({
-    default: module.NewPropertyPage,
+const NewRoomPage = lazy(() =>
+  import('../../modules/rooms/NewRoomPage').then((module) => ({
+    default: module.NewRoomPage,
   })),
 );
-const PropertyDetailPage = lazy(() =>
-  import('../../modules/properties/PropertyDetailPage').then((module) => ({
-    default: module.PropertyDetailPage,
-  })),
-);
-const BuildingsPage = lazy(() =>
-  import('../../modules/buildings/BuildingsPage').then((module) => ({
-    default: module.BuildingsPage,
+const RoomDetailPage = lazy(() =>
+  import('../../modules/rooms/RoomDetailPage').then((module) => ({
+    default: module.RoomDetailPage,
   })),
 );
 const NewBuildingPage = lazy(() =>
@@ -186,20 +181,24 @@ export const router = createBrowserRouter([
         element: page(<TenantDetailPage />),
       },
       {
-        path: 'properties',
-        element: page(<PropertiesPage />),
+        path: 'portfolio',
+        element: page(<PortfolioPage />),
       },
       {
-        path: 'properties/new',
-        element: <RequireRole roles={managementRoles}>{page(<NewPropertyPage />)}</RequireRole>,
+        path: 'rooms',
+        element: <Navigate to="/portfolio?tab=rooms" replace />,
       },
       {
-        path: 'properties/:propertyId',
-        element: page(<PropertyDetailPage />),
+        path: 'rooms/new',
+        element: <RequireRole roles={managementRoles}>{page(<NewRoomPage />)}</RequireRole>,
+      },
+      {
+        path: 'rooms/:roomId',
+        element: page(<RoomDetailPage />),
       },
       {
         path: 'buildings',
-        element: page(<BuildingsPage />),
+        element: <Navigate to="/portfolio" replace />,
       },
       {
         path: 'buildings/new',

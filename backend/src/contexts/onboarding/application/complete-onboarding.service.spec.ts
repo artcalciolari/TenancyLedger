@@ -8,7 +8,7 @@ import {
   ContractType,
 } from '../../contract/domain/entities/contract.entity';
 import { Invoice } from '../../invoice/domain/entities/invoice.entity';
-import { PropertyUnit, UnitType } from '../../property/domain/property-unit.entity';
+import { Room } from '../../property/domain/room.entity';
 import { TenantReference } from '../../tenant/domain/entities/tenant-reference.entity';
 import { Tenant, TenantCivilStatus } from '../../tenant/domain/entities/tenant.entity';
 import { OnboardingDraft, OnboardingDraftStatus } from '../domain/onboarding-draft.entity';
@@ -17,7 +17,8 @@ import { CompleteOnboardingService } from './complete-onboarding.service';
 const DRAFT_ID = 'dad91a88-583f-4b2a-9ac6-0d8eb14cd266';
 const USER_ID = '7fdf9cde-2961-4ed2-a3ae-eedce12a42ee';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
 const CONTRACT_ID = '4d4d05b6-b5db-47c7-91fc-b0c86c036d9f';
 const INVOICE_ID = '0a60a4ca-1a8e-4f0a-b0ee-2196db87ac51';
 const DRAFT_PHOTO_KEY = `documents/onboarding-draft-photos/${DRAFT_ID}/9f8b2b8e-1c2b-4a2b-9c2b-1a2b3c4d5e6f.jpg`;
@@ -55,7 +56,7 @@ function payload(): Record<string, unknown> {
         email: '   ',
       },
     ],
-    propertyUnitId: PROPERTY_ID,
+    roomId: ROOM_ID,
     moveInDate: '2026-07-18',
     monthlyBaseValueCents: 185_000,
   };
@@ -79,7 +80,7 @@ function queryFailure(code: string, driverErrorOverride?: unknown): QueryFailedE
 
 describe('CompleteOnboardingService', () => {
   let currentDraft: OnboardingDraft | null;
-  let property: PropertyUnit | null;
+  let room: Room | null;
   let overlap: boolean;
   let draftQuery: {
     setLock: jest.Mock;
@@ -103,8 +104,8 @@ describe('CompleteOnboardingService', () => {
 
   beforeEach(() => {
     currentDraft = draft();
-    property = Object.assign(PropertyUnit.create('Centro', UnitType.APARTMENT, '101-A'), {
-      id: PROPERTY_ID,
+    room = Object.assign(Room.create(BUILDING_ID, '101-A'), {
+      id: ROOM_ID,
     });
     overlap = false;
     draftQuery = {
@@ -124,7 +125,7 @@ describe('CompleteOnboardingService', () => {
     overlapQuery.where.mockReturnValue(overlapQuery);
     overlapQuery.andWhere.mockReturnValue(overlapQuery);
     const onboardingRepository = { createQueryBuilder: jest.fn(() => draftQuery) };
-    const propertyRepository = { findOneBy: jest.fn(() => Promise.resolve(property)) };
+    const roomRepository = { findOneBy: jest.fn(() => Promise.resolve(room)) };
     const contractRepository = { createQueryBuilder: jest.fn(() => overlapQuery) };
     save = jest.fn().mockImplementation((entity: unknown) => {
       if (entity instanceof Tenant && !entity.id) {
@@ -141,7 +142,7 @@ describe('CompleteOnboardingService', () => {
     manager = {
       getRepository: jest.fn((entity: unknown) => {
         if (entity === OnboardingDraft) return onboardingRepository;
-        if (entity === PropertyUnit) return propertyRepository;
+        if (entity === Room) return roomRepository;
         if (entity === Contract) return contractRepository;
         throw new Error('unexpected repository');
       }),
@@ -207,7 +208,7 @@ describe('CompleteOnboardingService', () => {
     expect(contract).toMatchObject({
       id: CONTRACT_ID,
       tenantId: TENANT_ID,
-      propertyUnitId: PROPERTY_ID,
+      roomId: ROOM_ID,
       contractType: ContractType.MONTH_TO_MONTH,
       status: ContractStatus.PENDING_SIGNATURE,
       moveInDate: '2026-07-18',
@@ -358,10 +359,10 @@ describe('CompleteOnboardingService', () => {
     },
   );
 
-  it('rejects a missing property before persistence', async () => {
-    property = null;
+  it('rejects a missing room before persistence', async () => {
+    room = null;
     await expect(service.complete(DRAFT_ID, USER_ID, false)).rejects.toEqual(
-      new NotFoundException('Unidade imobiliária não encontrada.'),
+      new NotFoundException('Quarto não encontrado.'),
     );
     expect(save).not.toHaveBeenCalled();
   });
@@ -369,7 +370,7 @@ describe('CompleteOnboardingService', () => {
   it('rejects a pre-existing contract overlap', async () => {
     overlap = true;
     await expect(service.complete(DRAFT_ID, USER_ID, false)).rejects.toEqual(
-      new ConflictException('A unidade já possui um contrato sobreposto.'),
+      new ConflictException('O quarto já possui um contrato sobreposto.'),
     );
     expect(save).not.toHaveBeenCalled();
   });
@@ -391,7 +392,7 @@ describe('CompleteOnboardingService', () => {
     ['fractional monthly value', { ...payload(), monthlyBaseValueCents: 1.5 }],
     ['zero monthly value', { ...payload(), monthlyBaseValueCents: 0 }],
     ['unsafe monthly value', { ...payload(), monthlyBaseValueCents: Number.MAX_SAFE_INTEGER + 1 }],
-    ['non-string required field', { ...payload(), propertyUnitId: 123 }],
+    ['non-string required field', { ...payload(), roomId: 123 }],
     ['blank required field', { ...payload(), moveInDate: '   ' }],
     ['invalid reference object', { ...payload(), references: [null, {}] }],
   ])('rejects payload with %s', async (_scenario, invalidPayload) => {
@@ -404,7 +405,7 @@ describe('CompleteOnboardingService', () => {
 
   it.each([
     ['23505', 'CPF, e-mail ou telefone já cadastrado.'],
-    ['23P01', 'A unidade já possui um contrato sobreposto.'],
+    ['23P01', 'O quarto já possui um contrato sobreposto.'],
   ])('maps PostgreSQL %s to a friendly conflict', async (code, message) => {
     transaction.mockRejectedValue(queryFailure(code));
     await expect(service.complete(DRAFT_ID, USER_ID, false)).rejects.toEqual(

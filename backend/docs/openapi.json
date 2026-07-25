@@ -52,29 +52,42 @@
             "maxLength": 120,
             "type": "string"
           },
-          "occupiedUnits": {
+          "occupiedRooms": {
             "example": 8,
             "type": "number"
           },
-          "totalUnits": {
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingRoomResponseDto"
+            },
+            "type": "array"
+          },
+          "totalRooms": {
             "example": 12,
             "type": "number"
           },
-          "units": {
-            "items": {
-              "$ref": "#/components/schemas/BuildingUnitResponseDto"
-            },
-            "type": "array"
+          "vacancyPercentage": {
+            "description": "Percentual de vagas com 1 casa decimal; nulo quando o prédio não tem quartos.",
+            "example": 33.3,
+            "nullable": true,
+            "type": "number"
+          },
+          "vacantRooms": {
+            "example": 4,
+            "type": "number"
           }
         },
         "required": [
           "id",
           "name",
           "neighborhood",
+          "address",
           "createdAt",
-          "totalUnits",
-          "occupiedUnits",
-          "units"
+          "totalRooms",
+          "occupiedRooms",
+          "vacantRooms",
+          "vacancyPercentage",
+          "rooms"
         ],
         "type": "object"
       },
@@ -104,12 +117,22 @@
             "maxLength": 120,
             "type": "string"
           },
-          "occupiedUnits": {
+          "occupiedRooms": {
             "example": 8,
             "type": "number"
           },
-          "totalUnits": {
+          "totalRooms": {
             "example": 12,
+            "type": "number"
+          },
+          "vacancyPercentage": {
+            "description": "Percentual de vagas com 1 casa decimal; nulo quando o prédio não tem quartos.",
+            "example": 33.3,
+            "nullable": true,
+            "type": "number"
+          },
+          "vacantRooms": {
+            "example": 4,
             "type": "number"
           }
         },
@@ -117,47 +140,44 @@
           "id",
           "name",
           "neighborhood",
+          "address",
           "createdAt",
-          "totalUnits",
-          "occupiedUnits"
+          "totalRooms",
+          "occupiedRooms",
+          "vacantRooms",
+          "vacancyPercentage"
         ],
         "type": "object"
       },
-      "BuildingUnitResponseDto": {
+      "BuildingRoomResponseDto": {
         "properties": {
           "id": {
             "format": "uuid",
             "type": "string"
           },
-          "neighborhood": {
-            "example": "Centro",
-            "maxLength": 120,
+          "number": {
+            "example": "101",
+            "maxLength": 40,
             "type": "string"
           },
           "occupied": {
             "type": "boolean"
-          },
-          "type": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UnitType"
-              }
-            ]
-          },
-          "unitNumber": {
-            "example": "101-A",
-            "maxLength": 40,
-            "type": "string"
           }
         },
         "required": [
           "id",
-          "unitNumber",
-          "type",
-          "neighborhood",
+          "number",
           "occupied"
         ],
         "type": "object"
+      },
+      "BuildingVacancyFilter": {
+        "enum": [
+          "WITH_VACANCY",
+          "FULL",
+          "NO_ROOMS"
+        ],
+        "type": "string"
       },
       "CashClosingResponseDto": {
         "properties": {
@@ -464,36 +484,6 @@
         ],
         "type": "object"
       },
-      "ContractPropertySummaryDto": {
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "neighborhood": {
-            "example": "Centro",
-            "type": "string"
-          },
-          "type": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UnitType"
-              }
-            ]
-          },
-          "unitNumber": {
-            "example": "101-A",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "neighborhood",
-          "type",
-          "unitNumber"
-        ],
-        "type": "object"
-      },
       "ContractResponseDto": {
         "properties": {
           "badges": {
@@ -560,10 +550,10 @@
             "nullable": true,
             "type": "string"
           },
-          "propertyUnit": {
-            "$ref": "#/components/schemas/ContractPropertySummaryDto"
+          "room": {
+            "$ref": "#/components/schemas/ContractRoomSummaryDto"
           },
-          "propertyUnitId": {
+          "roomId": {
             "format": "uuid",
             "type": "string"
           },
@@ -598,7 +588,7 @@
         "required": [
           "id",
           "tenantId",
-          "propertyUnitId",
+          "roomId",
           "moveInDate",
           "endDate",
           "monthlyBaseValueCents",
@@ -615,7 +605,39 @@
           "createdAt",
           "updatedAt",
           "tenant",
-          "propertyUnit"
+          "room"
+        ],
+        "type": "object"
+      },
+      "ContractRoomSummaryDto": {
+        "properties": {
+          "buildingId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "buildingName": {
+            "example": "Edifício Aurora",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "neighborhood": {
+            "example": "Centro",
+            "type": "string"
+          },
+          "number": {
+            "example": "101",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "buildingId",
+          "buildingName",
+          "neighborhood"
         ],
         "type": "object"
       },
@@ -760,7 +782,7 @@
             "format": "date",
             "type": "string"
           },
-          "propertyUnitId": {
+          "roomId": {
             "format": "uuid",
             "type": "string"
           },
@@ -771,43 +793,29 @@
         },
         "required": [
           "tenantId",
-          "propertyUnitId",
+          "roomId",
           "moveInDate",
           "monthlyBaseValueCents",
           "isRenewable"
         ],
         "type": "object"
       },
-      "CreatePropertyDto": {
+      "CreateRoomDto": {
         "properties": {
           "buildingId": {
             "format": "uuid",
             "type": "string"
           },
-          "neighborhood": {
-            "description": "Obrigatório para unidade sem prédio. Quando buildingId é informado, o bairro é derivado do prédio e este valor é ignorado.",
-            "example": "Centro",
-            "maxLength": 120,
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UnitType"
-              }
-            ]
-          },
-          "unitNumber": {
-            "example": "101-A",
+          "number": {
+            "example": "101",
             "maxLength": 40,
             "minLength": 1,
             "type": "string"
           }
         },
         "required": [
-          "type",
-          "unitNumber"
+          "buildingId",
+          "number"
         ],
         "type": "object"
       },
@@ -940,13 +948,10 @@
       "DashboardBuildingBreakdownDto": {
         "properties": {
           "buildingId": {
-            "description": "Nulo para o grupo de imóveis sem prédio do bairro informado.",
             "format": "uuid",
-            "nullable": true,
             "type": "string"
           },
           "buildingName": {
-            "nullable": true,
             "type": "string"
           },
           "confirmedReceivableCents": {
@@ -960,12 +965,12 @@
           "neighborhood": {
             "type": "string"
           },
-          "propertyUnitCount": {
-            "minimum": 1,
-            "type": "number"
-          },
           "receivedCents": {
             "minimum": 0,
+            "type": "number"
+          },
+          "roomCount": {
+            "minimum": 1,
             "type": "number"
           }
         },
@@ -973,7 +978,7 @@
           "buildingId",
           "buildingName",
           "neighborhood",
-          "propertyUnitCount",
+          "roomCount",
           "receivedCents",
           "confirmedReceivableCents",
           "forecastRenewalsCents"
@@ -1043,15 +1048,14 @@
       "DashboardFinancialSummaryDto": {
         "properties": {
           "byBuilding": {
-            "description": "Totais por prédio; imóveis sem prédio são agrupados por bairro.",
             "items": {
               "$ref": "#/components/schemas/DashboardBuildingBreakdownDto"
             },
             "type": "array"
           },
-          "byProperty": {
+          "byRoom": {
             "items": {
-              "$ref": "#/components/schemas/DashboardPropertyBreakdownDto"
+              "$ref": "#/components/schemas/DashboardRoomBreakdownDto"
             },
             "type": "array"
           },
@@ -1081,7 +1085,7 @@
           "receivedCents",
           "confirmedReceivableCents",
           "forecastRenewalsCents",
-          "byProperty",
+          "byRoom",
           "byBuilding",
           "daily"
         ],
@@ -1161,15 +1165,13 @@
         ],
         "type": "object"
       },
-      "DashboardPropertyBreakdownDto": {
+      "DashboardRoomBreakdownDto": {
         "properties": {
           "buildingId": {
             "format": "uuid",
-            "nullable": true,
             "type": "string"
           },
           "buildingName": {
-            "nullable": true,
             "type": "string"
           },
           "confirmedReceivableCents": {
@@ -1183,24 +1185,24 @@
           "neighborhood": {
             "type": "string"
           },
-          "propertyUnitId": {
-            "format": "uuid",
-            "type": "string"
-          },
           "receivedCents": {
             "minimum": 0,
             "type": "number"
           },
-          "unitNumber": {
+          "roomId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "roomNumber": {
             "type": "string"
           }
         },
         "required": [
-          "propertyUnitId",
+          "roomId",
           "buildingId",
           "buildingName",
           "neighborhood",
-          "unitNumber",
+          "roomNumber",
           "receivedCents",
           "confirmedReceivableCents",
           "forecastRenewalsCents"
@@ -1260,10 +1262,10 @@
             "format": "uuid",
             "type": "string"
           },
-          "propertyUnit": {
-            "$ref": "#/components/schemas/ContractPropertySummaryDto"
+          "room": {
+            "$ref": "#/components/schemas/ContractRoomSummaryDto"
           },
-          "propertyUnitId": {
+          "roomId": {
             "format": "uuid",
             "type": "string"
           },
@@ -1285,10 +1287,10 @@
         "required": [
           "id",
           "tenantId",
-          "propertyUnitId",
+          "roomId",
           "status",
           "tenant",
-          "propertyUnit"
+          "room"
         ],
         "type": "object"
       },
@@ -1710,11 +1712,11 @@
         ],
         "type": "object"
       },
-      "PaginatedPropertiesResponseDto": {
+      "PaginatedRoomsResponseDto": {
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/PropertyResponseDto"
+              "$ref": "#/components/schemas/RoomResponseDto"
             },
             "type": "array"
           },
@@ -2025,58 +2027,6 @@
         ],
         "type": "string"
       },
-      "PropertyResponseDto": {
-        "properties": {
-          "buildingId": {
-            "format": "uuid",
-            "nullable": true,
-            "type": "string"
-          },
-          "buildingName": {
-            "example": "Edifício Aurora",
-            "nullable": true,
-            "type": "string"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "neighborhood": {
-            "example": "Centro",
-            "maxLength": 120,
-            "type": "string"
-          },
-          "occupied": {
-            "example": false,
-            "type": "boolean"
-          },
-          "type": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UnitType"
-              }
-            ]
-          },
-          "unitNumber": {
-            "example": "101-A",
-            "maxLength": 40,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "neighborhood",
-          "type",
-          "unitNumber",
-          "createdAt",
-          "occupied"
-        ],
-        "type": "object"
-      },
       "ReceiptDownloadUrlDto": {
         "properties": {
           "expiresInSeconds": {
@@ -2138,11 +2088,11 @@
             "format": "date",
             "type": "string"
           },
-          "propertyDescription": {
+          "roomDescription": {
             "maxLength": 300,
             "type": "string"
           },
-          "propertyUnitId": {
+          "roomId": {
             "format": "uuid",
             "type": "string"
           },
@@ -2178,8 +2128,8 @@
           "tenantId",
           "tenantName",
           "tenantCpf",
-          "propertyUnitId",
-          "propertyDescription",
+          "roomId",
+          "roomDescription",
           "periodStart",
           "periodEnd",
           "amountCents",
@@ -2242,6 +2192,62 @@
         },
         "required": [
           "reason"
+        ],
+        "type": "object"
+      },
+      "RoomAvailabilityStatus": {
+        "enum": [
+          "VACANT",
+          "OCCUPIED"
+        ],
+        "type": "string"
+      },
+      "RoomResponseDto": {
+        "properties": {
+          "buildingAddress": {
+            "example": "Rua das Flores, 123",
+            "nullable": true,
+            "type": "string"
+          },
+          "buildingId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "buildingName": {
+            "example": "Edifício Aurora",
+            "type": "string"
+          },
+          "buildingNeighborhood": {
+            "example": "Centro",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "number": {
+            "example": "101",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "occupied": {
+            "example": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "buildingId",
+          "number",
+          "createdAt",
+          "buildingName",
+          "buildingNeighborhood",
+          "buildingAddress",
+          "occupied"
         ],
         "type": "object"
       },
@@ -2458,16 +2464,6 @@
         ],
         "type": "object"
       },
-      "UnitType": {
-        "enum": [
-          "KITNET",
-          "ROOM",
-          "APARTMENT",
-          "HOUSE",
-          "COMMERCIAL"
-        ],
-        "type": "string"
-      },
       "UpdateBuildingDto": {
         "properties": {
           "address": {
@@ -2490,29 +2486,15 @@
         },
         "type": "object"
       },
-      "UpdatePropertyDto": {
+      "UpdateRoomDto": {
         "properties": {
           "buildingId": {
             "description": "Campo imutável; presente apenas para explicitar a rejeição de alterações.",
             "format": "uuid",
             "type": "string"
           },
-          "neighborhood": {
-            "description": "Editável apenas para unidade avulsa. Em unidade vinculada, o bairro é derivado do prédio e alterações retornam 422; buildingId é imutável.",
-            "example": "Centro",
-            "maxLength": 120,
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UnitType"
-              }
-            ]
-          },
-          "unitNumber": {
-            "example": "101-A",
+          "number": {
+            "example": "101",
             "maxLength": 40,
             "minLength": 1,
             "type": "string"
@@ -2700,7 +2682,7 @@
   },
   "info": {
     "contact": {},
-    "description": "API para gestão auditável de inquilinos, imóveis, contratos e cobranças.",
+    "description": "API para gestão auditável de inquilinos, prédios, quartos, contratos e cobranças.",
     "title": "Tenancy Ledger API",
     "version": "1.0"
   },
@@ -3861,6 +3843,24 @@
               "maxLength": 120,
               "type": "string"
             }
+          },
+          {
+            "description": "Padrão: data civil atual.",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "vacancy",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/BuildingVacancyFilter"
+            }
           }
         ],
         "responses": {
@@ -4191,6 +4191,16 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Padrão: data civil atual.",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "format": "date",
               "type": "string"
             }
           }
@@ -5514,7 +5524,7 @@
           },
           {
             "in": "query",
-            "name": "propertyUnitId",
+            "name": "roomId",
             "required": false,
             "schema": {
               "format": "uuid",
@@ -5522,7 +5532,7 @@
             }
           },
           {
-            "description": "Busca por contrato, locatário, CPF, e-mail, bairro ou unidade.",
+            "description": "Busca por contrato, locatário, CPF, e-mail, bairro ou quarto.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -5802,7 +5812,7 @@
                 }
               }
             },
-            "description": "Locatário ou imóvel não encontrado.",
+            "description": "Locatário ou quarto não encontrado.",
             "headers": {
               "X-Request-ID": {
                 "description": "Identificador de correlação da requisição.",
@@ -5822,7 +5832,7 @@
                 }
               }
             },
-            "description": "A unidade possui contrato com vigência sobreposta.",
+            "description": "O quarto possui contrato com vigência sobreposta.",
             "headers": {
               "X-Request-ID": {
                 "description": "Identificador de correlação da requisição.",
@@ -8292,7 +8302,7 @@
           },
           {
             "in": "query",
-            "name": "propertyUnitId",
+            "name": "roomId",
             "required": false,
             "schema": {
               "format": "uuid",
@@ -8300,7 +8310,7 @@
             }
           },
           {
-            "description": "Busca por contrato, locatário, CPF, e-mail, bairro ou unidade.",
+            "description": "Busca por contrato, locatário, CPF, e-mail, bairro ou quarto.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -9137,7 +9147,7 @@
           },
           {
             "in": "query",
-            "name": "propertyUnitId",
+            "name": "roomId",
             "required": false,
             "schema": {
               "format": "uuid",
@@ -9179,7 +9189,7 @@
             }
           },
           {
-            "description": "Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade.",
+            "description": "Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou quarto.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -11010,7 +11020,7 @@
           },
           {
             "in": "query",
-            "name": "propertyUnitId",
+            "name": "roomId",
             "required": false,
             "schema": {
               "format": "uuid",
@@ -11052,7 +11062,7 @@
             }
           },
           {
-            "description": "Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou unidade.",
+            "description": "Busca por fatura, contrato, locatário, CPF, e-mail, bairro ou quarto.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -12731,7 +12741,7 @@
                 }
               }
             },
-            "description": "Rascunho ou unidade imobiliária não encontrado.",
+            "description": "Rascunho ou quarto não encontrado.",
             "headers": {
               "X-Request-ID": {
                 "description": "Identificador de correlação da requisição.",
@@ -12751,7 +12761,7 @@
                 }
               }
             },
-            "description": "Rascunho já concluído, cadastro duplicado ou unidade ocupada.",
+            "description": "Rascunho já concluído, cadastro duplicado ou quarto ocupado.",
             "headers": {
               "X-Request-ID": {
                 "description": "Identificador de correlação da requisição.",
@@ -13454,7 +13464,7 @@
           },
           {
             "in": "query",
-            "name": "propertyUnitId",
+            "name": "roomId",
             "required": false,
             "schema": {
               "format": "uuid",
@@ -13480,7 +13490,7 @@
             }
           },
           {
-            "description": "Busca por fatura, contrato, locatário, CPF, bairro ou unidade.",
+            "description": "Busca por fatura, contrato, locatário, CPF, bairro ou quarto.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -13620,937 +13630,6 @@
         "summary": "Listar pagamentos submetidos aguardando revisão",
         "tags": [
           "Faturas e pagamentos"
-        ]
-      }
-    },
-    "/properties": {
-      "get": {
-        "operationId": "PropertyController_list",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "page",
-            "required": false,
-            "schema": {
-              "default": 1,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Busca parcial por bairro ou número da unidade.",
-            "in": "query",
-            "name": "q",
-            "required": false,
-            "schema": {
-              "example": "Centro",
-              "maxLength": 120,
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/UnitType"
-            }
-          },
-          {
-            "in": "query",
-            "name": "buildingId",
-            "required": false,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedPropertiesResponseDto"
-                }
-              }
-            },
-            "description": "",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Requisição inválida.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Token ausente, inválido ou expirado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Papel sem permissão para a operação.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Limite de requisições excedido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Erro interno inesperado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Listar imóveis",
-        "tags": [
-          "Imóveis"
-        ]
-      },
-      "post": {
-        "operationId": "PropertyController_create",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePropertyDto"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PropertyResponseDto"
-                }
-              }
-            },
-            "description": "",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Requisição inválida.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Token ausente, inválido ou expirado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Papel sem permissão para a operação.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Já existe uma unidade com este número no mesmo prédio ou bairro.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Regra de negócio ou valor de domínio inválido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Limite de requisições excedido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Erro interno inesperado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Cadastrar imóvel",
-        "tags": [
-          "Imóveis"
-        ]
-      }
-    },
-    "/properties/{id}": {
-      "get": {
-        "operationId": "PropertyController_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PropertyResponseDto"
-                }
-              }
-            },
-            "description": "",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Requisição inválida.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Token ausente, inválido ou expirado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Papel sem permissão para a operação.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Unidade imobiliária não encontrada.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Limite de requisições excedido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Erro interno inesperado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Consultar imóvel",
-        "tags": [
-          "Imóveis"
-        ]
-      },
-      "patch": {
-        "operationId": "PropertyController_update",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyDto"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PropertyResponseDto"
-                }
-              }
-            },
-            "description": "",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Requisição inválida.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Token ausente, inválido ou expirado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Papel sem permissão para a operação.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Unidade imobiliária não encontrada.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Já existe uma unidade com este número no mesmo prédio ou bairro.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Regra de negócio ou valor de domínio inválido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Limite de requisições excedido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Erro interno inesperado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Editar imóvel",
-        "tags": [
-          "Imóveis"
-        ]
-      }
-    },
-    "/properties/available": {
-      "get": {
-        "operationId": "PropertyController_listAvailable",
-        "parameters": [
-          {
-            "description": "Padrão: data civil atual.",
-            "in": "query",
-            "name": "date",
-            "required": false,
-            "schema": {
-              "format": "date",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "neighborhood",
-            "required": false,
-            "schema": {
-              "maxLength": 120,
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/UnitType"
-            }
-          },
-          {
-            "in": "query",
-            "name": "buildingId",
-            "required": false,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PropertyResponseDto"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Requisição inválida.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Token ausente, inválido ou expirado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Papel sem permissão para a operação.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Limite de requisições excedido.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailsDto"
-                }
-              }
-            },
-            "description": "Erro interno inesperado.",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Identificador de correlação da requisição.",
-                "schema": {
-                  "maxLength": 100,
-                  "minLength": 1,
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Listar unidades disponíveis em uma data",
-        "tags": [
-          "Imóveis"
         ]
       }
     },
@@ -14885,6 +13964,790 @@
         "summary": "Gerar URL temporária para baixar o recibo",
         "tags": [
           "Recibos"
+        ]
+      }
+    },
+    "/rooms": {
+      "get": {
+        "operationId": "RoomController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Busca por número do quarto, nome, bairro ou endereço do prédio.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "example": "Centro",
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "buildingId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RoomAvailabilityStatus"
+            }
+          },
+          {
+            "description": "Padrão: data civil atual.",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedRoomsResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar quartos",
+        "tags": [
+          "Quartos"
+        ]
+      },
+      "post": {
+        "operationId": "RoomController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Prédio não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Já existe um quarto com este número neste prédio.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cadastrar quarto",
+        "tags": [
+          "Quartos"
+        ]
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "operationId": "RoomController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Quarto não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar quarto",
+        "tags": [
+          "Quartos"
+        ]
+      },
+      "patch": {
+        "operationId": "RoomController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoomDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomResponseDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Requisição inválida.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Token ausente, inválido ou expirado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Papel sem permissão para a operação.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Quarto não encontrado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Já existe um quarto com este número neste prédio.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Regra de negócio ou valor de domínio inválido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Limite de requisições excedido.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "Erro interno inesperado.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Identificador de correlação da requisição.",
+                "schema": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Editar quarto",
+        "tags": [
+          "Quartos"
         ]
       }
     },

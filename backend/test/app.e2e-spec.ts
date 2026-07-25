@@ -11,7 +11,8 @@ import { User, UserRole } from '../src/contexts/auth/domain/entities/user.entity
 import { Contract } from '../src/contexts/contract/domain/entities/contract.entity';
 import { Invoice } from '../src/contexts/invoice/domain/entities/invoice.entity';
 import { InvoiceGenerationWorker } from '../src/contexts/invoice/infrastructure/workers/invoice-generation.worker';
-import { PropertyUnit, UnitType } from '../src/contexts/property/domain/property-unit.entity';
+import { Room } from '../src/contexts/property/domain/room.entity';
+import { Building } from '../src/contexts/property/domain/building.entity';
 import { Tenant, TenantCivilStatus } from '../src/contexts/tenant/domain/entities/tenant.entity';
 import { AuditLog } from '../src/core/infrastructure/audit/audit-log.entity';
 
@@ -152,14 +153,14 @@ describe('Tenancy Ledger API (e2e)', () => {
   let viewerToken = '';
   let viewerId = '';
   let tenantId = '';
-  let propertyId = '';
+  let roomId = '';
   let contractId = '';
   let invoiceId = '';
   let cashPaymentId = '';
   let pixPaymentId = '';
   let onboardingDraftId = '';
   let onboardingTenantId = '';
-  let onboardingPropertyId = '';
+  let onboardingRoomId = '';
   let onboardingContractId = '';
   let onboardingInvoiceId = '';
   let onboardingPaymentId = '';
@@ -337,7 +338,7 @@ describe('Tenancy Ledger API (e2e)', () => {
     expect(JSON.stringify(data)).not.toContain('"rg"');
   });
 
-  it('creates a building, a property unit linked to it, and an active contract', async () => {
+  it('creates a building, a room linked to it, and an active contract', async () => {
     const buildingResponse = await request(httpServer())
       .post('/buildings')
       .set('authorization', `Bearer ${adminToken}`)
@@ -348,19 +349,17 @@ describe('Tenancy Ledger API (e2e)', () => {
       .expect(201);
     const buildingId = readString(asRecord(responseBody(buildingResponse)), 'id');
 
-    const propertyResponse = await request(httpServer())
-      .post('/properties')
+    const roomResponse = await request(httpServer())
+      .post('/rooms')
       .set('authorization', `Bearer ${adminToken}`)
       .send({
-        neighborhood: `E2E-${suffix}`,
-        type: 'APARTMENT',
-        unitNumber: `UNIT-${suffix}`,
         buildingId,
+        number: `UNIT-${suffix}`,
       })
       .expect(201);
-    const createdProperty = asRecord(responseBody(propertyResponse));
-    propertyId = readString(createdProperty, 'id');
-    expect(createdProperty).toMatchObject({
+    const createdRoom = asRecord(responseBody(roomResponse));
+    roomId = readString(createdRoom, 'id');
+    expect(createdRoom).toMatchObject({
       buildingId,
       buildingName: `Edifício E2E ${suffix}`,
       occupied: false,
@@ -371,8 +370,10 @@ describe('Tenancy Ledger API (e2e)', () => {
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(asRecord(responseBody(emptyBuildingResponse))).toMatchObject({
-      totalUnits: 1,
-      occupiedUnits: 0,
+      totalRooms: 1,
+      occupiedRooms: 0,
+      vacantRooms: 1,
+      vacancyPercentage: 100,
     });
 
     const today = dateInSaoPaulo();
@@ -381,7 +382,7 @@ describe('Tenancy Ledger API (e2e)', () => {
       .set('authorization', `Bearer ${adminToken}`)
       .send({
         tenantId,
-        propertyUnitId: propertyId,
+        roomId,
         moveInDate: `${today.slice(0, 7)}-01`,
         monthlyBaseValueCents: 150_000,
         durationInMonths: 12,
@@ -394,16 +395,16 @@ describe('Tenancy Ledger API (e2e)', () => {
 
     expect(contract).toMatchObject({
       tenantId,
-      propertyUnitId: propertyId,
+      roomId,
       monthlyBaseValueCents: 150_000,
       status: 'ACTIVE',
     });
 
-    const occupiedPropertyResponse = await request(httpServer())
-      .get(`/properties/${propertyId}`)
+    const occupiedRoomResponse = await request(httpServer())
+      .get(`/rooms/${roomId}`)
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(asRecord(responseBody(occupiedPropertyResponse))).toMatchObject({
+    expect(asRecord(responseBody(occupiedRoomResponse))).toMatchObject({
       buildingId,
       occupied: true,
     });
@@ -413,8 +414,10 @@ describe('Tenancy Ledger API (e2e)', () => {
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(asRecord(responseBody(occupiedBuildingResponse))).toMatchObject({
-      totalUnits: 1,
-      occupiedUnits: 1,
+      totalRooms: 1,
+      occupiedRooms: 1,
+      vacantRooms: 0,
+      vacancyPercentage: 0,
     });
 
     const buildingsListResponse = await request(httpServer())
@@ -426,8 +429,77 @@ describe('Tenancy Ledger API (e2e)', () => {
       'buildings list data',
     ).map((entry) => asRecord(entry, 'building'));
     expect(buildingsList).toContainEqual(
-      expect.objectContaining({ id: buildingId, totalUnits: 1, occupiedUnits: 1 }),
+      expect.objectContaining({ id: buildingId, totalRooms: 1, occupiedRooms: 1 }),
     );
+  });
+
+  it('orders buildings by highest vacancy, then name, with no-room entries last', async () => {
+    const buildings = dataSource.getRepository(Building);
+    const rooms = dataSource.getRepository(Room);
+    const tenants = dataSource.getRepository(Tenant);
+    const contracts = dataSource.getRepository(Contract);
+    const label = `portfolio-${suffix}`;
+    const asOf = dateInSaoPaulo();
+
+    const alpha = await buildings.save(
+      Building.create(`Alfa ${label}`, `Vacância ${label}`, 'Rua A, 10'),
+    );
+    const beta = await buildings.save(
+      Building.create(`beta ${label}`, `Vacância ${label}`, 'Rua B, 20'),
+    );
+    const gamma = await buildings.save(
+      Building.create(`Gama ${label}`, `Vacância ${label}`, 'Rua C, 30'),
+    );
+    await buildings.save(Building.create(`Sem quartos ${label}`, `Vacância ${label}`, 'Rua D, 40'));
+
+    const savedRooms = await rooms.save([
+      Room.create(alpha.id, '101'),
+      Room.create(beta.id, '101'),
+      Room.create(gamma.id, '101'),
+      Room.create(gamma.id, '102'),
+    ]);
+    const gammaOccupiedRoom = savedRooms.find(
+      (room) => room.buildingId === gamma.id && room.number === '101',
+    );
+    if (!gammaOccupiedRoom) throw new Error('Gamma building rooms were not created');
+
+    const tenant = await tenants.save(
+      Tenant.create(
+        `Locatária Vacância ${suffix}`,
+        formatCpf(validCpf((BigInt(numericSeed) + 379n).toString())),
+        `VAC${Date.now().toString(36).toUpperCase()}`,
+        'Analista',
+        TenantCivilStatus.SINGLE,
+        `vacancy.${suffix}@example.test`,
+        `+55 11 9${String(Date.now()).slice(-8)}`,
+      ),
+    );
+    const contract = Contract.createPendingSignature(
+      tenant.id,
+      gammaOccupiedRoom.id,
+      `${asOf.slice(0, 7)}-01`,
+      130_000,
+    );
+    contract.markSigned();
+    contract.activate();
+    await contracts.save(contract);
+
+    const response = await request(httpServer())
+      .get(`/buildings?q=${encodeURIComponent(label)}&page=1&limit=10&date=${asOf}`)
+      .set('authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const listed = asArray(asRecord(responseBody(response)).data, 'ordered buildings').map(
+      (entry) => asRecord(entry, 'building'),
+    );
+
+    expect(listed.map((entry) => readString(entry, 'name'))).toEqual([
+      `Alfa ${label}`,
+      `beta ${label}`,
+      `Gama ${label}`,
+      `Sem quartos ${label}`,
+    ]);
+    expect(listed.map((entry) => entry.vacancyPercentage)).toEqual([100, 100, 50, null]);
+    expect(readString(listed[3] ?? {}, 'name')).toBe(`Sem quartos ${label}`);
   });
 
   it('serializes concurrent renewals without losing either extension', async () => {
@@ -465,10 +537,10 @@ describe('Tenancy Ledger API (e2e)', () => {
     viewerToken = readString(asRecord(responseBody(loginResponse)), 'accessToken');
 
     const deniedResponse = await request(httpServer())
-      .post('/properties')
+      .post('/rooms')
       .set('authorization', `Bearer ${viewerToken}`)
       .set('x-request-id', deniedViewerRequestId)
-      .send({ neighborhood: 'Forbidden', type: 'ROOM', unitNumber: suffix })
+      .send({ buildingId: randomUUID(), number: suffix })
       .expect('content-type', /application\/problem\+json/)
       .expect(403);
     expect(asRecord(responseBody(deniedResponse))).toMatchObject({
@@ -481,8 +553,8 @@ describe('Tenancy Ledger API (e2e)', () => {
     });
     expect(deniedAudit).toMatchObject({
       actorId: viewerId,
-      action: `DENIED POST /properties`,
-      resourceType: 'properties',
+      action: `DENIED POST /rooms`,
+      resourceType: 'rooms',
     });
     expect(deniedAudit.metadata).toMatchObject({ statusCode: 403, role: 'VIEWER' });
   });
@@ -755,31 +827,43 @@ describe('Tenancy Ledger API (e2e)', () => {
   });
 
   it('persists, isolates, updates, discards, and completes onboarding drafts', async () => {
-    const propertyResponse = await request(httpServer())
-      .post('/properties')
+    const onboardingBuildingResponse = await request(httpServer())
+      .post('/buildings')
       .set('authorization', `Bearer ${adminToken}`)
       .send({
+        name: `Prédio Onboarding ${suffix}`,
         neighborhood: `Onboarding ${suffix}`,
-        type: 'HOUSE',
-        unitNumber: `ONBOARDING-${suffix}`,
       })
       .expect(201);
-    onboardingPropertyId = readString(asRecord(responseBody(propertyResponse)), 'id');
+    const onboardingBuildingId = readString(
+      asRecord(responseBody(onboardingBuildingResponse)),
+      'id',
+    );
+
+    const roomResponse = await request(httpServer())
+      .post('/rooms')
+      .set('authorization', `Bearer ${adminToken}`)
+      .send({
+        buildingId: onboardingBuildingId,
+        number: `ONBOARDING-${suffix}`,
+      })
+      .expect(201);
+    onboardingRoomId = readString(asRecord(responseBody(roomResponse)), 'id');
 
     const availableResponse = await request(httpServer())
-      .get('/properties/available')
+      .get('/rooms')
       .query({
+        status: 'VACANT',
         date: dateInSaoPaulo(),
-        neighborhood: `Onboarding ${suffix}`,
-        type: 'HOUSE',
+        q: `Onboarding ${suffix}`,
       })
       .set('authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(
-      asArray(responseBody(availableResponse), 'available properties').map((entry) =>
-        readString(asRecord(entry, 'available property'), 'id'),
+      asArray(asRecord(responseBody(availableResponse)).data, 'available rooms').map((entry) =>
+        readString(asRecord(entry, 'available room'), 'id'),
       ),
-    ).toContain(onboardingPropertyId);
+    ).toContain(onboardingRoomId);
 
     const initialDraftResponse = await request(httpServer())
       .post('/onboarding-drafts')
@@ -825,7 +909,7 @@ describe('Tenancy Ledger API (e2e)', () => {
           phone: `+55 31 96${String(Date.now() + 2).slice(-7)}`,
         },
       ],
-      propertyUnitId: onboardingPropertyId,
+      roomId: onboardingRoomId,
       moveInDate: dateInSaoPaulo(),
       monthlyBaseValueCents: 175_000,
     };
@@ -921,7 +1005,7 @@ describe('Tenancy Ledger API (e2e)', () => {
     expect(asRecord(responseBody(contractResponse))).toMatchObject({
       id: onboardingContractId,
       tenantId: onboardingTenantId,
-      propertyUnitId: onboardingPropertyId,
+      roomId: onboardingRoomId,
       contractType: 'MONTH_TO_MONTH',
       durationInMonths: null,
       endDate: null,
@@ -944,16 +1028,25 @@ describe('Tenancy Ledger API (e2e)', () => {
   });
 
   it('persists a draft photo across resumption, replaces it, and promotes it on completion', async () => {
-    const propertyResponse = await request(httpServer())
-      .post('/properties')
+    const photoBuildingResponse = await request(httpServer())
+      .post('/buildings')
       .set('authorization', `Bearer ${adminToken}`)
       .send({
+        name: `Prédio Foto ${suffix}`,
         neighborhood: `Foto ${suffix}`,
-        type: 'HOUSE',
-        unitNumber: `FOTO-${suffix}`,
       })
       .expect(201);
-    const photoPropertyId = readString(asRecord(responseBody(propertyResponse)), 'id');
+    const photoBuildingId = readString(asRecord(responseBody(photoBuildingResponse)), 'id');
+
+    const roomResponse = await request(httpServer())
+      .post('/rooms')
+      .set('authorization', `Bearer ${adminToken}`)
+      .send({
+        buildingId: photoBuildingId,
+        number: `FOTO-${suffix}`,
+      })
+      .expect(201);
+    const photoRoomId = readString(asRecord(responseBody(roomResponse)), 'id');
 
     const draftResponse = await request(httpServer())
       .post('/onboarding-drafts')
@@ -1021,7 +1114,7 @@ describe('Tenancy Ledger API (e2e)', () => {
           phone: `+55 31 92${String(Date.now() + 6).slice(-7)}`,
         },
       ],
-      propertyUnitId: photoPropertyId,
+      roomId: photoRoomId,
       moveInDate: dateInSaoPaulo(),
       monthlyBaseValueCents: 130_000,
     };
@@ -1291,19 +1384,17 @@ describe('Tenancy Ledger API (e2e)', () => {
   });
 
   it('unifies renewal-due and payment-overdue contracts under renewalAttention', async () => {
-    const properties = dataSource.getRepository(PropertyUnit);
+    const rooms = dataSource.getRepository(Room);
+    const buildings = dataSource.getRepository(Building);
     const tenants = dataSource.getRepository(Tenant);
     const contracts = dataSource.getRepository(Contract);
     const asOf = dateInSaoPaulo();
 
     async function activeMonthlyContract(label: string, offset: bigint): Promise<Contract> {
-      const property = await properties.save(
-        PropertyUnit.create(
-          `Renovação ${label} ${suffix}`,
-          UnitType.APARTMENT,
-          `REN-${label.slice(0, 3)}-${offset}`,
-        ),
+      const building = await buildings.save(
+        Building.create(`Prédio Renovação ${label} ${suffix}`, `Renovação ${label} ${suffix}`),
       );
+      const room = await rooms.save(Room.create(building.id, `REN-${label.slice(0, 3)}-${offset}`));
       const cpf = validCpf((BigInt(numericSeed) + offset).toString());
       const tenant = await tenants.save(
         Tenant.create(
@@ -1318,12 +1409,7 @@ describe('Tenancy Ledger API (e2e)', () => {
             .padStart(8, '0')}`,
         ),
       );
-      const contract = Contract.createPendingSignature(
-        tenant.id,
-        property.id,
-        '2026-01-01',
-        150_000,
-      );
+      const contract = Contract.createPendingSignature(tenant.id, room.id, '2026-01-01', 150_000);
       contract.markSigned();
       contract.activate();
       return contracts.save(contract);
@@ -1412,16 +1498,28 @@ describe('Tenancy Ledger API (e2e)', () => {
   });
 
   it('activates a contract explicitly only once its initial invoice is paid through review', async () => {
-    const propertyResponse = await request(httpServer())
-      .post('/properties')
+    const activationBuildingResponse = await request(httpServer())
+      .post('/buildings')
       .set('authorization', `Bearer ${adminToken}`)
       .send({
+        name: `Prédio Ativação ${suffix}`,
         neighborhood: `Ativação ${suffix}`,
-        type: 'HOUSE',
-        unitNumber: `ATIVACAO-${suffix}`,
       })
       .expect(201);
-    const activationPropertyId = readString(asRecord(responseBody(propertyResponse)), 'id');
+    const activationBuildingId = readString(
+      asRecord(responseBody(activationBuildingResponse)),
+      'id',
+    );
+
+    const roomResponse = await request(httpServer())
+      .post('/rooms')
+      .set('authorization', `Bearer ${adminToken}`)
+      .send({
+        buildingId: activationBuildingId,
+        number: `ATIVACAO-${suffix}`,
+      })
+      .expect(201);
+    const activationRoomId = readString(asRecord(responseBody(roomResponse)), 'id');
 
     const draftResponse = await request(httpServer())
       .post('/onboarding-drafts')
@@ -1455,7 +1553,7 @@ describe('Tenancy Ledger API (e2e)', () => {
           phone: `+55 31 94${String(Date.now() + 4).slice(-7)}`,
         },
       ],
-      propertyUnitId: activationPropertyId,
+      roomId: activationRoomId,
       moveInDate: dateInSaoPaulo(),
       monthlyBaseValueCents: 120_000,
     };
@@ -1631,8 +1729,8 @@ describe('Tenancy Ledger API (e2e)', () => {
     const dashboard = asRecord(responseBody(dashboardResponse));
     const financial = asRecord(dashboard.financial, 'dashboard financial summary');
     expect(Number(financial.receivedCents)).toBeGreaterThanOrEqual(175_000);
-    expect(asArray(financial.byProperty, 'dashboard property breakdown')).toEqual(
-      expect.arrayContaining([expect.objectContaining({ propertyUnitId: onboardingPropertyId })]),
+    expect(asArray(financial.byRoom, 'dashboard room breakdown')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ roomId: onboardingRoomId })]),
     );
     expect(asArray(financial.byBuilding, 'dashboard building breakdown')).toEqual(
       expect.arrayContaining([expect.objectContaining({ neighborhood: `Onboarding ${suffix}` })]),
@@ -1819,10 +1917,10 @@ describe('Tenancy Ledger API (e2e)', () => {
       statusReason: 'Vistoria concluída.',
     });
 
-    const propertyResponse = await request(httpServer())
-      .get(`/properties/${onboardingPropertyId}`)
+    const roomResponse = await request(httpServer())
+      .get(`/rooms/${onboardingRoomId}`)
       .set('authorization', `Bearer ${viewerToken}`)
       .expect(200);
-    expect(asRecord(responseBody(propertyResponse)).occupied).toBe(false);
+    expect(asRecord(responseBody(roomResponse)).occupied).toBe(false);
   });
 });

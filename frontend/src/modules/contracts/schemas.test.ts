@@ -3,7 +3,7 @@ import { createContractSchema, renewContractSchema } from './schemas';
 
 const validContract = {
   tenantId: '7d9cdddc-8661-44ee-af5d-b420099509ca',
-  propertyUnitId: 'd0208cb2-3688-4778-a056-93cb82e31166',
+  roomId: 'd0208cb2-3688-4778-a056-93cb82e31166',
   moveInDate: '2026-07-12',
   monthlyBaseValue: 'R$ 1.500,00',
   durationInMonths: 12,
@@ -21,7 +21,7 @@ describe('createContractSchema', () => {
 
   it.each([
     { tenantId: '' },
-    { propertyUnitId: 'inválido' },
+    { roomId: 'inválido' },
     { moveInDate: '12/07/2026' },
     { moveInDate: '2026-02-31' },
     { monthlyBaseValue: '0' },

@@ -75,7 +75,7 @@ export class CreateContractDto {
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
-  propertyUnitId!: string;
+  roomId!: string;
 
   @ApiProperty({ type: String, format: 'date', example: '2026-07-01' })
   @IsDateString({ strict: true })
@@ -169,11 +169,11 @@ export class ContractPaginationDto {
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID('4')
-  propertyUnitId?: string;
+  roomId?: string;
 
   @ApiPropertyOptional({
     maxLength: 120,
-    description: 'Busca por contrato, locatário, CPF, e-mail, bairro ou unidade.',
+    description: 'Busca por contrato, locatário, CPF, e-mail, bairro ou quarto.',
   })
   @IsOptional()
   @IsString()
@@ -229,8 +229,8 @@ export class ContractController {
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Criar contrato' })
   @ApiCreatedResponse({ type: ContractResponseDto })
-  @ApiNotFoundProblem('Locatário ou imóvel não encontrado.')
-  @ApiConflictProblem('A unidade possui contrato com vigência sobreposta.')
+  @ApiNotFoundProblem('Locatário ou quarto não encontrado.')
+  @ApiConflictProblem('O quarto possui contrato com vigência sobreposta.')
   @ApiUnprocessableProblem()
   async create(
     @Body() dto: CreateContractDto,

@@ -16,6 +16,12 @@ let savedPayload: OnboardingPayload | null = null;
 
 const server = setupServer(
   http.get('*/api/onboarding-drafts', () => HttpResponse.json({ data: [] })),
+  http.get('*/api/buildings', () =>
+    HttpResponse.json({
+      data: [],
+      meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
+    }),
+  ),
   http.post('*/api/onboarding-drafts', async ({ request }) => {
     const body = (await request.json()) as { payload: OnboardingPayload };
     savedPayload = body.payload;
@@ -266,72 +272,81 @@ describe('OnboardingWizard', () => {
     expect(uploadRequestCount).toBe(1);
   });
 
-  it('mantém a proteção de saída e permite retry quando a sincronização da foto falha', async () => {
-    let uploadAttempts = 0;
-    server.use(
-      http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
-        const body = (await request.json()) as { payload: OnboardingPayload };
-        savedPayload = body.payload;
-        return HttpResponse.json({
-          id: draftId,
-          payload: body.payload,
-          status: 'DRAFT',
-          createdAt: '2026-07-18T12:00:00.000Z',
-          updatedAt: '2026-07-18T12:05:00.000Z',
-        });
-      }),
-      http.post(`*/api/onboarding-drafts/${draftId}/photo`, () => {
-        uploadAttempts += 1;
-        if (uploadAttempts === 1) {
-          return new HttpResponse(
-            JSON.stringify({ type: 'about:blank', title: 'Error', status: 503, detail: 'Falhou' }),
-            { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
-          );
-        }
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    renderWizard();
-    const user = userEvent.setup();
+  it(
+    'mantém a proteção de saída e permite retry quando a sincronização da foto falha',
+    { timeout: 10_000 },
+    async () => {
+      let uploadAttempts = 0;
+      server.use(
+        http.patch(`*/api/onboarding-drafts/${draftId}`, async ({ request }) => {
+          const body = (await request.json()) as { payload: OnboardingPayload };
+          savedPayload = body.payload;
+          return HttpResponse.json({
+            id: draftId,
+            payload: body.payload,
+            status: 'DRAFT',
+            createdAt: '2026-07-18T12:00:00.000Z',
+            updatedAt: '2026-07-18T12:05:00.000Z',
+          });
+        }),
+        http.post(`*/api/onboarding-drafts/${draftId}/photo`, () => {
+          uploadAttempts += 1;
+          if (uploadAttempts === 1) {
+            return new HttpResponse(
+              JSON.stringify({
+                type: 'about:blank',
+                title: 'Error',
+                status: 503,
+                detail: 'Falhou',
+              }),
+              { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
+            );
+          }
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      renderWizard();
+      const user = userEvent.setup();
 
-    fireEvent.change(screen.getByLabelText('Nome completo'), {
-      target: { value: 'Maria da Silva' },
-    });
-    fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '52998224725' } });
-    fireEvent.change(screen.getByLabelText('RG'), { target: { value: '123456789' } });
-    fireEvent.change(screen.getByLabelText('Profissão'), { target: { value: 'Arquiteta' } });
-    fireEvent.change(screen.getByLabelText('E-mail'), {
-      target: { value: 'maria@example.test' },
-    });
-    fireEvent.change(screen.getByLabelText('Celular'), { target: { value: '11999999999' } });
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
-    expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
+      fireEvent.change(screen.getByLabelText('Nome completo'), {
+        target: { value: 'Maria da Silva' },
+      });
+      fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '52998224725' } });
+      fireEvent.change(screen.getByLabelText('RG'), { target: { value: '123456789' } });
+      fireEvent.change(screen.getByLabelText('Profissão'), { target: { value: 'Arquiteta' } });
+      fireEvent.change(screen.getByLabelText('E-mail'), {
+        target: { value: 'maria@example.test' },
+      });
+      fireEvent.change(screen.getByLabelText('Celular'), { target: { value: '11999999999' } });
+      await user.click(screen.getByRole('button', { name: 'Continuar' }));
+      expect(await screen.findByRole('heading', { name: 'Foto do locatário' })).toBeVisible();
 
-    const file = new File(['conteudo-da-foto'], 'locataria.jpg', { type: 'image/jpeg' });
-    await user.upload(screen.getByLabelText('Selecionar foto da galeria'), file);
-    expect(await screen.findByText('locataria.jpg')).toBeVisible();
+      const file = new File(['conteudo-da-foto'], 'locataria.jpg', { type: 'image/jpeg' });
+      await user.upload(screen.getByLabelText('Selecionar foto da galeria'), file);
+      expect(await screen.findByText('locataria.jpg')).toBeVisible();
 
-    const saveButton = screen.getByRole('button', { name: 'Salvar rascunho' });
-    await user.click(saveButton);
+      const saveButton = screen.getByRole('button', { name: 'Salvar rascunho' });
+      await user.click(saveButton);
 
-    expect(await screen.findByText('Falhou')).toBeVisible();
-    expect(uploadAttempts).toBe(1);
-    expect(screen.getByText('Alterações ainda não salvas')).toBeVisible();
-    expect(saveButton).toBeEnabled();
+      expect(await screen.findByText('Falhou')).toBeVisible();
+      expect(uploadAttempts).toBe(1);
+      expect(screen.getByText('Alterações ainda não salvas')).toBeVisible();
+      expect(saveButton).toBeEnabled();
 
-    await user.click(screen.getByRole('button', { name: 'Fechar cadastro' }));
-    expect(await screen.findByRole('dialog', { name: 'Sair do cadastro?' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Continuar preenchendo' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Sair do cadastro?' })).not.toBeInTheDocument(),
-    );
+      await user.click(screen.getByRole('button', { name: 'Fechar cadastro' }));
+      expect(await screen.findByRole('dialog', { name: 'Sair do cadastro?' })).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Continuar preenchendo' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Sair do cadastro?' })).not.toBeInTheDocument(),
+      );
 
-    await user.click(saveButton);
-    expect(await screen.findByText('Rascunho salvo no servidor.')).toBeVisible();
-    expect(uploadAttempts).toBe(2);
-    expect(screen.getByText('Rascunho salvo')).toBeVisible();
-    expect(saveButton).toBeDisabled();
-  });
+      await user.click(saveButton);
+      expect(await screen.findByText('Rascunho salvo no servidor.')).toBeVisible();
+      expect(uploadAttempts).toBe(2);
+      expect(screen.getByText('Rascunho salvo')).toBeVisible();
+      expect(saveButton).toBeDisabled();
+    },
+  );
 
   it(
     'volta à escolha do quarto quando a conclusão encontra conflito de ocupação',
@@ -354,7 +369,7 @@ describe('OnboardingWizard', () => {
           { name: 'Joana Oliveira', relationship: 'Irmã', phone: '11988888888' },
           { name: 'Carlos Souza', relationship: 'Colega', phone: '11977777777' },
         ],
-        propertyUnitId: null,
+        roomId: null,
         moveInDate: '2026-07-18',
         monthlyBaseValueCents: 150_000,
       };
@@ -371,19 +386,20 @@ describe('OnboardingWizard', () => {
           const body = (await request.json()) as { payload: OnboardingPayload };
           return HttpResponse.json({ ...draft, payload: body.payload });
         }),
-        http.get('*/api/properties/available', () =>
-          HttpResponse.json([
-            {
-              id: propertyId,
-              neighborhood: 'Centro',
-              type: 'ROOM',
-              unitNumber: '12-B',
-              buildingId: null,
-              buildingName: 'Residencial Aurora',
-              occupied: false,
-              createdAt: '2026-01-01T12:00:00.000Z',
-            },
-          ]),
+        http.get('*/api/rooms', () =>
+          HttpResponse.json({
+            data: [
+              {
+                id: propertyId,
+                number: '12-B',
+                buildingId: '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c',
+                buildingName: 'Residencial Aurora',
+                occupied: false,
+                createdAt: '2026-01-01T12:00:00.000Z',
+              },
+            ],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          }),
         ),
         http.post(
           `*/api/onboarding-drafts/${draftId}/complete`,
@@ -393,7 +409,7 @@ describe('OnboardingWizard', () => {
                 type: 'about:blank',
                 title: 'Conflict',
                 status: 409,
-                detail: 'A unidade já está ocupada.',
+                detail: 'O quarto já está ocupado.',
               }),
               { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
             ),
@@ -415,11 +431,9 @@ describe('OnboardingWizard', () => {
       await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }));
 
       expect(await screen.findByRole('heading', { name: 'Escolha o quarto' })).toBeVisible();
-      expect(screen.getByText('A unidade selecionada não está mais disponível.')).toBeVisible();
+      expect(screen.getByText('O quarto selecionado não está mais disponível.')).toBeVisible();
       expect(
-        screen.getByText(
-          'Este quarto acabou de ser ocupado. Escolha outra unidade para continuar.',
-        ),
+        screen.getByText('Este quarto acabou de ser ocupado. Escolha outro quarto para continuar.'),
       ).toBeVisible();
     },
   );

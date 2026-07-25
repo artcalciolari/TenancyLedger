@@ -5,7 +5,7 @@ import { Contract } from '../../contexts/contract/domain/entities/contract.entit
 import { Invoice } from '../../contexts/invoice/domain/entities/invoice.entity';
 import { PaymentTransaction } from '../../contexts/invoice/domain/entities/payment-transaction.entity';
 import { Notification } from '../../contexts/notification/domain/notification.entity';
-import { PropertyUnit } from '../../contexts/property/domain/property-unit.entity';
+import { Room } from '../../contexts/property/domain/room.entity';
 import { Tenant } from '../../contexts/tenant/domain/entities/tenant.entity';
 
 function resolveType(target: unknown): unknown {
@@ -17,7 +17,7 @@ function resolveType(target: unknown): unknown {
 
 describe('TypeORM relation metadata', () => {
   it.each([
-    [Contract, [Tenant, PropertyUnit]],
+    [Contract, [Tenant, Room]],
     [Invoice, [Contract]],
     [PaymentTransaction, [User, User, User]],
     [CashClosing, [User, User]],

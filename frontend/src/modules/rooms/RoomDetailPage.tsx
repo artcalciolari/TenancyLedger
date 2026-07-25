@@ -1,14 +1,11 @@
-import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
 import BedOutlinedIcon from '@mui/icons-material/BedOutlined';
-import HouseOutlinedIcon from '@mui/icons-material/HouseOutlined';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, Button, Card, Stack, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link as RouterLink, useParams } from 'react-router';
-import type { UnitType } from '../../api/contract';
+import type { UpdateRoomInput } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { UnitOccupancyChip } from '../../components/data-display/OccupancyChip';
@@ -16,20 +13,10 @@ import { TechnicalDetails } from '../../components/data-display/TechnicalDetails
 import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { LoadingState } from '../../components/feedback/QueryState';
 import { formatDateTime } from '../../lib/dates/dates';
-import { propertiesApi } from './api';
-import { unitTypeLabel } from './labels';
-import { useAuth } from '../auth/useAuth';
 import { hasRole, MANAGEMENT_ROLES } from '../../lib/roles/roles';
-import { EditPropertyDialog } from './EditPropertyDialog';
-import type { UpdatePropertyInput } from '../../api/contract';
-
-const typeIcons: Record<UnitType, ReactNode> = {
-  APARTMENT: <ApartmentOutlinedIcon sx={{ fontSize: 26 }} />,
-  HOUSE: <HouseOutlinedIcon sx={{ fontSize: 26 }} />,
-  COMMERCIAL: <StorefrontOutlinedIcon sx={{ fontSize: 26 }} />,
-  KITNET: <BedOutlinedIcon sx={{ fontSize: 26 }} />,
-  ROOM: <BedOutlinedIcon sx={{ fontSize: 26 }} />,
-};
+import { useAuth } from '../auth/useAuth';
+import { roomsApi } from './api';
+import { EditRoomDialog } from './EditRoomDialog';
 
 const uppercaseLabelSx = {
   fontSize: '0.78rem',
@@ -50,36 +37,33 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-export function PropertyDetailPage() {
-  const { propertyId = '' } = useParams();
+export function RoomDetailPage() {
+  const { roomId = '' } = useParams();
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
-  const property = useQuery({
-    queryKey: queryKeys.property(propertyId),
-    queryFn: () => propertiesApi.get(propertyId),
-    enabled: Boolean(propertyId),
+  const room = useQuery({
+    queryKey: queryKeys.room(roomId),
+    queryFn: () => roomsApi.get(roomId),
+    enabled: Boolean(roomId),
   });
-  const updateProperty = useMutation({
-    mutationFn: (input: UpdatePropertyInput) => propertiesApi.update(propertyId, input),
+  const updateRoom = useMutation({
+    mutationFn: (input: UpdateRoomInput) => roomsApi.update(roomId, input),
   });
   const mayEdit = Boolean(session && hasRole(session.user.role, MANAGEMENT_ROLES));
 
-  const submitEdit = async (input: UpdatePropertyInput) => {
-    const updated = await updateProperty.mutateAsync(input);
-    queryClient.setQueryData(queryKeys.property(propertyId), updated);
-    const invalidations = [queryClient.invalidateQueries({ queryKey: ['properties'] })];
-    if (updated.buildingId) {
-      invalidations.push(
-        queryClient.invalidateQueries({ queryKey: queryKeys.building(updated.buildingId) }),
-        queryClient.invalidateQueries({ queryKey: ['buildings'] }),
-      );
-    }
-    await Promise.all(invalidations);
+  const submitEdit = async (input: UpdateRoomInput) => {
+    const updated = await updateRoom.mutateAsync(input);
+    queryClient.setQueryData(queryKeys.room(roomId), updated);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['rooms'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.building(updated.buildingId) }),
+      queryClient.invalidateQueries({ queryKey: ['buildings'] }),
+    ]);
   };
 
   const closeEdit = () => {
-    updateProperty.reset();
+    updateRoom.reset();
     setEditOpen(false);
   };
   return (
@@ -87,7 +71,7 @@ export function PropertyDetailPage() {
       <Stack
         direction="row"
         component={RouterLink}
-        to="/properties"
+        to="/portfolio?tab=rooms"
         spacing={0.75}
         sx={{
           alignItems: 'center',
@@ -101,12 +85,12 @@ export function PropertyDetailPage() {
         }}
       >
         <ArrowBackOutlined sx={{ fontSize: 19 }} />
-        Voltar para imóveis
+        Voltar para portfólio
       </Stack>
-      {property.isPending ? (
-        <LoadingState label="Carregando imóvel…" />
-      ) : property.isError ? (
-        <ProblemAlert error={property.error} onRetry={() => void property.refetch()} />
+      {room.isPending ? (
+        <LoadingState label="Carregando quarto…" />
+      ) : room.isError ? (
+        <ProblemAlert error={room.error} onRetry={() => void room.refetch()} />
       ) : (
         <>
           <Stack direction="row" spacing={1.75} sx={{ alignItems: 'center', mb: 3 }}>
@@ -123,15 +107,13 @@ export function PropertyDetailPage() {
                 flexShrink: 0,
               }}
             >
-              {typeIcons[property.data.type]}
+              <BedOutlinedIcon sx={{ fontSize: 26 }} />
             </Box>
             <Box>
               <Typography component="h1" variant="h1">
-                {property.data.neighborhood} · Unid. {property.data.unitNumber}
+                Quarto {room.data.number}
               </Typography>
-              <Typography sx={{ color: brand.textSecondary }}>
-                {unitTypeLabel(property.data.type)}
-              </Typography>
+              <Typography sx={{ color: brand.textSecondary }}>{room.data.buildingName}</Typography>
             </Box>
             {mayEdit ? (
               <Button
@@ -139,7 +121,7 @@ export function PropertyDetailPage() {
                 startIcon={<EditOutlinedIcon />}
                 sx={{ ml: 'auto' }}
                 onClick={() => {
-                  updateProperty.reset();
+                  updateRoom.reset();
                   setEditOpen(true);
                 }}
               >
@@ -155,38 +137,32 @@ export function PropertyDetailPage() {
                 gap: 3,
               }}
             >
-              <DetailField label="Bairro" value={property.data.neighborhood} />
-              <DetailField label="Número da unidade" value={property.data.unitNumber} />
-              <DetailField label="Tipo" value={unitTypeLabel(property.data.type)} />
+              <DetailField label="Número do quarto" value={room.data.number} />
               <DetailField
                 label="Prédio"
                 value={
-                  property.data.buildingId ? (
-                    <Typography
-                      component={RouterLink}
-                      to={`/buildings/${property.data.buildingId}`}
-                      sx={{ color: brand.accent, fontWeight: 600, textDecoration: 'none' }}
-                    >
-                      {property.data.buildingName}
-                    </Typography>
-                  ) : (
-                    'Sem prédio'
-                  )
+                  <Typography
+                    component={RouterLink}
+                    to={`/buildings/${room.data.buildingId}`}
+                    sx={{ color: brand.accent, fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    {room.data.buildingName}
+                  </Typography>
                 }
               />
               <DetailField
                 label="Situação"
-                value={<UnitOccupancyChip occupied={property.data.occupied} />}
+                value={<UnitOccupancyChip occupied={room.data.occupied} />}
               />
-              <DetailField label="Cadastrado em" value={formatDateTime(property.data.createdAt)} />
+              <DetailField label="Cadastrado em" value={formatDateTime(room.data.createdAt)} />
             </Box>
-            <TechnicalDetails id={property.data.id} />
+            <TechnicalDetails id={room.data.id} />
           </Card>
-          <EditPropertyDialog
-            property={property.data}
+          <EditRoomDialog
+            room={room.data}
             open={editOpen}
-            isPending={updateProperty.isPending}
-            error={updateProperty.error}
+            isPending={updateRoom.isPending}
+            error={updateRoom.error}
             onClose={closeEdit}
             onSubmit={submitEdit}
           />

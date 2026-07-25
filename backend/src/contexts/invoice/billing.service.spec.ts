@@ -12,7 +12,8 @@ import type { IInvoiceRepository, InvoiceListResult } from './domain/invoice.rep
 import type { Clock } from './infrastructure/workers/invoice-generation.worker';
 import { Contract, ContractStatus } from '../contract/domain/entities/contract.entity';
 import { Tenant, TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
-import { PropertyUnit, UnitType } from '../property/domain/property-unit.entity';
+import { Room } from '../property/domain/room.entity';
+import { Building } from '../property/domain/building.entity';
 import { QueryFailedError, type Repository } from 'typeorm';
 import type { CashboxService } from '../cashbox/cashbox.service';
 
@@ -22,8 +23,10 @@ const SECOND_INVOICE_ID = '3112bf50-78f9-4bbb-b781-ad324addc19b';
 const SECOND_CONTRACT_ID = '80e7dd97-eb89-4a3c-bfcf-e5669e560c06';
 const TENANT_ID = '48bb503a-4d2a-4f56-88eb-6f7a9436ec67';
 const SECOND_TENANT_ID = '15821999-f689-46d2-b2e7-ce1aef5a6ebf';
-const PROPERTY_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
-const SECOND_PROPERTY_ID = 'b3309ca5-a4ef-4575-a627-60d2ad635aee';
+const ROOM_ID = 'c2926b25-4e17-44a8-8097-9c093f842cbb';
+const SECOND_ROOM_ID = 'b3309ca5-a4ef-4575-a627-60d2ad635aee';
+const BUILDING_ID = '3d6f0c9e-3c9a-4d3b-9d0a-8f6e5c1a2b3c';
+const SECOND_BUILDING_ID = '5a6d9d30-f66f-48fb-bd0a-e02afc972b65';
 const PAYMENT_ID = '283b10d3-58f2-42d8-aa93-777f55ec9476';
 const NOW = new Date('2026-07-12T15:00:00.000Z');
 const IDEMPOTENCY_KEY = 'payment-attempt-0001';
@@ -46,12 +49,14 @@ function relationRepositories(
   overrides: {
     contracts?: Contract[];
     tenants?: Tenant[];
-    properties?: PropertyUnit[];
+    rooms?: Room[];
+    buildings?: Building[];
   } = {},
 ): {
   contracts: jest.Mocked<Pick<Repository<Contract>, 'findBy'>>;
   tenants: jest.Mocked<Pick<Repository<Tenant>, 'findBy'>>;
-  properties: jest.Mocked<Pick<Repository<PropertyUnit>, 'findBy'>>;
+  rooms: jest.Mocked<Pick<Repository<Room>, 'findBy'>>;
+  buildings: jest.Mocked<Pick<Repository<Building>, 'findBy'>>;
 } {
   const contracts = {
     findBy: jest.fn().mockResolvedValue(
@@ -59,7 +64,7 @@ function relationRepositories(
         {
           id: CONTRACT_ID,
           tenantId: TENANT_ID,
-          propertyUnitId: PROPERTY_ID,
+          roomId: ROOM_ID,
           status: ContractStatus.ACTIVE,
           endDate: '2027-06-30',
         } as Contract,
@@ -81,19 +86,29 @@ function relationRepositories(
       ],
     ),
   };
-  const properties = {
+  const rooms = {
     findBy: jest.fn().mockResolvedValue(
-      overrides.properties ?? [
+      overrides.rooms ?? [
         {
-          id: PROPERTY_ID,
-          neighborhood: 'Centro',
-          type: UnitType.APARTMENT,
-          unitNumber: '101-A',
-        } as PropertyUnit,
+          id: ROOM_ID,
+          number: '101-A',
+          buildingId: BUILDING_ID,
+        } as Room,
       ],
     ),
   };
-  return { contracts, tenants, properties };
+  const buildings = {
+    findBy: jest.fn().mockResolvedValue(
+      overrides.buildings ?? [
+        {
+          id: BUILDING_ID,
+          name: 'Edifício Aurora',
+          neighborhood: 'Centro',
+        } as Building,
+      ],
+    ),
+  };
+  return { contracts, tenants, rooms, buildings };
 }
 
 type RepositoryMock = jest.Mocked<IInvoiceRepository>;
@@ -539,6 +554,7 @@ describe('BillingService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
         cashbox as unknown as CashboxService,
       );
       const payment = invoice.submitPayment(
@@ -568,6 +584,7 @@ describe('BillingService', () => {
         repository,
         clock,
         storage as unknown as StorageService,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -691,12 +708,7 @@ describe('BillingService', () => {
         '2026-08-17',
       );
       assignId(invoice, INVOICE_ID);
-      const contract = Contract.createPendingSignature(
-        TENANT_ID,
-        PROPERTY_ID,
-        '2026-07-18',
-        100_00,
-      );
+      const contract = Contract.createPendingSignature(TENANT_ID, ROOM_ID, '2026-07-18', 100_00);
       assignId(contract, CONTRACT_ID);
       contract.markSigned(new Date('2026-07-10T12:00:00.000Z'));
       const contractRepository = {
@@ -793,7 +805,8 @@ describe('BillingService', () => {
         storage as unknown as StorageService,
         relations.contracts as unknown as Repository<Contract>,
         relations.tenants as unknown as Repository<Tenant>,
-        relations.properties as unknown as Repository<PropertyUnit>,
+        relations.rooms as unknown as Repository<Room>,
+        relations.buildings as unknown as Repository<Building>,
       );
 
       await expect(relationalService.toDetailedView(invoice)).resolves.toMatchObject({
@@ -803,12 +816,12 @@ describe('BillingService', () => {
         contract: {
           id: CONTRACT_ID,
           tenant: { name: 'Maria da Silva', cpf: '***.***.***-25' },
-          propertyUnit: { id: PROPERTY_ID, neighborhood: 'Centro', unitNumber: '101-A' },
+          room: { id: ROOM_ID, number: '101-A', buildingName: 'Edifício Aurora' },
         },
       });
       expect(relations.contracts.findBy).toHaveBeenCalledTimes(1);
       expect(relations.tenants.findBy).toHaveBeenCalledTimes(1);
-      expect(relations.properties.findBy).toHaveBeenCalledTimes(1);
+      expect(relations.rooms.findBy).toHaveBeenCalledTimes(1);
     });
 
     it('lists invoice balances with an expired effective contract status', async () => {
@@ -818,7 +831,7 @@ describe('BillingService', () => {
           {
             id: CONTRACT_ID,
             tenantId: TENANT_ID,
-            propertyUnitId: PROPERTY_ID,
+            roomId: ROOM_ID,
             status: ContractStatus.ACTIVE,
             endDate: '2026-07-11',
           } as Contract,
@@ -830,7 +843,8 @@ describe('BillingService', () => {
         storage as unknown as StorageService,
         relations.contracts as unknown as Repository<Contract>,
         relations.tenants as unknown as Repository<Tenant>,
-        relations.properties as unknown as Repository<PropertyUnit>,
+        relations.rooms as unknown as Repository<Room>,
+        relations.buildings as unknown as Repository<Building>,
       );
 
       await expect(relationalService.list({ page: 1, limit: 20 })).resolves.toMatchObject({
@@ -843,12 +857,30 @@ describe('BillingService', () => {
               id: CONTRACT_ID,
               status: ContractStatus.EXPIRED,
               tenant: { name: 'Maria da Silva', cpf: '***.***.***-25' },
-              propertyUnit: { id: PROPERTY_ID, neighborhood: 'Centro', unitNumber: '101-A' },
+              room: { id: ROOM_ID, number: '101-A', buildingName: 'Edifício Aurora' },
             },
           },
         ],
         meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
       });
+    });
+
+    it('fails explicitly when a contract references a room that cannot be found', async () => {
+      repository.list.mockResolvedValue({ items: [invoice], total: 1 });
+      const relations = relationRepositories({ rooms: [] });
+      const relationalService = new BillingService(
+        repository,
+        clock,
+        storage as unknown as StorageService,
+        relations.contracts as unknown as Repository<Contract>,
+        relations.tenants as unknown as Repository<Tenant>,
+        relations.rooms as unknown as Repository<Room>,
+        relations.buildings as unknown as Repository<Building>,
+      );
+
+      await expect(relationalService.list({ page: 1, limit: 20 })).rejects.toEqual(
+        new NotFoundException('Relacionamentos da fatura não encontrados.'),
+      );
     });
 
     it('fails explicitly when relational repositories are unavailable', async () => {
@@ -868,14 +900,15 @@ describe('BillingService', () => {
         storage as unknown as StorageService,
         relations.contracts as unknown as Repository<Contract>,
         relations.tenants as unknown as Repository<Tenant>,
-        relations.properties as unknown as Repository<PropertyUnit>,
+        relations.rooms as unknown as Repository<Room>,
+        relations.buildings as unknown as Repository<Building>,
       );
 
       await expect(relationalService.list({ page: 1, limit: 20 })).rejects.toEqual(
         new NotFoundException('Relacionamentos da fatura não encontrados.'),
       );
       expect(relations.tenants.findBy).not.toHaveBeenCalled();
-      expect(relations.properties.findBy).not.toHaveBeenCalled();
+      expect(relations.rooms.findBy).not.toHaveBeenCalled();
     });
 
     it('does not expose a partial relationship when the tenant is missing', async () => {
@@ -887,7 +920,8 @@ describe('BillingService', () => {
         storage as unknown as StorageService,
         relations.contracts as unknown as Repository<Contract>,
         relations.tenants as unknown as Repository<Tenant>,
-        relations.properties as unknown as Repository<PropertyUnit>,
+        relations.rooms as unknown as Repository<Room>,
+        relations.buildings as unknown as Repository<Building>,
       );
 
       await expect(relationalService.list({ page: 1, limit: 20 })).rejects.toEqual(
@@ -926,14 +960,14 @@ describe('BillingService', () => {
           {
             id: CONTRACT_ID,
             tenantId: TENANT_ID,
-            propertyUnitId: PROPERTY_ID,
+            roomId: ROOM_ID,
             status: ContractStatus.ACTIVE,
             endDate: '2027-06-30',
           } as Contract,
           {
             id: SECOND_CONTRACT_ID,
             tenantId: SECOND_TENANT_ID,
-            propertyUnitId: SECOND_PROPERTY_ID,
+            roomId: SECOND_ROOM_ID,
             status: ContractStatus.ACTIVE,
             endDate: '2027-07-31',
           } as Contract,
@@ -961,29 +995,42 @@ describe('BillingService', () => {
           } as Tenant,
         ]),
       } as unknown as Repository<Tenant>;
-      const properties = {
+      const rooms = {
         findBy: jest.fn().mockResolvedValue([
           {
-            id: PROPERTY_ID,
-            neighborhood: '=1+1',
-            type: UnitType.APARTMENT,
-            unitNumber: '+SUM(A1:A2)',
-          } as PropertyUnit,
+            id: ROOM_ID,
+            number: '+SUM(A1:A2)',
+            buildingId: BUILDING_ID,
+          } as Room,
           {
-            id: SECOND_PROPERTY_ID,
-            neighborhood: '-2+3',
-            type: UnitType.HOUSE,
-            unitNumber: '@SUM(A1:A2)',
-          } as PropertyUnit,
+            id: SECOND_ROOM_ID,
+            number: '@SUM(A1:A2)',
+            buildingId: SECOND_BUILDING_ID,
+          } as Room,
         ]),
-      } as unknown as Repository<PropertyUnit>;
+      } as unknown as Repository<Room>;
+      const buildings = {
+        findBy: jest.fn().mockResolvedValue([
+          {
+            id: BUILDING_ID,
+            name: '=1+1',
+            neighborhood: 'Centro',
+          } as Building,
+          {
+            id: SECOND_BUILDING_ID,
+            name: '-2+3',
+            neighborhood: 'Centro',
+          } as Building,
+        ]),
+      } as unknown as Repository<Building>;
       const exportService = new BillingService(
         repository,
         clock,
         storage as unknown as StorageService,
         contracts,
         tenants,
-        properties,
+        rooms,
+        buildings,
       );
 
       const csv = await exportService.exportCsv({ page: 1, limit: 20 });
@@ -993,7 +1040,7 @@ describe('BillingService', () => {
         .flatMap((row) => row.split(','));
 
       expect(cells).toEqual(
-        expect.arrayContaining(["'=1+1", "'+SUM(A1:A2)", "'-2+3", "'@SUM(A1:A2)"]),
+        expect.arrayContaining(["'+SUM(A1:A2)", "'=1+1", "'@SUM(A1:A2)", "'-2+3"]),
       );
     });
   });
@@ -1032,10 +1079,11 @@ describe('BillingService', () => {
             tenantCivilStatus: TenantCivilStatus.SINGLE,
             tenantEmail: 'maria@example.com',
             tenantMobilePhone: '11987654321',
-            propertyUnitId: 'c2926b25-4e17-44a8-8097-9c093f842cbb',
-            propertyNeighborhood: 'Centro',
-            propertyType: UnitType.APARTMENT,
-            propertyUnitNumber: '101-A',
+            roomId: ROOM_ID,
+            roomNumber: '101-A',
+            buildingId: BUILDING_ID,
+            buildingName: 'Edifício Aurora',
+            buildingNeighborhood: 'Centro',
           },
         ],
       });
@@ -1047,7 +1095,7 @@ describe('BillingService', () => {
         payment: { id: PAYMENT_ID, submittedByUserId: SUBMITTER_ID },
         contract: {
           tenant: { name: 'Maria da Silva', cpf: '***.***.***-25', email: 'm***@example.com' },
-          propertyUnit: { neighborhood: 'Centro', unitNumber: '101-A' },
+          room: { number: '101-A', buildingName: 'Edifício Aurora' },
         },
       });
     });

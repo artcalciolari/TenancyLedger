@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/infrastructure/http/openapi.dto';
 import { ContractBadge, ContractStatus, ContractType } from './domain/entities/contract.entity';
 import { TenantCivilStatus } from '../tenant/domain/entities/tenant.entity';
-import { UnitType } from '../property/domain/property-unit.entity';
 
 export class ContractTenantSummaryDto {
   @ApiProperty({ format: 'uuid' })
@@ -21,15 +20,17 @@ export class ContractTenantSummaryDto {
   mobilePhone!: string;
 }
 
-export class ContractPropertySummaryDto {
+export class ContractRoomSummaryDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+  @ApiProperty({ example: '101' })
+  number!: string;
+  @ApiProperty({ format: 'uuid' })
+  buildingId!: string;
+  @ApiProperty({ example: 'Edifício Aurora' })
+  buildingName!: string;
   @ApiProperty({ example: 'Centro' })
   neighborhood!: string;
-  @ApiProperty({ enum: UnitType, enumName: 'UnitType' })
-  type!: UnitType;
-  @ApiProperty({ example: '101-A' })
-  unitNumber!: string;
 }
 
 export class ContractResponseDto {
@@ -40,7 +41,7 @@ export class ContractResponseDto {
   tenantId!: string;
 
   @ApiProperty({ format: 'uuid' })
-  propertyUnitId!: string;
+  roomId!: string;
 
   @ApiProperty({ type: String, format: 'date', example: '2026-07-01' })
   moveInDate!: string;
@@ -90,8 +91,8 @@ export class ContractResponseDto {
   @ApiProperty({ type: ContractTenantSummaryDto })
   tenant!: ContractTenantSummaryDto;
 
-  @ApiProperty({ type: ContractPropertySummaryDto })
-  propertyUnit!: ContractPropertySummaryDto;
+  @ApiProperty({ type: ContractRoomSummaryDto })
+  room!: ContractRoomSummaryDto;
 }
 
 export class PaginatedContractsResponseDto {

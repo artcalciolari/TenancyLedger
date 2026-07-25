@@ -24,8 +24,10 @@ function occupancyView(overrides: Partial<BuildingOccupancyView> = {}): Building
     neighborhood: 'Centro',
     address: null,
     createdAt: CREATED_AT,
-    totalUnits: 4,
-    occupiedUnits: 2,
+    totalRooms: 4,
+    occupiedRooms: 2,
+    vacantRooms: 2,
+    vacancyPercentage: 50,
     ...overrides,
   };
 }
@@ -39,34 +41,20 @@ describe('BuildingService', () => {
   let repository: jest.Mocked<IBuildingRepository>;
   let service: BuildingService;
   let save: jest.MockedFunction<IBuildingRepository['save']>;
-  let saveWithUnitNeighborhoodPropagation: jest.MockedFunction<
-    IBuildingRepository['saveWithUnitNeighborhoodPropagation']
-  >;
   let findById: jest.MockedFunction<IBuildingRepository['findById']>;
   let findByName: jest.MockedFunction<IBuildingRepository['findByName']>;
   let list: jest.MockedFunction<IBuildingRepository['list']>;
   let occupancyFor: jest.MockedFunction<IBuildingRepository['occupancyFor']>;
-  let listUnits: jest.MockedFunction<IBuildingRepository['listUnits']>;
+  let listRooms: jest.MockedFunction<IBuildingRepository['listRooms']>;
 
   beforeEach(() => {
     save = jest.fn().mockImplementation((building: Building) => Promise.resolve(building));
-    saveWithUnitNeighborhoodPropagation = jest
-      .fn()
-      .mockImplementation((building: Building) => Promise.resolve(building));
     findById = jest.fn().mockResolvedValue(null);
     findByName = jest.fn().mockResolvedValue(null);
     list = jest.fn().mockResolvedValue({ items: [], total: 0 });
     occupancyFor = jest.fn().mockResolvedValue(null);
-    listUnits = jest.fn().mockResolvedValue([]);
-    repository = {
-      save,
-      saveWithUnitNeighborhoodPropagation,
-      findById,
-      findByName,
-      list,
-      occupancyFor,
-      listUnits,
-    };
+    listRooms = jest.fn().mockResolvedValue([]);
+    repository = { save, findById, findByName, list, occupancyFor, listRooms };
     service = new BuildingService(repository);
   });
 
@@ -77,28 +65,11 @@ describe('BuildingService', () => {
 
     it('updates editable fields and returns the refreshed detail', async () => {
       const building = persistedBuilding();
-      let linkedUnitNeighborhood = building.neighborhood;
       findById.mockResolvedValue(building);
-      saveWithUnitNeighborhoodPropagation.mockImplementation(
-        (updatedBuilding, propagateNeighborhood) => {
-          if (propagateNeighborhood) linkedUnitNeighborhood = updatedBuilding.neighborhood;
-          return Promise.resolve(updatedBuilding);
-        },
-      );
       occupancyFor.mockResolvedValue(
         occupancyView({ name: 'Edifício Solar', neighborhood: 'Bela Vista' }),
       );
-      listUnits.mockImplementation(() =>
-        Promise.resolve([
-          {
-            id: 'unit-1',
-            unitNumber: '101',
-            type: 'APARTMENT' as never,
-            neighborhood: linkedUnitNeighborhood,
-            occupied: false,
-          },
-        ]),
-      );
+      listRooms.mockResolvedValue([{ id: 'room-1', number: '101', occupied: false }]);
 
       await expect(
         service.update(BUILDING_ID, {
@@ -108,15 +79,7 @@ describe('BuildingService', () => {
         }),
       ).resolves.toEqual({
         ...occupancyView({ name: 'Edifício Solar', neighborhood: 'Bela Vista' }),
-        units: [
-          {
-            id: 'unit-1',
-            unitNumber: '101',
-            type: 'APARTMENT',
-            neighborhood: 'Bela Vista',
-            occupied: false,
-          },
-        ],
+        rooms: [{ id: 'room-1', number: '101', occupied: false }],
       });
 
       expect(building).toMatchObject({
@@ -124,14 +87,14 @@ describe('BuildingService', () => {
         neighborhood: 'Bela Vista',
         address: 'Rua Um, 10',
       });
-      expect(saveWithUnitNeighborhoodPropagation).toHaveBeenCalledWith(building, true);
+      expect(save).toHaveBeenCalledWith(building);
     });
 
     it('rejects an unknown building', async () => {
       await expect(service.update(BUILDING_ID, { name: 'Novo nome' })).rejects.toThrow(
         new NotFoundException('Prédio não encontrado.'),
       );
-      expect(saveWithUnitNeighborhoodPropagation).not.toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
     });
 
     it('rejects a name used by another building', async () => {
@@ -141,7 +104,7 @@ describe('BuildingService', () => {
       await expect(service.update(BUILDING_ID, { name: 'Edifício Aurora' })).rejects.toThrow(
         new ConflictException('Já existe um prédio com este nome.'),
       );
-      expect(saveWithUnitNeighborhoodPropagation).not.toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
     });
 
     it('allows the current building name with different casing', async () => {
@@ -151,12 +114,12 @@ describe('BuildingService', () => {
 
       await service.update(BUILDING_ID, { name: 'EDIFÍCIO AURORA' });
 
-      expect(saveWithUnitNeighborhoodPropagation).toHaveBeenCalledWith(building, false);
+      expect(save).toHaveBeenCalledWith(building);
     });
 
     it('maps a concurrent unique violation to a conflict', async () => {
       findById.mockResolvedValue(persistedBuilding());
-      saveWithUnitNeighborhoodPropagation.mockRejectedValue(queryFailure('23505'));
+      save.mockRejectedValue(queryFailure('23505'));
 
       await expect(service.update(BUILDING_ID, { name: 'Edifício Solar' })).rejects.toThrow(
         new ConflictException('Já existe um prédio com este nome.'),
@@ -216,29 +179,13 @@ describe('BuildingService', () => {
   });
 
   describe('getById', () => {
-    it('combines occupancy and units for the detail view', async () => {
+    it('combines occupancy and rooms for the detail view', async () => {
       occupancyFor.mockResolvedValue(occupancyView());
-      listUnits.mockResolvedValue([
-        {
-          id: 'unit-1',
-          unitNumber: '101',
-          type: 'APARTMENT' as never,
-          neighborhood: 'Centro',
-          occupied: true,
-        },
-      ]);
+      listRooms.mockResolvedValue([{ id: 'room-1', number: '101', occupied: true }]);
 
       await expect(service.getById(BUILDING_ID)).resolves.toEqual({
         ...occupancyView(),
-        units: [
-          {
-            id: 'unit-1',
-            unitNumber: '101',
-            type: 'APARTMENT',
-            neighborhood: 'Centro',
-            occupied: true,
-          },
-        ],
+        rooms: [{ id: 'room-1', number: '101', occupied: true }],
       });
     });
 
