@@ -142,8 +142,11 @@ test('executa cadastro, filtros e conciliação real com segregação e notifica
   await page.goto('/invoices');
   await page.getByRole('button', { name: 'Em aberto', exact: true }).click();
   await page.getByRole('button', { name: 'Filtros avançados' }).click();
-  await page.getByLabel('ID do contrato').fill(ids.seededContract);
-  await page.getByRole('button', { name: 'Aplicar', exact: true }).click();
+  await page.getByRole('button', { name: 'Selecionar' }).click();
+  const contractDialog = page.getByRole('dialog', { name: 'Selecionar contrato' });
+  // Contrato semeado: quarto E2E-101 do "Prédio Seed E2E".
+  await contractDialog.getByRole('button', { name: /Quarto E2E-101/ }).click();
+  await contractDialog.getByRole('button', { name: 'Confirmar seleção' }).click();
   await expect(page.getByRole('cell', { name: '01/2099', exact: true })).toBeVisible();
 
   await page.goto(`/invoices/${ids.openInvoice}`);

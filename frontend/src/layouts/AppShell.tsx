@@ -15,6 +15,7 @@ import {
   Box,
   Drawer,
   IconButton,
+  Link,
   Popover,
   Stack,
   Tooltip,
@@ -37,6 +38,18 @@ import { OnboardingPromptDialog } from '../modules/onboarding/OnboardingPromptDi
 
 const sidebarWidth = 262;
 const topbarHeight = 68;
+
+/**
+ * `VITE_SUPPORT_CONTACT` aceita e-mail ou URL. Sem valor configurado o menu de
+ * ajuda mantém apenas a orientação em texto.
+ */
+const supportContact = ((): { href: string; label: string; external: boolean } | null => {
+  const raw = import.meta.env.VITE_SUPPORT_CONTACT?.trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return { href: raw, label: raw, external: true };
+  if (raw.includes('@')) return { href: `mailto:${raw}`, label: raw, external: false };
+  return null;
+})();
 
 interface NavigationItem {
   label: string;
@@ -259,6 +272,8 @@ export function AppShell() {
                   key={item.to}
                   component={RouterLink}
                   to={item.to}
+                  // Telas em tela cheia (assistente) usam a origem para voltar ao contexto.
+                  state={{ from: `${location.pathname}${location.search}` }}
                   onMouseEnter={() => prefetchRoute(item.to)}
                   onFocus={() => prefetchRoute(item.to)}
                   onClick={() => setMobileOpen(false)}
@@ -524,9 +539,21 @@ export function AppShell() {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
-            <Typography sx={{ p: 2, maxWidth: 260, fontSize: '0.86rem' }}>
-              Problemas para acessar ou usar o sistema? Fale com o administrador do sistema.
-            </Typography>
+            <Stack spacing={1} sx={{ p: 2, maxWidth: 280 }}>
+              <Typography sx={{ fontSize: '0.86rem' }}>
+                Problemas para acessar ou usar o sistema? Fale com o administrador do sistema.
+              </Typography>
+              {supportContact && (
+                <Link
+                  href={supportContact.href}
+                  target={supportContact.external ? '_blank' : undefined}
+                  rel={supportContact.external ? 'noopener noreferrer' : undefined}
+                  sx={{ fontSize: '0.86rem', fontWeight: 600, overflowWrap: 'anywhere' }}
+                >
+                  {supportContact.label}
+                </Link>
+              )}
+            </Stack>
           </Popover>
         </Stack>
       </Box>
@@ -542,9 +569,9 @@ export function AppShell() {
           pt: { xs: `${topbarHeight + 24}px`, lg: `${topbarHeight + 28}px` },
         }}
       >
+        <OnboardingPromptDialog />
         <Outlet />
       </Box>
-      <OnboardingPromptDialog />
     </Box>
   );
 }

@@ -1,5 +1,6 @@
 import BedOutlinedIcon from '@mui/icons-material/BedOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import {
@@ -22,7 +23,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import type { Paginated, RoomView, TenantView } from '../../api/contract';
+import type { ContractView, Paginated, RoomView, TenantView } from '../../api/contract';
 import { queryKeys } from '../../api/query-keys';
 import { brand } from '../../app/theme/theme';
 import { PaginationBar } from '../../components/data-display/PaginationBar';
@@ -30,10 +31,13 @@ import { ProblemAlert } from '../../components/feedback/ProblemAlert';
 import { EmptyState, LoadingState } from '../../components/feedback/QueryState';
 import { roomsApi } from '../rooms/api';
 import { tenantsApi } from '../tenants/api';
+import { contractsApi } from './api';
 
 interface EntityPickerProps<T extends { id: string }> {
   value: string;
   onChange: (id: string) => void;
+  /** Quando informado, exibe "Limpar" e remove apenas esta seleção. */
+  onClear?: () => void;
   label: string;
   dialogTitle: string;
   list: (filters: SearchableListFilters) => Promise<Paginated<T>>;
@@ -102,6 +106,7 @@ function IconAvatar({ children }: { children: ReactNode }) {
 function EntityPicker<T extends { id: string }>({
   value,
   onChange,
+  onClear,
   label,
   dialogTitle,
   list,
@@ -182,9 +187,16 @@ function EntityPicker<T extends { id: string }>({
               : 'Nenhum selecionado'}
           </Typography>
         </Stack>
-        <Button variant="outlined" onClick={openDialog}>
-          {value ? 'Alterar seleção' : 'Selecionar'}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" onClick={openDialog}>
+            {value ? 'Alterar seleção' : 'Selecionar'}
+          </Button>
+          {onClear && value && (
+            <Button variant="text" onClick={onClear}>
+              Limpar
+            </Button>
+          )}
+        </Stack>
       </Box>
       <Dialog
         open={open}
@@ -300,6 +312,40 @@ export function TenantPicker({
       secondary={(tenant) => `${tenant.email} · ${tenant.mobilePhone}`}
       selectedSummary={(tenant) => `${tenant.name} · ${tenant.cpf}`}
       avatar={(tenant) => <InitialAvatar label={tenant.name} />}
+    />
+  );
+}
+
+export function ContractPicker({
+  value,
+  onChange,
+  onClear,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  onClear?: () => void;
+}) {
+  return (
+    <EntityPicker<ContractView>
+      value={value}
+      onChange={onChange}
+      onClear={onClear}
+      label="Contrato"
+      dialogTitle="Selecionar contrato"
+      list={contractsApi.list}
+      get={contractsApi.get}
+      listKey={queryKeys.contracts}
+      detailKey={queryKeys.contract}
+      primary={(contract) => `Quarto ${contract.room.number} · ${contract.room.buildingName}`}
+      secondary={(contract) => `${contract.tenant.name} · CPF ${contract.tenant.cpf}`}
+      selectedSummary={(contract) =>
+        `Quarto ${contract.room.number} · ${contract.room.buildingName} · ${contract.tenant.name}`
+      }
+      avatar={() => (
+        <IconAvatar>
+          <DescriptionOutlinedIcon />
+        </IconAvatar>
+      )}
     />
   );
 }

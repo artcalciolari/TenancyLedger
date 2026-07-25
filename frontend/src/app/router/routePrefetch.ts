@@ -71,6 +71,8 @@ const prefetchRoutes = [
   { prefix: '/contracts', load: loadContractsModule },
   { prefix: '/tenants', load: loadTenantsModule },
   { prefix: '/portfolio', load: loadPortfolioModule },
+  // Maior chunk lazy da aplicação: é o que mais ganha com o prefetch por hover/foco.
+  { prefix: '/onboarding', load: loadOnboardingModule },
   { prefix: '/users', load: loadUsersModule },
   { prefix: '/account/password', load: loadChangePasswordModule },
 ] as const;

@@ -112,4 +112,39 @@ describe('DashboardPage', () => {
       }),
     ).toBeInTheDocument();
   });
+
+  it('expõe os valores do gráfico em uma tabela para leitores de tela', async () => {
+    renderPage();
+
+    const chartTable = await screen.findByRole('table', {
+      name: 'Série diária de valores recebidos, a receber e previstos',
+    });
+    expect(chartTable).toHaveTextContent('18/07/2026');
+    expect(chartTable).toHaveTextContent('1.500,00');
+  });
+
+  it('mantém faturas recentes visíveis quando o resumo falha', async () => {
+    summary.mockReset().mockRejectedValue(new Error('indisponível'));
+    invoices.mockReset().mockResolvedValue({
+      data: [
+        {
+          id: 'invoice-id',
+          competence: '2026-07',
+          status: 'OPEN',
+          totalValueCents: 150_000,
+          contract: {
+            room: { number: '101', buildingName: 'Edifício Sol' },
+            tenant: { name: 'Beatriz Souza', cpf: '***.***.***-09' },
+          },
+        },
+      ],
+      meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('Não foi possível concluir a operação')).toBeInTheDocument();
+    expect(await screen.findByText('Faturas recentes')).toBeInTheDocument();
+    expect(screen.getByText('Quarto 101 · Edifício Sol')).toBeInTheDocument();
+  });
 });
