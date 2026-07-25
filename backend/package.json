@@ -10,6 +10,9 @@
     "npm": ">=11"
   },
   "packageManager": "npm@11.6.2",
+  "overrides": {
+    "minimatch@>=9.0.0 <10.2.5": "10.2.5"
+  },
   "scripts": {
     "build": "nest build",
     "typecheck": "tsc --noEmit --incremental false",

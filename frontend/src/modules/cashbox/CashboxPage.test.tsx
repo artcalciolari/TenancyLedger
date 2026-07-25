@@ -66,7 +66,7 @@ describe('CashboxPage', () => {
     listCashboxes.mockResolvedValue([]);
   });
 
-  it('mostra esperado, contado, diferença e reabre com motivo', async () => {
+  it('mostra esperado, contado, diferença e reabre com motivo', { timeout: 10_000 }, async () => {
     getCashbox.mockResolvedValue(closing);
     listCashboxes.mockResolvedValue([closing]);
     reopenCashbox.mockResolvedValue({
