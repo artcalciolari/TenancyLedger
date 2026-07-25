@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { suppressOnboardingPrompt } from '../helpers/onboarding-prompt';
 
 async function openMobileMenuIfNeeded(page: Page, target: Locator): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
@@ -25,6 +26,7 @@ function accessToken(role: Role): string {
 }
 
 async function mockSession(page: Page, role: Role) {
+  await suppressOnboardingPrompt(page, '66f7fae3-51ff-ef80-0d1c-160a35760479');
   let authenticated = false;
   const state = { logoutRequests: 0 };
   const response = () => ({
