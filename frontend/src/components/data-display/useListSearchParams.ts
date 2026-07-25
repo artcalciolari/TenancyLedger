@@ -121,7 +121,7 @@ export function useListSearchParams<T extends ListFilters>(config: ListSearchCon
           if (!Object.hasOwn(values, 'page')) next.set(config.pageParam ?? 'page', '1');
           return next;
         },
-        { flushSync: true, replace: options.replace },
+        { replace: options.replace },
       );
     },
     [config.limitParam, config.pageParam, config.paramNames, setSearchParams],

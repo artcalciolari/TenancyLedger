@@ -251,7 +251,18 @@ test('preserva abas e filtros do portfólio na URL após alternar e recarregar',
   await page.getByLabel('Data de referência').fill('2026-08-01');
   await page.getByLabel('Vacância').click();
   await page.getByRole('option', { name: 'Com vagas' }).click();
+  const appliedBuildingsRequest = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return (
+      request.method() === 'GET' &&
+      url.pathname === '/api/buildings' &&
+      url.searchParams.get('q') === 'Aurora' &&
+      url.searchParams.get('date') === '2026-08-01' &&
+      url.searchParams.get('vacancy') === 'WITH_VACANCY'
+    );
+  });
   await page.getByRole('button', { name: 'Aplicar' }).click();
+  await appliedBuildingsRequest;
 
   await expect(page).toHaveURL(/buildingsQ=Aurora/);
   await expect(page).toHaveURL(/buildingVacancy=WITH_VACANCY/);
