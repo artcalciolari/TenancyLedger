@@ -6,15 +6,10 @@ import { useEffect, useState } from 'react';
  */
 export function useDelayedVisible(active: boolean, delayMs = 300): boolean {
   const [elapsed, setElapsed] = useState(false);
-  const [wasActive, setWasActive] = useState(active);
-
-  // Ajuste durante a renderização: reinicia a contagem a cada nova espera.
-  if (wasActive !== active) {
-    setWasActive(active);
-    if (active) setElapsed(false);
-  }
 
   useEffect(() => {
+    // Reinicia a contagem a cada nova espera.
+    setElapsed(false);
     if (!active) return;
     const timeout = window.setTimeout(() => setElapsed(true), delayMs);
     return () => window.clearTimeout(timeout);
