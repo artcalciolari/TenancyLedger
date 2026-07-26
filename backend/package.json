@@ -115,7 +115,7 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": "<rootDir>/../scripts/jest-transformer.cjs"
     },
     "collectCoverageFrom": [
       "**/*.ts",
@@ -139,28 +139,16 @@
     "testEnvironment": "node",
     "coverageThreshold": {
       "global": {
-        "branches": 91,
-        "functions": 95,
-        "lines": 98,
-        "statements": 98
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
       },
       "src/": {
-        "branches": 91,
-        "functions": 95,
-        "lines": 98,
-        "statements": 98
-      },
-      "src/contexts/auth/application/auth.service.ts": {
-        "branches": 90
-      },
-      "src/contexts/auth/application/refresh-session.service.ts": {
-        "branches": 90
-      },
-      "src/contexts/invoice/billing.service.ts": {
-        "branches": 90
-      },
-      "src/infrastructure/storage.service.ts": {
-        "branches": 90
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
       }
     }
   }

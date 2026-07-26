@@ -22,6 +22,18 @@ describe('Building', () => {
     expect(building.address).toBeNull();
   });
 
+  it('keeps all fields when update receives no changes', () => {
+    const building = Building.create('Edifício Aurora', 'Centro', 'Rua das Flores, 123');
+
+    building.update({});
+
+    expect(building).toMatchObject({
+      name: 'Edifício Aurora',
+      neighborhood: 'Centro',
+      address: 'Rua das Flores, 123',
+    });
+  });
+
   it.each([
     ['', 'Centro'],
     ['Edifício Aurora', ''],

@@ -322,4 +322,21 @@ describe('HttpExceptionAuditFilter', () => {
     expect(JSON.stringify(payload)).not.toContain(internalSecret);
     expect(JSON.stringify(payload)).not.toContain('Connection failed');
   });
+
+  it('uses a generic detail for a non-error client failure', async () => {
+    const response = harnessFor();
+    jest
+      .spyOn(filter as unknown as { statusFrom(exception: unknown): number }, 'statusFrom')
+      .mockReturnValue(HttpStatus.BAD_REQUEST);
+
+    await filter.catch({ reason: 'invalid' }, response.host);
+
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 400,
+        title: 'InternalServerError',
+        detail: 'Request failed.',
+      }),
+    );
+  });
 });

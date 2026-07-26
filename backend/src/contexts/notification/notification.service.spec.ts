@@ -86,4 +86,20 @@ describe('NotificationService', () => {
     expect(update.where.mock.calls).toContainEqual(['user_id = :userId', { userId: USER_ID }]);
     expect(update.andWhere.mock.calls).toContainEqual(['read_at IS NULL']);
   });
+
+  it('retorna zero quando banco não informa linhas alteradas', async () => {
+    update.execute.mockResolvedValueOnce({ affected: undefined, raw: [], generatedMaps: [] });
+
+    await expect(service.markAllRead(USER_ID)).resolves.toBe(0);
+  });
+
+  it('preserva data da primeira leitura', () => {
+    const entry = notification();
+    const firstRead = new Date('2026-07-12T12:00:00.000Z');
+    entry.readAt = firstRead;
+
+    entry.markRead(new Date('2026-07-13T12:00:00.000Z'));
+
+    expect(entry.readAt).toBe(firstRead);
+  });
 });

@@ -34,17 +34,22 @@ function apiError(status: number): ApiError {
   return new ApiError(problem);
 }
 
-function renderDialog() {
+function renderDialog({ availableCents = 100_000, open = true } = {}) {
   const onClose = vi.fn();
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
-      <SubmitPaymentDialog invoiceId={invoiceId} availableCents={100_000} open onClose={onClose} />
+      <SubmitPaymentDialog
+        invoiceId={invoiceId}
+        availableCents={availableCents}
+        open={open}
+        onClose={onClose}
+      />
     </QueryClientProvider>,
   );
-  return { onClose };
+  return { onClose, queryClient, view };
 }
 
 async function submitPixPayment() {
@@ -189,5 +194,127 @@ describe('SubmitPaymentDialog', () => {
     expect(screen.queryByRole('button', { name: 'Tentar novamente' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('exibe validação para valor, tipo e comprovante ausentes', async () => {
+    renderDialog();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Enviar para revisão' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Valor' })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      ),
+    );
+    expect(screen.getByText('Selecione o tipo.')).toBeVisible();
+    expect(screen.getByText('Selecione o comprovante.')).toBeVisible();
+    expect(submitPayment).not.toHaveBeenCalled();
+  });
+
+  it('recusa valor zero', async () => {
+    renderDialog();
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Valor' }), '0');
+    await user.click(screen.getByRole('combobox', { name: 'Método' }));
+    await user.click(await screen.findByRole('option', { name: 'Dinheiro' }));
+    await user.click(screen.getByRole('button', { name: 'Enviar para revisão' }));
+    expect(await screen.findByText('Informe um valor válido.')).toBeVisible();
+  });
+
+  it('recusa formato de comprovante inválido e arquivo vazio', async () => {
+    renderDialog();
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Valor' }), '10,00');
+    await user.click(screen.getByRole('combobox', { name: 'Tipo de comprovante' }));
+    await user.click(await screen.findByRole('option', { name: 'Comprovante digital' }));
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(fileInput, {
+      target: { files: [new File([], 'empty.txt', { type: 'text/plain' })] },
+    });
+    await user.click(screen.getByRole('button', { name: 'Enviar para revisão' }));
+
+    expect(await screen.findByText('Formato não aceito.')).toBeVisible();
+    expect(submitPayment).not.toHaveBeenCalled();
+  });
+
+  it('recusa comprovante maior que 10 MiB', async () => {
+    renderDialog();
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Valor' }), '10,00');
+    await user.click(screen.getByRole('combobox', { name: 'Tipo de comprovante' }));
+    await user.click(await screen.findByRole('option', { name: 'Comprovante digital' }));
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const large = new File(['large'], 'large.pdf', {
+      type: 'application/pdf',
+    });
+    Object.defineProperty(large, 'size', { value: 10 * 1024 * 1024 + 1 });
+    fireEvent.change(fileInput, { target: { files: [large] } });
+    await user.click(screen.getByRole('button', { name: 'Enviar para revisão' }));
+
+    expect(await screen.findByText('O arquivo deve ter até 10 MiB.')).toBeVisible();
+    expect(submitPayment).not.toHaveBeenCalled();
+  });
+
+  it('desabilita envio sem saldo disponível', () => {
+    renderDialog({ availableCents: 0 });
+    expect(screen.getByRole('button', { name: 'Enviar para revisão' })).toBeDisabled();
+  });
+
+  it('mostra envio pendente até API responder', async () => {
+    let resolveSubmit: (() => void) | undefined;
+    submitPayment.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSubmit = () => resolve({});
+      }),
+    );
+    renderDialog();
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Valor' }), '10,00');
+    await user.click(screen.getByRole('combobox', { name: 'Método' }));
+    await user.click(await screen.findByRole('option', { name: 'Dinheiro' }));
+    await user.click(screen.getByRole('button', { name: 'Enviar para revisão' }));
+
+    expect(await screen.findByRole('button', { name: 'Enviando…' })).toBeDisabled();
+    resolveSubmit?.();
+  });
+
+  it('mostra verificação pendente e permite descartar envio incerto', async () => {
+    renderDialog();
+    const { user } = await reachUncertainState();
+    let resolveLookup: (() => void) | undefined;
+    lookupPayment.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLookup = () => resolve({});
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Verificar fatura' }));
+    expect(await screen.findByRole('button', { name: 'Verificando…' })).toBeDisabled();
+    resolveLookup?.();
+    await screen.findByRole('button', { name: 'Concluir' });
+  });
+
+  it('descarta envio incerto e libera edição', async () => {
+    renderDialog();
+    const { user } = await reachUncertainState();
+    await user.click(screen.getByRole('button', { name: 'Descartar e editar' }));
+
+    expect(screen.getByRole('textbox', { name: 'Valor' })).toBeEnabled();
+    expect(screen.queryByText(/O servidor pode ter recebido o pagamento/)).not.toBeInTheDocument();
+  });
+
+  it('reseta estado quando fecha', () => {
+    const { onClose, queryClient, view } = renderDialog({ open: false });
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <SubmitPaymentDialog
+          invoiceId={invoiceId}
+          availableCents={100_000}
+          open
+          onClose={onClose}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('textbox', { name: 'Valor' })).toHaveValue('');
   });
 });

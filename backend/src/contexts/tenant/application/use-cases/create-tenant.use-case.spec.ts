@@ -56,4 +56,11 @@ describe('CreateTenantUseCase', () => {
 
     await expect(useCase.execute(input)).rejects.toBeInstanceOf(TenantAlreadyExistsError);
   });
+
+  it('propaga uma falha de persistência sem violação única', async () => {
+    const error = new Error('database unavailable');
+    repository.save.mockRejectedValue(error);
+
+    await expect(useCase.execute(input)).rejects.toBe(error);
+  });
 });

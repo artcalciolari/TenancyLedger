@@ -359,6 +359,36 @@ describe('BillingService', () => {
       );
     });
 
+    it('logs a non-error orphan cleanup failure without an invented stack', async () => {
+      const databaseError = new Error('database unavailable');
+      const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      updateWithLock.mockImplementationOnce(async (_id, update) => {
+        await update(invoice);
+        throw databaseError;
+      });
+      deleteObject.mockRejectedValueOnce('storage unavailable');
+
+      await expect(
+        service.submitPayment(INVOICE_ID, {
+          idempotencyKey: IDEMPOTENCY_KEY,
+          submittedByUserId: SUBMITTER_ID,
+          amountCents: 25_00,
+          method: PaymentMethod.PIX,
+          proofType: ProofType.DIGITAL_SLIP,
+          proof: {
+            originalName: 'proof.pdf',
+            contentType: 'application/pdf',
+            body: Buffer.from('%PDF-1.7\nproof'),
+          },
+        }),
+      ).rejects.toBe(databaseError);
+
+      expect(logError).toHaveBeenCalledWith(
+        'Could not remove an orphaned payment proof',
+        undefined,
+      );
+    });
+
     it('reports an invoice missing under lock without retaining a proof', async () => {
       updateWithLock.mockResolvedValueOnce(null);
 
@@ -595,6 +625,10 @@ describe('BillingService', () => {
         idempotencyKey: IDEMPOTENCY_KEY,
         amountCents: 100_00,
         settledByUserId: SUBMITTER_ID,
+      });
+      Object.defineProperty(invoice.transactions[0], 'reviewedAt', {
+        configurable: true,
+        get: () => null,
       });
       await service.reversePayment(INVOICE_ID, PAYMENT_ID, 'Correção', REVIEWER_ID);
 
@@ -931,6 +965,15 @@ describe('BillingService', () => {
   });
 
   describe('exportCsv', () => {
+    it('serializes empty and delimited helper values', () => {
+      const internals = BillingService as unknown as {
+        csvCell(value: string | null): string;
+      };
+
+      expect(internals.csvCell(null)).toBe('');
+      expect(internals.csvCell('Centro, Sul')).toBe('"Centro, Sul"');
+    });
+
     it('keeps relational columns empty when optional context is unavailable', async () => {
       repository.listForExport.mockResolvedValue([invoice]);
 

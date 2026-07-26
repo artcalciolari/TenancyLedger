@@ -7,7 +7,6 @@ import {
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from './user.entity';
 
 @Entity('refresh_sessions')
 @Index('IDX_refresh_sessions_user_id', ['userId'])
@@ -20,7 +19,7 @@ export class RefreshSession {
   id!: string;
 
   @Column({ name: 'user_id', type: 'uuid' })
-  @ForeignKey(() => User, {
+  @ForeignKey('User', {
     name: 'FK_refresh_sessions_user',
     onDelete: 'CASCADE',
     onUpdate: 'RESTRICT',

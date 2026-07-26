@@ -125,6 +125,14 @@ describe('BuildingService', () => {
         new ConflictException('Já existe um prédio com este nome.'),
       );
     });
+
+    it('preserves an unexpected update persistence error', async () => {
+      const error = new Error('database unavailable');
+      findById.mockResolvedValue(persistedBuilding());
+      save.mockRejectedValue(error);
+
+      await expect(service.update(BUILDING_ID, { name: 'Edifício Solar' })).rejects.toBe(error);
+    });
   });
 
   describe('create', () => {
@@ -164,6 +172,22 @@ describe('BuildingService', () => {
       await expect(
         service.create({ name: 'Edifício Aurora', neighborhood: 'Centro' }),
       ).rejects.toBe(error);
+    });
+
+    it('preserves query failures without a textual driver code', async () => {
+      const primitiveDriverError = new QueryFailedError('INSERT', [], 'unavailable' as never);
+      save.mockRejectedValueOnce(primitiveDriverError);
+
+      await expect(
+        service.create({ name: 'Edifício Aurora', neighborhood: 'Centro' }),
+      ).rejects.toBe(primitiveDriverError);
+
+      const numericCode = new QueryFailedError('INSERT', [], { code: 23505 } as never);
+      save.mockRejectedValueOnce(numericCode);
+
+      await expect(service.create({ name: 'Edifício Solar', neighborhood: 'Centro' })).rejects.toBe(
+        numericCode,
+      );
     });
   });
 

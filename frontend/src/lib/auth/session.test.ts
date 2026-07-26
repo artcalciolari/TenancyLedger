@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearStoredSession,
+  clearLogoutPending,
   configureSessionRefresh,
   decodeJwtPayload,
   getTokenExpiration,
   isSessionExpired,
+  isLogoutPending,
+  markLogoutPending,
   notifyUnauthorized,
   readAccessToken,
   readStoredSession,
@@ -33,6 +36,11 @@ function session(exp = Math.floor(Date.now() / 1000) + 60): AuthSession {
 }
 
 describe('armazenamento de sessão', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
   it('grava, lê e remove uma sessão válida', () => {
     const value = session();
     writeStoredSession(value);
@@ -58,6 +66,40 @@ describe('armazenamento de sessão', () => {
     );
     expect(readStoredSession()).toBeNull();
   });
+
+  it.each([
+    [null],
+    ['text'],
+    [{}],
+    [{ accessToken: 42, user: {} }],
+    [{ accessToken: 'token', user: null }],
+    [{ accessToken: 'token', user: { id: 1 } }],
+    [{ accessToken: 'token', user: { id: '1', email: 1 } }],
+    [{ accessToken: 'token', user: { id: '1', email: 'a@b.com', active: 'yes' } }],
+    [
+      {
+        accessToken: 'token',
+        user: { id: '1', email: 'a@b.com', active: true, role: 'OWNER' },
+      },
+    ],
+  ])('remove cada shape inválido %#', (value) => {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(value));
+    expect(readStoredSession()).toBeNull();
+  });
+
+  it.each(['ADMIN', 'MANAGER', 'VIEWER'] as const)('aceita usuário com papel %s', (role) => {
+    const value = { ...session(), user: { ...session().user, role } };
+    writeStoredSession(value);
+    expect(readStoredSession()).toEqual(value);
+  });
+
+  it('marca e limpa logout pendente', () => {
+    expect(isLogoutPending()).toBe(false);
+    markLogoutPending();
+    expect(isLogoutPending()).toBe(true);
+    clearLogoutPending();
+    expect(isLogoutPending()).toBe(false);
+  });
 });
 
 describe('JWT e expiração', () => {
@@ -69,7 +111,10 @@ describe('JWT e expiração', () => {
 
   it('trata tokens inválidos ou sem expiração como não agendáveis', () => {
     expect(decodeJwtPayload('invalid')).toBeNull();
+    expect(decodeJwtPayload('header.!.signature')).toBeNull();
+    expect(decodeJwtPayload(`header.${btoa('null')}.signature`)).toBeNull();
     expect(getTokenExpiration(jwt({ exp: 'tomorrow' }))).toBeNull();
+    expect(getTokenExpiration(jwt({ exp: Number.POSITIVE_INFINITY }))).toBeNull();
     expect(isSessionExpired({ ...session(), accessToken: jwt({}) }, Number.MAX_SAFE_INTEGER)).toBe(
       false,
     );
@@ -102,6 +147,11 @@ describe('notificação de 401', () => {
 });
 
 describe('renovação coordenada', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it('compartilha uma única rotação entre chamadas concorrentes', async () => {
     const renewed = session();
     let resolveRefresh: ((value: AuthSession) => void) | undefined;
@@ -162,5 +212,70 @@ describe('renovação coordenada', () => {
     await first;
     await expect(second).resolves.toBe('done');
     expect(order).toEqual(['first', 'second']);
+  });
+
+  it('usa Web Locks quando disponível', async () => {
+    const request = vi.fn((_name: string, operation: () => Promise<string>) => operation());
+    vi.stubGlobal('navigator', { locks: { request } });
+
+    await expect(withSessionCookieLock(() => Promise.resolve('done'))).resolves.toBe('done');
+    expect(request).toHaveBeenCalledWith('tenancy-ledger:refresh-session', expect.any(Function));
+  });
+
+  it('rejeita refresh antes da configuração', async () => {
+    vi.resetModules();
+    const freshSession = await import('./session');
+    await expect(freshSession.refreshSession()).rejects.toThrow(
+      'A renovação da sessão não foi configurada.',
+    );
+  });
+
+  it('carrega sem BroadcastChannel fora do browser', async () => {
+    vi.resetModules();
+    vi.stubGlobal('window', undefined);
+    await expect(import('./session')).resolves.toBeDefined();
+  });
+
+  it('coordena sessão por BroadcastChannel e ignora mensagens inválidas ou durante logout', async () => {
+    vi.resetModules();
+    let handleMessage: ((event: MessageEvent<unknown>) => void) | undefined;
+    const postMessage = vi.fn();
+    class FakeBroadcastChannel {
+      addEventListener(_type: string, listener: (event: MessageEvent<unknown>) => void) {
+        handleMessage = listener;
+      }
+
+      postMessage = postMessage;
+    }
+    vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+    vi.spyOn(Date, 'now').mockReturnValue(123);
+    const freshSession = await import('./session');
+    const broadcast = session();
+
+    handleMessage?.(new MessageEvent('message', { data: null }));
+    handleMessage?.(new MessageEvent('message', { data: { type: 'other' } }));
+    handleMessage?.(
+      new MessageEvent('message', { data: { type: 'refreshed', session: { invalid: true } } }),
+    );
+    freshSession.markLogoutPending();
+    handleMessage?.(
+      new MessageEvent('message', { data: { type: 'refreshed', session: broadcast } }),
+    );
+    expect(freshSession.readStoredSession()).toBeNull();
+
+    freshSession.clearLogoutPending();
+    handleMessage?.(
+      new MessageEvent('message', { data: { type: 'refreshed', session: broadcast } }),
+    );
+    expect(freshSession.readStoredSession()).toEqual(broadcast);
+
+    const requestRefresh = vi.fn(() => Promise.resolve(session()));
+    freshSession.configureSessionRefresh(requestRefresh);
+    await expect(freshSession.refreshSession()).resolves.toEqual(broadcast);
+    expect(requestRefresh).not.toHaveBeenCalled();
+    await Promise.resolve();
+    freshSession.clearStoredSession();
+    await freshSession.refreshSession();
+    expect(postMessage).toHaveBeenCalled();
   });
 });

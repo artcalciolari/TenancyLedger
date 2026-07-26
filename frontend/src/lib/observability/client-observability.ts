@@ -41,7 +41,7 @@ export function reportClientError(error: unknown, context: ReportContext = {}): 
   const report = {
     kind: context.kind ?? (apiError ? 'NETWORK' : 'RUNTIME'),
     fingerprint: fingerprint(errorSignature(error)),
-    route: window.location.pathname.slice(0, 240) || '/',
+    route: window.location.pathname.slice(0, 240),
     requestId: context.requestId ?? apiError?.problem.requestId ?? undefined,
     release: import.meta.env.VITE_APP_RELEASE?.slice(0, 80),
     status: context.status ?? apiError?.status,

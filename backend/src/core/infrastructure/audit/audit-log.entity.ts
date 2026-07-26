@@ -6,7 +6,6 @@ import {
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from '../../../contexts/auth/domain/entities/user.entity';
 
 @Entity('audit_logs')
 @Index('idx_audit_logs_actor_occurred_at', ['actorId', 'occurredAt'])
@@ -16,7 +15,7 @@ export class AuditLog {
   readonly id!: string;
 
   @Column({ name: 'actor_id', type: 'uuid', nullable: true })
-  @ForeignKey(() => User, {
+  @ForeignKey('User', {
     name: 'FK_audit_logs_actor',
     onDelete: 'SET NULL',
     onUpdate: 'RESTRICT',
